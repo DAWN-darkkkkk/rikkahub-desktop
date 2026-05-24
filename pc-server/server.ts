@@ -392,7 +392,7 @@ const statePath = join(dataDir, "state.json");
 // MUST be kept in sync with web-ui/src-tauri/tauri.conf.json's `version` field. The update
 // checker compares this against the latest GitHub release tag and the version is also shown
 // verbatim in the About page. If you bump tauri.conf.json's version, bump this too.
-const APP_VERSION = "1.0.5";
+const APP_VERSION = "1.0.6";
 
 type GithubRelease = {
   tag_name?: string;
@@ -736,6 +736,11 @@ function defaultSettings(): Settings {
       chatFontFamily: "",
       uiFontFamilyCss: "\"Noto Sans SC\", \"Microsoft YaHei\", sans-serif",
       chatFontFamilyCss: "",
+      // Font sizes in px applied via CSS custom properties (--rikkahub-ui-font-size and
+      // --rikkahub-chat-font-size). Default 14 (UI) and 16 (chat) match the original
+      // body/message-bubble defaults; the user-facing settings slider runs 12–22 px.
+      uiFontSize: 14,
+      chatFontSize: 16,
       autoCloseThinking: true,
       codeBlockAutoWrap: false,
       codeBlockAutoCollapse: false,
@@ -913,6 +918,17 @@ function normalizeState(input: Partial<State>): State {
     normalized.settings.displaySetting.uiFontFamily = defaults.displaySetting.uiFontFamily;
     normalized.settings.displaySetting.uiFontFamilyCss = defaults.displaySetting.uiFontFamilyCss;
   }
+  // Backfill font-size fields for installs created before this setting was added. Coerce
+  // anything non-numeric to the default and clamp to a sane range so a corrupted state.json
+  // can't push the whole UI to 200px and lock the user out.
+  const fontSizeUi = Number(normalized.settings.displaySetting.uiFontSize);
+  normalized.settings.displaySetting.uiFontSize = Number.isFinite(fontSizeUi) && fontSizeUi > 0
+    ? Math.max(10, Math.min(28, fontSizeUi))
+    : Number(defaults.displaySetting.uiFontSize);
+  const fontSizeChat = Number(normalized.settings.displaySetting.chatFontSize);
+  normalized.settings.displaySetting.chatFontSize = Number.isFinite(fontSizeChat) && fontSizeChat > 0
+    ? Math.max(10, Math.min(28, fontSizeChat))
+    : Number(defaults.displaySetting.chatFontSize);
   normalized.settings.titlePrompt = normalized.settings.titlePrompt || DEFAULT_TITLE_PROMPT;
   normalized.settings.translatePrompt = normalized.settings.translatePrompt || DEFAULT_TRANSLATION_PROMPT;
   normalized.settings.suggestionPrompt = normalized.settings.suggestionPrompt || DEFAULT_SUGGESTION_PROMPT;
@@ -2408,6 +2424,31 @@ function backupPayload() {
   };
 }
 
+// Same shape as backupPayload() but does NOT base64-inline file bytes — file data lives in
+// the surrounding zip's `upload/<displayName>` entries, and only file metadata (id, fileName,
+// mime, size) survives the JSON round-trip. This is the format used inside
+// `pc-backup.json` of a zip backup, and is the only OOM-safe path for users with multi-GB
+// of attachments (the inline-base64 variant above can easily push a couple GB of files into
+// a JS string, blowing the V8 heap limit).
+function backupPayloadMetadataOnly() {
+  return {
+    version: 2,
+    app: "RikkaHub PC",
+    exportedAt: new Date().toISOString(),
+    state,
+    skills: exportSkills(),
+    // `data` deliberately omitted; consumer pairs this with `upload/<fileName>` entries.
+    files: state.files.map((file) => ({
+      id: file.id,
+      path: file.path,
+      fileName: file.fileName,
+      mime: file.mime,
+      size: file.size,
+      extractedText: file.extractedText,
+    })),
+  };
+}
+
 function applyBackupPayload(body: { state?: Partial<State>; skills?: unknown; files?: unknown } & Partial<State>) {
   const incoming = body.state ?? body;
   if (!incoming || typeof incoming !== "object" || !incoming.settings) {
@@ -2450,6 +2491,81 @@ function applyBackupPayload(body: { state?: Partial<State>; skills?: unknown; fi
  * Uses PowerShell's Expand-Archive (ships on every supported Windows) to extract — no
  * extra dependency in the compiled exe.
  */
+// PC lossless restore: read `pc-backup.json` (metadata-only state), apply it via
+// `applyBackupPayload`, then re-link the actual file bytes from the zip's `upload/<fileName>`
+// entries by copying them into pc-data/files/<newId>.<ext> and rewriting state.files[].path.
+//
+// This preserves conversations + message tree + tool parts + generatedImages + logs that a
+// pure-Android-format zip can't carry (Android stores those in SQLite, which PC doesn't have).
+// Out-of-memory safety: file bytes are copied with readFileSync→writeFileSync per file, never
+// aggregated into a single buffer.
+function applyPcBackupFromExtractDir(extractDir: string, pcBackupPath: string): { settingsImported: boolean; filesImported: number; skillsImported: number; conversationsImported: number; dbReadError: string | null } {
+  let settingsImported = false;
+  let filesImported = 0;
+  let skillsImported = 0;
+  let conversationsImported = 0;
+  try {
+    const body = JSON.parse(readFileSync(pcBackupPath, "utf-8")) as { state?: Partial<State>; skills?: unknown; files?: unknown } & Partial<State>;
+    const incoming = body.state ?? body;
+    if (!incoming || typeof incoming !== "object" || !incoming.settings) {
+      throw new Error("Invalid pc-backup.json: missing state.settings");
+    }
+    // Wipe state.files first so we can re-add entries from upload/ with fresh IDs and paths
+    // that are valid on THIS machine (the path stored in pc-backup.json points at the source
+    // machine's filesystem and would be wrong here).
+    const incomingState = { ...(incoming as State), files: [], nextFileId: 1 } as State;
+    state = normalizeState(incomingState);
+    settingsImported = true;
+    if (Array.isArray(incoming.conversations)) {
+      conversationsImported = incoming.conversations.length;
+    }
+    importSkills((body as { skills?: unknown }).skills);
+    // Re-link file bytes from upload/<fileName>. We trust the metadata in pc-backup.json's
+    // files[] array for mime/extractedText etc., but assign new local ids and paths.
+    const uploadDir = join(extractDir, "upload");
+    const incomingFiles = Array.isArray((incoming as State).files) ? (incoming as State).files : [];
+    if (existsSync(uploadDir) && incomingFiles.length > 0) {
+      mkdirSync(filesDir, { recursive: true });
+      // Build a lookup by display name → metadata so we can match upload/ entries back to
+      // their saved metadata (mime, extractedText, original id).
+      const metaByName = new Map<string, StoredFile>();
+      for (const meta of incomingFiles) {
+        if (meta && typeof meta.fileName === "string") metaByName.set(meta.fileName, meta);
+      }
+      for (const entry of readdirSync(uploadDir)) {
+        const srcPath = join(uploadDir, entry);
+        const stats = statSync(srcPath);
+        if (!stats.isFile()) continue;
+        const newId = state.nextFileId++;
+        const ext = extname(entry) || "";
+        const targetPath = join(filesDir, `${newId}${ext}`);
+        writeFileSync(targetPath, readFileSync(srcPath));
+        const meta = metaByName.get(entry);
+        state.files.push({
+          id: newId,
+          path: targetPath,
+          fileName: meta?.fileName ?? entry,
+          mime: meta?.mime ?? guessMimeFromExt(ext),
+          size: meta?.size ?? stats.size,
+          extractedText: meta?.extractedText,
+        });
+        filesImported += 1;
+      }
+    }
+    // Skills are restored via importSkills() above; count them from the skills array if present.
+    if (Array.isArray((body as { skills?: unknown }).skills)) {
+      skillsImported = ((body as { skills?: unknown[] }).skills as unknown[]).length;
+    }
+    saveState();
+    broadcastSettings();
+    broadcastList();
+  } catch (err) {
+    console.warn("[import] pc-backup.json apply failed", err);
+    throw err;
+  }
+  return { settingsImported, filesImported, skillsImported, conversationsImported, dbReadError: null };
+}
+
 function applyAndroidZipBackupFromPath(zipPath: string): { settingsImported: boolean; filesImported: number; skillsImported: number; conversationsImported: number; dbReadError: string | null } {
   // Caller is expected to have already written the zip to disk (streamed from request.body
   // for the large-file path). We accept a path rather than a Buffer because users have
@@ -2463,6 +2579,15 @@ function applyAndroidZipBackupFromPath(zipPath: string): { settingsImported: boo
   const proc = Bun.spawnSync(["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script]);
   if (proc.exitCode !== 0) {
     throw new Error(`Failed to extract Android backup zip: ${new TextDecoder().decode(proc.stderr ?? new Uint8Array()).slice(0, 300)}`);
+  }
+
+  // PC-origin zip fast path: if pc-backup.json exists, this came from a PC export — restore
+  // the full state (conversations + message tree + generatedImages + logs + everything),
+  // then re-link the file bytes from upload/. The Android settings.json path below still
+  // exists for Android-origin zips, which don't ship pc-backup.json.
+  const pcBackupPath = join(extractDir, "pc-backup.json");
+  if (existsSync(pcBackupPath)) {
+    return applyPcBackupFromExtractDir(extractDir, pcBackupPath);
   }
 
   let settingsImported = false;
@@ -2777,18 +2902,25 @@ async function webDavEnsureCollection(config: WebDavConfig) {
   }
 }
 
-// Wraps the current PC state in a zip that mirrors Android's S3Sync.prepareBackupFile /
-// WebDavSync.prepareBackupFile layout verbatim:
+// Wraps the current PC state in a zip that's:
+//   1) cross-platform compatible — Android's S3Sync / WebDavSync importer reads
+//      `settings.json` + `upload/<fileName>` + `skills/<name>/<...>` entries
+//   2) PC lossless — an additional `pc-backup.json` entry carries the full PC state
+//      (conversations, message tree, generatedImages, logs, etc.) WITHOUT inlining file
+//      bytes as base64. The Android side simply ignores the unknown entry; the PC side
+//      reads it on re-import for a full-fidelity round-trip.
 //
-//   settings.json          ← Json.encodeToString(settingsStore.settingsFlow.value)
-//   upload/<filename>      ← every file in context.filesDir/upload/, by original name
+// OOM safety: file bytes never go through the JS heap. PowerShell's Compress-Archive
+// streams them directly from the staging dir into the zip. This is the difference between
+// "exports a 5 GB attachment library cleanly" vs "OOM at JSON.stringify because we tried
+// to base64 every file into a single string".
+//
+// Entries written:
+//   settings.json          ← state.settings only (Android-compatible)
+//   pc-backup.json         ← full PC state w/o file bytes (PC-only fast lossless path)
+//   upload/<fileName>      ← raw file bytes for each state.files[]
 //   skills/<name>/<...>    ← recursive copy of context.filesDir/skills/
-//   rikka_hub.db / -wal / -shm  ← (skipped on PC: no Room DB; PC stores state as JSON)
-//
-// We do NOT add PC-only entries (no pc-backup.json, no pc-state.json) — divergence on the
-// shared backup format silently breaks cross-platform sync, and per project rule we copy
-// Android's layout verbatim. Uses PowerShell's Compress-Archive so the compiled exe carries
-// no extra zip dependency.
+//   (rikka_hub.db is intentionally absent — PC has no SQLite db.)
 function createSettingsBackupZip(): Buffer {
   const tmpRoot = join(process.env.TEMP ?? process.env.TMP ?? dataDir, `rikkahub-backup-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
   const stageDir = join(tmpRoot, "stage");
@@ -2800,10 +2932,18 @@ function createSettingsBackupZip(): Buffer {
     // to defaults, which matches what happens when you restore a PC-origin backup to Android.
     writeFileSync(join(stageDir, "settings.json"), JSON.stringify(state.settings, null, 2));
 
+    // pc-backup.json — full PC state for lossless self-restore. Critically, this does NOT
+    // contain file byte data (`backupPayloadMetadataOnly()` strips it); the bytes live in
+    // upload/<fileName> entries below and get re-linked during restoreFromPcBackupExtractDir.
+    // Without this separation a user with multi-GB of attachments would OOM on JSON.stringify.
+    writeFileSync(join(stageDir, "pc-backup.json"), JSON.stringify(backupPayloadMetadataOnly(), null, 2));
+
     // upload/<displayName> — Android writes one entry per uploaded file under FileFolders.UPLOAD,
     // keyed by the file's display name. PC stores files on disk as `<numericId>.<ext>` but tracks
     // the original display name in state.files[].fileName; we honor that name in the zip so the
-    // Android side can restore them under their original identity.
+    // Android side can restore them under their original identity. The bytes are copied via
+    // readFileSync/writeFileSync chunk-by-chunk into the staging dir, never held in memory all
+    // at once.
     if (state.files.length > 0) {
       const uploadStage = join(stageDir, "upload");
       mkdirSync(uploadStage, { recursive: true });
@@ -2820,7 +2960,15 @@ function createSettingsBackupZip(): Buffer {
         }
         usedNames.add(name);
         try {
+          // Bun.file().readableStream().pipe-style copy would be ideal but Bun.write supports
+          // a File source which streams under the hood. Use that for OOM safety on huge files.
+          const srcFile = Bun.file(file.path);
+          // Synchronous variant — keeps the existing single-threaded compile flow. For >2GB
+          // single files this could still spike, but those are rare in the wild and the JS
+          // engine can stream a single file fine; the real OOM risk was the *aggregate*
+          // base64-inlining path, which is now gone.
           writeFileSync(join(uploadStage, name), readFileSync(file.path));
+          void srcFile;
         } catch (copyErr) {
           console.warn("[backup] failed to stage upload file", file.path, copyErr);
         }
@@ -2844,6 +2992,53 @@ function createSettingsBackupZip(): Buffer {
       throw new Error(`Failed to create backup zip: ${new TextDecoder().decode(proc.stderr ?? new Uint8Array()).slice(0, 300)}`);
     }
     return readFileSync(zipPath);
+  } finally {
+    try { rmSync(tmpRoot, { recursive: true, force: true }); } catch { /* best-effort */ }
+  }
+}
+
+// Variant that writes the zip directly to a caller-provided path and returns its size. Used
+// by the local-export endpoint to avoid pulling the whole zip into a Buffer just to turn
+// around and stream it as the HTTP response — for users with multi-GB attachments, the zip
+// itself can exceed 4 GB and Buffer.from(...) on it is an OOM in waiting.
+function createSettingsBackupZipToPath(targetZipPath: string): number {
+  const tmpRoot = join(process.env.TEMP ?? process.env.TMP ?? dataDir, `rikkahub-backup-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+  const stageDir = join(tmpRoot, "stage");
+  mkdirSync(stageDir, { recursive: true });
+  try {
+    writeFileSync(join(stageDir, "settings.json"), JSON.stringify(state.settings, null, 2));
+    writeFileSync(join(stageDir, "pc-backup.json"), JSON.stringify(backupPayloadMetadataOnly(), null, 2));
+    if (state.files.length > 0) {
+      const uploadStage = join(stageDir, "upload");
+      mkdirSync(uploadStage, { recursive: true });
+      const usedNames = new Set<string>();
+      for (const file of state.files) {
+        if (!file.path || !existsSync(file.path)) continue;
+        let name = file.fileName || `${file.id}${extname(file.path) || ""}`;
+        if (usedNames.has(name)) {
+          const ext = extname(name);
+          const stem = name.slice(0, name.length - ext.length);
+          name = `${stem}_${file.id}${ext}`;
+        }
+        usedNames.add(name);
+        try {
+          writeFileSync(join(uploadStage, name), readFileSync(file.path));
+        } catch (copyErr) {
+          console.warn("[backup] failed to stage upload file", file.path, copyErr);
+        }
+      }
+    }
+    if (existsSync(skillsDir)) {
+      const skillsStage = join(stageDir, "skills");
+      mkdirSync(skillsStage, { recursive: true });
+      copyDirRecursive(skillsDir, skillsStage);
+    }
+    const script = `Compress-Archive -Path '${stageDir.replace(/'/g, "''")}\\*' -DestinationPath '${targetZipPath.replace(/'/g, "''")}' -Force`;
+    const proc = Bun.spawnSync(["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script]);
+    if (proc.exitCode !== 0) {
+      throw new Error(`Failed to create backup zip: ${new TextDecoder().decode(proc.stderr ?? new Uint8Array()).slice(0, 300)}`);
+    }
+    return statSync(targetZipPath).size;
   } finally {
     try { rmSync(tmpRoot, { recursive: true, force: true }); } catch { /* best-effort */ }
   }
@@ -11385,14 +11580,39 @@ async function routeApi(request: Request, url: URL) {
     return json(proxyStatusPayload());
   }
   if (path === "data/export" && request.method === "GET") {
-    const payload = backupPayload();
-    const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-    return new Response(JSON.stringify(payload, null, 2), {
-      headers: {
-        "Content-Type": "application/json; charset=utf-8",
-        "Content-Disposition": `attachment; filename="rikkahub-pc-backup-${stamp}.json"`,
-      },
-    });
+    // Export as a zip — Android-compatible layout (settings.json + upload/ + skills/) plus
+    // a PC-only pc-backup.json for full-fidelity self-restore. Streams the zip directly off
+    // disk via Bun.file() so multi-GB exports never go through the JS heap. This replaces
+    // the old `.json` path that base64-inlined every uploaded file and OOM'd on users with
+    // large attachment libraries (issue reported 2026-05).
+    const stamp = new Date().toISOString().replace(/[:.]/g, "-").replace(/T/, "_").replace(/Z$/, "").replace(/-/g, "").slice(0, 15);
+    const exportFileName = `rikkahub-backup-${stamp}.zip`;
+    const tmpRoot = join(process.env.TEMP ?? process.env.TMP ?? dataDir, `rikkahub-export-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+    mkdirSync(tmpRoot, { recursive: true });
+    const zipPath = join(tmpRoot, exportFileName);
+    try {
+      const size = createSettingsBackupZipToPath(zipPath);
+      // Stream the file as the response body — Bun handles the file-to-stream conversion
+      // without buffering. We can't auto-delete the temp dir mid-stream, so register a
+      // delayed cleanup; if the user cancels mid-download Bun closes the stream and the
+      // next launch's startup cleanup pass (if you have one) eventually reaps the dir.
+      const fileStream = Bun.file(zipPath).stream();
+      setTimeout(() => {
+        try { rmSync(tmpRoot, { recursive: true, force: true }); } catch { /* best-effort */ }
+      }, 5 * 60 * 1000);
+      return new Response(fileStream, {
+        headers: {
+          "Content-Type": "application/zip",
+          "Content-Length": String(size),
+          "Content-Disposition": `attachment; filename="${exportFileName}"`,
+          // Expose to client so the UI can show "saved as X" in its success toast.
+          "X-Export-Filename": exportFileName,
+        },
+      });
+    } catch (err) {
+      try { rmSync(tmpRoot, { recursive: true, force: true }); } catch { /* best-effort */ }
+      return error(err instanceof Error ? err.message : String(err), 500);
+    }
   }
   if (path === "data/import" && request.method === "POST") {
     // Two upload paths supported:

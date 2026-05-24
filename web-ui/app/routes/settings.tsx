@@ -426,6 +426,62 @@ Requirements:
 </conversation>`,
 };
 
+// Precise px input used right next to FontSelect — drives the body / chat-bubble font-size
+// CSS variables in root.tsx. Uses a native number input so the browser draws the up/down
+// spinner buttons; users can also type a value. Range 10–28 to cover comfortable reading
+// on both dense laptops and high-DPI/zoom-out desktop setups without letting users brick
+// the layout. We clamp on commit so typing "999" snaps back to 28 instead of breaking the UI.
+function FontSizeSlider({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  onChange: (next: number) => void;
+}) {
+  const clamped = Math.max(10, Math.min(28, Number.isFinite(value) ? value : 14));
+  const [draft, setDraft] = React.useState<string>(String(clamped));
+  // Sync draft when the persisted value changes (e.g. after settings broadcast).
+  React.useEffect(() => {
+    setDraft(String(clamped));
+  }, [clamped]);
+  const commit = (raw: string) => {
+    const parsed = Number(raw);
+    if (!Number.isFinite(parsed)) {
+      setDraft(String(clamped));
+      return;
+    }
+    const next = Math.max(10, Math.min(28, Math.round(parsed)));
+    setDraft(String(next));
+    if (next !== clamped) onChange(next);
+  };
+  return (
+    <label className="flex items-center justify-between gap-2">
+      <span className="text-xs text-muted-foreground">{label}</span>
+      <div className="flex items-center gap-1">
+        <Input
+          type="number"
+          min={10}
+          max={28}
+          step={1}
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+          onBlur={(event) => commit(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              commit((event.target as HTMLInputElement).value);
+            }
+          }}
+          className="h-7 w-20 tabular-nums"
+        />
+        <span className="text-xs text-muted-foreground">px</span>
+      </div>
+    </label>
+  );
+}
+
 function FontSelect({
   label,
   value,
@@ -813,18 +869,32 @@ function GeneralSection({ settings, onSettings }: { settings: Settings; onSettin
             />
           </label>
           <div className="grid gap-3 md:grid-cols-2">
-            <FontSelect
-              label="界面字体"
-              value={textValue(display.uiFontFamily)}
-              fallbackFamily={"\"Noto Sans SC\", \"Microsoft YaHei\", ui-sans-serif, system-ui, sans-serif"}
-              onChange={(value, family) => void patchDisplay({ uiFontFamily: value, uiFontFamilyCss: family })}
-            />
-            <FontSelect
-              label="对话字体"
-              value={textValue(display.chatFontFamily)}
-              fallbackFamily={textValue(display.uiFontFamilyCss) || "\"Noto Sans SC\", \"Microsoft YaHei\", ui-sans-serif, system-ui, sans-serif"}
-              onChange={(value, family) => void patchDisplay({ chatFontFamily: value, chatFontFamilyCss: family })}
-            />
+            <div className="space-y-2">
+              <FontSelect
+                label="界面字体"
+                value={textValue(display.uiFontFamily)}
+                fallbackFamily={"\"Noto Sans SC\", \"Microsoft YaHei\", ui-sans-serif, system-ui, sans-serif"}
+                onChange={(value, family) => void patchDisplay({ uiFontFamily: value, uiFontFamilyCss: family })}
+              />
+              <FontSizeSlider
+                label="界面字号"
+                value={Number(display.uiFontSize ?? 14)}
+                onChange={(next) => void patchDisplay({ uiFontSize: next })}
+              />
+            </div>
+            <div className="space-y-2">
+              <FontSelect
+                label="对话字体"
+                value={textValue(display.chatFontFamily)}
+                fallbackFamily={textValue(display.uiFontFamilyCss) || "\"Noto Sans SC\", \"Microsoft YaHei\", ui-sans-serif, system-ui, sans-serif"}
+                onChange={(value, family) => void patchDisplay({ chatFontFamily: value, chatFontFamilyCss: family })}
+              />
+              <FontSizeSlider
+                label="对话字号"
+                value={Number(display.chatFontSize ?? 16)}
+                onChange={(next) => void patchDisplay({ chatFontSize: next })}
+              />
+            </div>
           </div>
           <div className="grid gap-3 md:grid-cols-2">
             {[
@@ -4607,6 +4677,9 @@ function EditorShell({
 function DataSection({ settings, onSettings }: { settings: Settings; onSettings: (settings: Settings) => void }) {
   const importInputRef = React.useRef<HTMLInputElement>(null);
   const [exporting, setExporting] = React.useState(false);
+  const [exportProgress, setExportProgress] = React.useState(0); // 0-100, only meaningful during download
+  const [exportedBytes, setExportedBytes] = React.useState(0);
+  const [exportTotalBytes, setExportTotalBytes] = React.useState(0);
   const [importing, setImporting] = React.useState(false);
   const [importPhase, setImportPhase] = React.useState<"idle" | "uploading" | "processing">("idle");
   const [importProgress, setImportProgress] = React.useState(0); // 0-100 during upload
@@ -4814,22 +4887,73 @@ function DataSection({ settings, onSettings }: { settings: Settings; onSettings:
 
   const exportData = async () => {
     setExporting(true);
+    setExportProgress(0);
+    setExportedBytes(0);
+    setExportTotalBytes(0);
+    const prepToast = toast.loading("正在准备备份文件，请稍候...");
     try {
-      const backup = await api.get<Record<string, unknown>>("data/export");
-      const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
+      // Download the zip via XHR so we can read onprogress (loaded / total) and surface a
+      // progress bar — Bun's response carries a Content-Length so the browser knows the
+      // total up front. ky/fetch don't expose download progress without a custom
+      // ReadableStream consumer; XHR is simpler and well-supported by Tauri's webview.
+      const result: { blob: Blob; fileName: string } = await new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("GET", appendWebAuthQuery("/api/data/export"));
+        xhr.responseType = "blob";
+        xhr.onprogress = (ev) => {
+          if (ev.lengthComputable && ev.total > 0) {
+            setExportTotalBytes(ev.total);
+            setExportedBytes(ev.loaded);
+            setExportProgress(Math.round((ev.loaded / ev.total) * 100));
+          } else {
+            // Server didn't send Content-Length (shouldn't happen with our endpoint, but be
+            // defensive). At least bump the byte counter so the user sees something moving.
+            setExportedBytes(ev.loaded);
+          }
+        };
+        xhr.onerror = () => reject(new Error("网络错误，导出失败"));
+        xhr.onabort = () => reject(new Error("导出已取消"));
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            // X-Export-Filename is set by the server with the canonical zip filename, so we
+            // don't have to recompute the timestamp on the client (and risk it drifting).
+            const headerName = xhr.getResponseHeader("X-Export-Filename") || "";
+            const fallback = `rikkahub-backup-${new Date().toISOString().replace(/[:.]/g, "-")}.zip`;
+            resolve({ blob: xhr.response as Blob, fileName: headerName || fallback });
+          } else {
+            reject(new Error(`导出失败：HTTP ${xhr.status}`));
+          }
+        };
+        xhr.send();
+      });
+
+      // Hand off the blob to a hidden <a download> click; the browser writes it to its
+      // default Downloads folder. We can't get the real filesystem path back from the
+      // browser API, but we tell the user the filename and where to look.
+      const url = URL.createObjectURL(result.blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `rikkahub-pc-backup-${new Date().toISOString().replace(/[:.]/g, "-")}.json`;
+      link.download = result.fileName;
       document.body.append(link);
       link.click();
       link.remove();
       URL.revokeObjectURL(url);
-      toast.success("备份已导出");
+
+      toast.dismiss(prepToast);
+      // Long-lived success toast so the user has time to read the filename before it dismisses.
+      // 8s is enough to copy the name into a file manager search box if they want.
+      toast.success(
+        `备份已导出：${result.fileName}\n请在浏览器默认下载位置（通常为「下载」文件夹）查看`,
+        { duration: 8000 },
+      );
     } catch (error) {
+      toast.dismiss(prepToast);
       toast.error(error instanceof Error ? error.message : "导出失败");
     } finally {
       setExporting(false);
+      setExportProgress(0);
+      setExportedBytes(0);
+      setExportTotalBytes(0);
     }
   };
 
@@ -4922,18 +5046,43 @@ function DataSection({ settings, onSettings }: { settings: Settings; onSettings:
       <div className="grid gap-4 md:grid-cols-2">
         <div className="rounded-lg border bg-card p-4">
           <div className="text-sm font-medium">数据备份</div>
-          <div className="mt-1 text-xs text-muted-foreground">导出或导入本地 JSON 状态，包含设置、会话、文件索引和请求日志。导入也兼容 Android 端导出的 .zip 备份（设置 / 附件 / Skills / 对话历史 / MCP / 提示注入 / 世界书 / 快捷消息）。备份较大时导入可能需要 1-2 分钟。</div>
+          <div className="mt-1 text-xs text-muted-foreground">导出 .zip 备份（兼容 Android 端导入），包含设置、会话、文件、Skills、MCP / 提示注入 / 世界书 / 快捷消息等。导入也接受 Android 端导出的 .zip 备份及历史 PC 版本的 .json 备份。备份较大时导入可能需要 1-2 分钟。</div>
           <div className="mt-4 flex flex-wrap gap-2">
-            <Button variant="outline" onClick={() => void exportData()} disabled={exporting}>
+            <Button variant="outline" onClick={() => void exportData()} disabled={exporting || importing}>
               {exporting ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
               导出备份
             </Button>
-            <Button variant="outline" onClick={() => importInputRef.current?.click()} disabled={importing}>
+            <Button variant="outline" onClick={() => importInputRef.current?.click()} disabled={importing || exporting}>
               {importing ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}
               导入备份
             </Button>
             <input ref={importInputRef} className="sr-only" type="file" accept="application/json,.json,application/zip,.zip" onChange={(event) => void importData(event)} />
           </div>
+          {exporting ? (
+            <div className="mt-3 space-y-1.5">
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>
+                  {exportTotalBytes > 0
+                    ? `正在下载备份文件...`
+                    : `正在准备备份文件...`}
+                </span>
+                {exportTotalBytes > 0 ? (
+                  <span>
+                    {(exportedBytes / (1024 * 1024)).toFixed(1)} / {(exportTotalBytes / (1024 * 1024)).toFixed(1)} MB · {exportProgress}%
+                  </span>
+                ) : null}
+              </div>
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                <div
+                  className={cn("h-full bg-primary transition-all", exportTotalBytes === 0 && "animate-pulse w-full")}
+                  style={exportTotalBytes > 0 ? { width: `${exportProgress}%` } : undefined}
+                />
+              </div>
+              {exportTotalBytes === 0 ? (
+                <div className="text-[11px] text-muted-foreground">附件较多时打包可能需要几十秒，请耐心等待</div>
+              ) : null}
+            </div>
+          ) : null}
           {importing ? (
             <div className="mt-3 space-y-1.5">
               <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -5434,7 +5583,7 @@ function AboutSection() {
   // Hard-coded current version — must match pc-server/server.ts:APP_VERSION and
   // web-ui/src-tauri/tauri.conf.json:version. The update checker compares this against
   // the latest GitHub release.
-  const APP_VERSION = "1.0.5";
+  const APP_VERSION = "1.0.6";
 
   type UpdateInfo = {
     current: string;

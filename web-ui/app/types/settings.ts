@@ -21,6 +21,10 @@ export interface DisplaySetting {
   chatFontFamily?: string;
   uiFontFamilyCss?: string;
   chatFontFamilyCss?: string;
+  /** UI 字号（px），影响 body 默认文字大小。10–28 范围，default 14. */
+  uiFontSize?: number;
+  /** 对话气泡内文字字号（px）。10–28 范围，default 16. */
+  chatFontSize?: number;
   pasteLongTextAsFile: boolean;
   pasteLongTextThreshold: number;
   [key: string]: unknown;

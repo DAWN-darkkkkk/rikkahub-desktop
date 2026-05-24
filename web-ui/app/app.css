@@ -648,6 +648,10 @@
   body {
     @apply bg-background text-foreground;
     font-family: var(--rikkahub-ui-font, var(--font-sans));
+    /* User-configurable UI font size, settable from the display settings slider. Defaults to
+       14px when the CSS var isn't set. Affects body and any descendant element that doesn't
+       opt out (chat bubbles override below with their own size). */
+    font-size: var(--rikkahub-ui-font-size, 14px);
   }
 }
 
@@ -685,6 +689,9 @@
 
 [data-message-bubble] {
   font-family: var(--rikkahub-chat-font, inherit);
+  /* Chat-content font size — settable independently from UI font size so users can keep a
+     compact sidebar/menu while reading larger conversation text. */
+  font-size: var(--rikkahub-chat-font-size, 16px);
 }
 
 [data-message-bubble] .markdown {

@@ -52,7 +52,23 @@ function AppContent() {
     const chatFont = String(displaySetting?.chatFontFamilyCss ?? displaySetting?.chatFontFamily ?? "").trim();
     document.body.style.setProperty("--rikkahub-ui-font", uiFont || "\"Noto Sans SC\", \"Microsoft YaHei\", var(--font-sans)");
     document.body.style.setProperty("--rikkahub-chat-font", chatFont || "inherit");
-  }, [displaySetting?.chatFontFamily, displaySetting?.chatFontFamilyCss, displaySetting?.uiFontFamily, displaySetting?.uiFontFamilyCss]);
+    // Font-size custom properties. Clamped here as well to defend against direct state.json
+    // editing — the slider already clamps but a user with a hand-edited state.json could
+    // otherwise blow up the UI.
+    const rawUiSize = Number(displaySetting?.uiFontSize);
+    const uiSize = Number.isFinite(rawUiSize) && rawUiSize > 0 ? Math.max(10, Math.min(28, rawUiSize)) : 14;
+    const rawChatSize = Number(displaySetting?.chatFontSize);
+    const chatSize = Number.isFinite(rawChatSize) && rawChatSize > 0 ? Math.max(10, Math.min(28, rawChatSize)) : 16;
+    document.body.style.setProperty("--rikkahub-ui-font-size", `${uiSize}px`);
+    document.body.style.setProperty("--rikkahub-chat-font-size", `${chatSize}px`);
+  }, [
+    displaySetting?.chatFontFamily,
+    displaySetting?.chatFontFamilyCss,
+    displaySetting?.uiFontFamily,
+    displaySetting?.uiFontFamilyCss,
+    displaySetting?.uiFontSize,
+    displaySetting?.chatFontSize,
+  ]);
 
   // Tauri's WebView2 swallows `window.open` and ignores `<a target="_blank">` by default —
   // links to external pages would do nothing. Intercept every left-click on an anchor that

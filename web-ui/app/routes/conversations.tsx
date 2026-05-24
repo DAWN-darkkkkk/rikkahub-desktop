@@ -73,6 +73,7 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { v4 as uuidv4 } from "uuid";
 import i18n from "~/i18n";
+import { TtsPlayBar } from "~/components/tts-play-bar";
 
 type ConversationStreamEvent =
   | ConversationSnapshotEventDto
@@ -1321,6 +1322,9 @@ function ConversationsPageInner() {
             <p className="text-lg text-muted-foreground">{t("conversations.welcome_prompt")}</p>
           </div>
         )}
+        {/* Floating chunked-TTS play bar — pops in only while a message is being read out
+            via the per-chunk pipeline (TtsController), shows the dual ring + transport. */}
+        <TtsPlayBar />
         <ChatInput
           value={inputText}
           attachments={inputAttachments}

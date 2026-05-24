@@ -41,6 +41,7 @@ import { convertMessageToMarkdown, downloadMarkdown } from "~/lib/export-markdow
 import { openExternal } from "~/lib/external-link";
 import { cn } from "~/lib/utils";
 import { getAudioPlaybackKey, playAudio, playSpeechSynthesis, stopAudio, useAudioPlaybackKey } from "~/lib/global-audio";
+import { ttsController, useIsTtsActiveForKey } from "~/lib/tts/tts-controller";
 import { Button } from "~/components/ui/button";
 import api from "~/services/api";
 import {
@@ -424,11 +425,12 @@ const ChatMessageActionsRow = React.memo(({
   const { t } = useTranslation("message");
   const [regenerating, setRegenerating] = React.useState(false);
   const [translating, setTranslating] = React.useState(false);
-  // `speaking` is now derived from the global audio singleton — comparing against this
-  // message's id. Previously this was a local boolean and each message kept its own
-  // `audioRef`, which let users start multiple message playbacks in parallel.
+  // `speaking` is now driven by the chunked TtsController (Android-parity, per-chunk billing).
+  // The legacy `useAudioPlaybackKey()` is retained as a fallback for unrelated one-shot
+  // audio plays (e.g. TTS-settings test sample) so their stop/play icons still toggle.
   const playingKey = useAudioPlaybackKey();
-  const speaking = playingKey === message.id;
+  const ttsActiveForThis = useIsTtsActiveForKey(message.id);
+  const speaking = ttsActiveForThis || playingKey === message.id;
   const [switchingBranch, setSwitchingBranch] = React.useState(false);
   const [deleting, setDeleting] = React.useState(false);
   const [forking, setForking] = React.useState(false);
@@ -520,12 +522,19 @@ const ChatMessageActionsRow = React.memo(({
   React.useEffect(() => {
     return () => {
       if (getAudioPlaybackKey() === message.id) stopAudio();
+      // Also tear down chunked TTS if this message owns the active session. Without this a
+      // virtualized list scroll that unmounts the speaking row would leave the controller
+      // running with no UI to control it.
+      if (ttsController.getState().ownerKey === message.id) ttsController.stop();
     };
   }, [message.id]);
 
   const handleSpeak = React.useCallback(async () => {
-    // Toggle: if THIS message is currently playing, stop everything and bail.
+    // Toggle: if THIS message is currently playing, stop the chunked controller and bail.
     if (speaking) {
+      ttsController.stop();
+      // Also kill any legacy single-blob playback that might be live for this message
+      // (e.g. SpeechSynthesis fallback from a previous failed attempt).
       stopAudio();
       return;
     }
@@ -533,28 +542,17 @@ const ChatMessageActionsRow = React.memo(({
     // hear the answer, not the model's internal scratchpad.
     const text = buildSpeechText(message.parts);
     if (!text) return;
-    try {
-      const response = await api.postBlob("tts/speech", { text });
-      const contentType = response.headers.get("Content-Type") ?? "";
-      if (contentType.includes("application/json")) {
-        // System TTS path: Windows is already speaking on-device, no audio bytes returned.
-        // We can't get a "speech ended" signal from the server, so we don't even claim
-        // this message is playing — that would leave the stop icon stuck on screen.
-        return;
-      }
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      // playAudio stops any other in-flight playback first (singleton guarantee) and
-      // takes ownership of the blob URL lifecycle.
-      await playAudio(message.id, url, url);
-    } catch (error) {
-      // Fall back to the browser's built-in SpeechSynthesis API — covers the case
-      // where the user has no TTS provider configured / online provider is unreachable.
-      const fallback = playSpeechSynthesis(message.id, text);
-      if (!fallback) {
-        toast.error(error instanceof Error ? error.message : "语音播报失败");
-      }
-    }
+    // Hand off to the chunked controller. It will:
+    //   1. split the text via TextChunker (≤160 chars, paragraph/punctuation aware)
+    //   2. prefetch up to 4 chunks ahead via /api/tts/speech (one HTTP call per chunk)
+    //   3. play them in order through HTMLAudioElement, surface state via the play-bar
+    // If the user pauses or stops mid-stream, only the chunks already in flight are billed.
+    // Per-chunk cache keeps re-plays free.
+    ttsController.speak(text, message.id, true);
+    // Note: we no longer fall back to window.speechSynthesis here. A synthesis failure
+    // surfaces via ttsController's PlaybackState.errorMessage which the play-bar reads;
+    // forcing a parallel SpeechSynthesis stream on failure would just talk over the
+    // controller-driven retry.
   }, [message.id, message.parts, speaking]);
 
   const handleTranslate = React.useCallback(async () => {
