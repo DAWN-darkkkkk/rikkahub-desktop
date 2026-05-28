@@ -63,7 +63,14 @@
     "ask_user_title": "询问用户",
     "ask_user_questions_count": "询问 {{count}} 个问题",
     "ask_user_submit": "提交",
-    "ask_user_answered": "已回答"
+    "ask_user_answered": "已回答",
+    "ask_user_waiting_title": "AI 正在等待你的回复",
+    "ask_user_waiting_desc": "请从下方选项中选择或自由输入答案，然后点击\"提交\"继续对话。",
+    "ask_user_custom_placeholder": "或在此输入自定义答案…",
+    "pending_approval_title": "AI 正在请求工具调用授权",
+    "pending_approval_desc": "AI 想要调用工具「{{toolName}}」继续完成任务。在你点击\"同意\"或\"拒绝\"之前，生成会暂停。",
+    "pending_approve": "同意",
+    "pending_deny": "拒绝"
   },
   "media_part": {
     "video_load_failed": "加载视频失败：{{url}}",

@@ -429,6 +429,92 @@ function AskUserToolStep({
     }
   }, [tool.approvalState]);
 
+  // PC 端可见性改进：pending 状态时脱离"思考链折叠步骤"的视觉壳，改用一张
+  // 高显眼度的卡片直接挂在消息流里。问题在于原来的设计把整个 ask_user 都
+  // 套在 ControlledChainOfThoughtStep（左侧带 chain 竖线）里，又被外层
+  // ChainOfThought 的"折叠展示最近 N 步"机制隐藏，用户根本意识不到 AI
+  // 在等他回复。配合 message-part.tsx 的 groupMessageParts 将 pending
+  // ask_user 抽出为独立 attention block，本组件这一支就能在消息流顶层
+  // 渲染醒目卡片。
+  if (isPending && onToolApproval) {
+    return (
+      <div
+        className="my-2 rounded-2xl border border-primary/40 bg-primary/5 px-4 py-3 shadow-sm ring-1 ring-primary/10"
+        role="region"
+        aria-live="polite"
+      >
+        <div className="flex items-start gap-2.5">
+          <div className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary">
+            <MessageCircleQuestion className="h-4 w-4" />
+          </div>
+          <div className="min-w-0 flex-1 space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold text-foreground">
+                {t("tool_part.ask_user_waiting_title")}
+              </span>
+              <span className="size-1.5 animate-pulse rounded-full bg-primary" aria-hidden />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {t("tool_part.ask_user_waiting_desc")}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-3 space-y-3">
+          {questions.map((q) => (
+            <div key={q.id} className="space-y-2">
+              <div className="text-sm font-medium text-foreground">{q.question}</div>
+              {q.options.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {q.options.map((option) => (
+                    <button
+                      key={option}
+                      type="button"
+                      onClick={() => setAnswer(q.id, option)}
+                      className={cn(
+                        "rounded-full border px-3 py-1 text-xs transition-colors",
+                        answers[q.id] === option
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "border-primary/40 bg-background text-foreground hover:border-primary hover:bg-primary/10",
+                      )}
+                    >
+                      {option}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <Input
+                value={answers[q.id] ?? ""}
+                onChange={(e) => setAnswer(q.id, e.target.value)}
+                placeholder={
+                  q.options.length > 0
+                    ? t("tool_part.ask_user_custom_placeholder")
+                    : q.question
+                }
+                className="text-sm"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey && allAnswered) {
+                    e.preventDefault();
+                    handleSubmit();
+                  }
+                }}
+              />
+            </div>
+          ))}
+
+          <div className="flex justify-end">
+            <Button size="sm" disabled={!allAnswered} onClick={handleSubmit}>
+              <Send className="mr-1.5 h-3.5 w-3.5" />
+              {t("tool_part.ask_user_submit")}
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 非 pending（已回答/已拒绝/历史回放）保持思考链 step 样式，因为这时它
+  // 只是一条历史记录，不应抢占视觉焦点。
   return (
     <ControlledChainOfThoughtStep
       expanded={expanded}
@@ -451,61 +537,13 @@ function AskUserToolStep({
             {questions.length > 1 && (
               <div className="text-sm text-foreground">{q.question}</div>
             )}
-
-            {isPending && onToolApproval ? (
-              <>
-                {q.options.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5">
-                    {q.options.map((option) => (
-                      <button
-                        key={option}
-                        type="button"
-                        onClick={() => setAnswer(q.id, option)}
-                        className={`rounded-full border px-3 py-1 text-xs transition-colors ${
-                          answers[q.id] === option
-                            ? "border-primary bg-primary/10 text-primary"
-                            : "border-muted-foreground/30 text-muted-foreground hover:border-primary/50"
-                        }`}
-                      >
-                        {option}
-                      </button>
-                    ))}
-                  </div>
-                )}
-                <Input
-                  value={answers[q.id] ?? ""}
-                  onChange={(e) => setAnswer(q.id, e.target.value)}
-                  placeholder={q.question}
-                  className="text-sm"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey && allAnswered) {
-                      e.preventDefault();
-                      handleSubmit();
-                    }
-                  }}
-                />
-              </>
-            ) : isAnswered ? (
+            {isAnswered ? (
               <div className="text-sm text-primary">
                 {answeredValues[q.id] ?? tool.approvalState.type === "answered" ? answeredValues[q.id] || "" : ""}
               </div>
             ) : null}
           </div>
         ))}
-
-        {isPending && onToolApproval && (
-          <div className="flex justify-end">
-            <Button
-              size="sm"
-              variant="secondary"
-              disabled={!allAnswered}
-              onClick={handleSubmit}
-            >
-              <Send className="mr-1.5 h-3.5 w-3.5" />
-              {t("tool_part.ask_user_submit")}
-            </Button>
-          </div>
-        )}
       </div>
     </ControlledChainOfThoughtStep>
   );
@@ -763,5 +801,110 @@ export function ToolPart({
         </DrawerContent>
       </Drawer>
     </>
+  );
+}
+
+/**
+ * 顶层"等待用户授权"卡片。任何处于 pending 状态的工具（ask_user 或
+ * 需要审批的 MCP 工具）在 message-part.tsx 里都会从思考链折叠中抽出，
+ * 走这个组件渲染——目的是用清晰的视觉语言告诉用户"AI 暂停了，正等
+ * 你授权"，而不是在折叠面板里挤个小小的勾叉让用户误以为是出错。
+ *
+ * 对 ask_user 工具：内部已有专属醒目卡片（带问题/选项/提交按钮），
+ * 直接透传给 ToolStepPart 让它走 AskUserToolStep 的 pending 分支即可。
+ *
+ * 对其它需要审批的工具（典型场景是 MCP 工具）：在外层包一个明显的
+ * 警示 banner（标题、说明、待执行操作概要），再把原本的 ToolStepPart
+ * 嵌进来——保留它对工具名/参数预览/同意/拒绝按钮的现有渲染能力。
+ */
+export function PendingToolAttentionCard({
+  tool,
+  loading,
+  onToolApproval,
+}: {
+  tool: UIToolPart;
+  loading?: boolean;
+  onToolApproval?: ToolPartProps["onToolApproval"];
+}) {
+  const { t } = useTranslation("message");
+
+  // ask_user 已经有自己的专属醒目卡片（AskUserToolStep 内部的 pending 分支），
+  // 不需要再多套一层 banner。
+  if (tool.toolName === TOOL_NAMES.ASK_USER) {
+    return (
+      <AskUserToolStep tool={tool} loading={loading} onToolApproval={onToolApproval} />
+    );
+  }
+
+  const args = (() => {
+    try {
+      return JSON.parse(tool.input || "{}");
+    } catch {
+      return {};
+    }
+  })();
+
+  const handleApprove = async () => {
+    if (!onToolApproval) return;
+    await onToolApproval(tool.toolCallId, true, "");
+  };
+
+  const handleDeny = async () => {
+    if (!onToolApproval) return;
+    const reason = window.prompt(t("tool_part.deny_reason_prompt"), "");
+    if (reason === null) return;
+    await onToolApproval(tool.toolCallId, false, reason);
+  };
+
+  const argsPreview = (() => {
+    try {
+      const json = JSON.stringify(args, null, 2);
+      // 截断过长的参数预览，避免卡片过高
+      return json.length > 400 ? `${json.slice(0, 400)}…` : json;
+    } catch {
+      return tool.input || "";
+    }
+  })();
+
+  return (
+    <div
+      className="my-2 rounded-2xl border border-primary/40 bg-primary/5 px-4 py-3 shadow-sm ring-1 ring-primary/10"
+      role="region"
+      aria-live="polite"
+    >
+      <div className="flex items-start gap-2.5">
+        <div className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary">
+          <Wrench className="h-4 w-4" />
+        </div>
+        <div className="min-w-0 flex-1 space-y-1">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold text-foreground">
+              {t("tool_part.pending_approval_title")}
+            </span>
+            <span className="size-1.5 animate-pulse rounded-full bg-primary" aria-hidden />
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {t("tool_part.pending_approval_desc", { toolName: tool.toolName })}
+          </p>
+        </div>
+      </div>
+
+      {argsPreview && argsPreview !== "{}" ? (
+        <pre className="mt-3 max-h-40 overflow-auto rounded-md border border-border/50 bg-background/60 px-3 py-2 text-xs text-foreground">
+          <code>{argsPreview}</code>
+        </pre>
+      ) : null}
+
+      <div className="mt-3 flex justify-end gap-2">
+        <Button size="sm" variant="outline" onClick={handleDeny} disabled={!onToolApproval}>
+          <X className="mr-1.5 h-3.5 w-3.5" />
+          {t("tool_part.pending_deny")}
+        </Button>
+        <Button size="sm" onClick={handleApprove} disabled={!onToolApproval}>
+          <Check className="mr-1.5 h-3.5 w-3.5" />
+          {t("tool_part.pending_approve")}
+        </Button>
+      </div>
+    </div>
   );
 }

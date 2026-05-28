@@ -509,6 +509,8 @@ function createProvider(): ProviderProfile {
     baseUrl: "https://api.example.com/v1",
     chatCompletionsPath: "/chat/completions",
     useResponseApi: false,
+    // 与安卓 OpenAI provider 默认值一致 (commit e63d017)
+    includeHistoryReasoning: true,
     models: [],
     balanceOption: { enabled: false, apiPath: "/credits", resultPath: "data.total_credits" },
   };
@@ -1334,6 +1336,21 @@ function ProvidersSection({ settings, onSettings }: { settings: Settings; onSett
                 onCheckedChange={(useResponseApi) => patchDraft({ useResponseApi, chatCompletionsPath: defaultPathForKind("openai", useResponseApi) })}
               />
             </div>
+            {kind === "openai" ? (
+              <div className="flex items-start justify-between gap-3 rounded-md border px-3 py-3 md:col-span-2">
+                <div className="min-w-0 flex-1 space-y-1">
+                  <div className="text-sm font-medium">回传历史思考过程</div>
+                  <div className="text-xs leading-relaxed text-muted-foreground">
+                    新一代模型（例如 DeepSeek V4）要求回传 reasoning_content。开启后，历史 assistant 消息的 reasoning_content 字段将会随请求回传，不要求回传的模型会静默忽略该字段。若部分供应商不识别该字段而拒绝请求时，可手动关闭。
+                  </div>
+                </div>
+                <Switch
+                  className="mt-1 shrink-0"
+                  checked={draft.includeHistoryReasoning !== false}
+                  onCheckedChange={(includeHistoryReasoning) => patchDraft({ includeHistoryReasoning })}
+                />
+              </div>
+            ) : null}
             {kind === "claude" ? (
               <div className="grid gap-3 rounded-md border px-3 py-3 md:col-span-2 md:grid-cols-[1fr_180px]">
                 <div className="flex items-center justify-between gap-3">
@@ -4384,7 +4401,9 @@ function SkillsEditor({ settings, assistant, onSettings }: { settings: Settings;
   const [files, setFiles] = React.useState<SkillFileInfo[]>([]);
   const [githubUrl, setGithubUrl] = React.useState("");
   const [importing, setImporting] = React.useState(false);
+  const [importingFile, setImportingFile] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
   const dirtyRef = React.useRef(false);
 
   const load = React.useCallback(async () => {
@@ -4461,6 +4480,41 @@ function SkillsEditor({ settings, assistant, onSettings }: { settings: Settings;
       setImporting(false);
     }
   };
+  // 对齐安卓 commit af9b1f35 的 importSkillFromFile：支持从本地选择
+  // .md/.zip 文件并上传到后端解析。ZIP 包内可含多个技能（每个根目录
+  // 下放一份 SKILL.md），全部按原子方式导入。
+  const importFromFile = async (file: File) => {
+    setImportingFile(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch(appendWebAuthQuery("/api/skills/import-file"), {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json() as { imported?: string[]; skills?: SkillProfile[]; error?: string };
+      if (!res.ok) throw new Error(data.error || "导入失败");
+      await load();
+      const first = data.skills?.[0];
+      if (first) {
+        setSelected(first.name);
+        setContent(first.content ?? "");
+        dirtyRef.current = false;
+      }
+      const names = (data.imported ?? []).join("、");
+      toast.success(`Skill 已导入：${names || file.name}`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "导入失败");
+    } finally {
+      setImportingFile(false);
+    }
+  };
+  const handleFileInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    void importFromFile(file);
+  };
   const toggle = async (skillName: string, checked: boolean) => {
     const ids = new Set(assistant.enabledSkills as string[] | undefined);
     if (checked) ids.add(skillName);
@@ -4511,6 +4565,28 @@ function SkillsEditor({ settings, assistant, onSettings }: { settings: Settings;
               导入
             </Button>
           </div>
+        </div>
+        <div className="rounded-md border p-3">
+          <div className="mb-2 text-sm font-medium">从文件导入</div>
+          <div className="mb-2 text-xs text-muted-foreground">
+            支持单个 <code>SKILL.md</code>，或包含多个技能的 <code>.zip</code> 压缩包。
+          </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".md,.markdown,.zip,application/zip"
+            className="hidden"
+            onChange={handleFileInputChange}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={importingFile}
+          >
+            {importingFile ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}
+            选择文件…
+          </Button>
         </div>
         <div className="space-y-2 rounded-md border p-3">
           {skills.map((skill) => (
@@ -5635,7 +5711,7 @@ function AboutSection() {
   // Hard-coded current version — must match pc-server/server.ts:APP_VERSION and
   // web-ui/src-tauri/tauri.conf.json:version. The update checker compares this against
   // the latest GitHub release.
-  const APP_VERSION = "1.0.6";
+  const APP_VERSION = "1.0.7";
 
   type UpdateInfo = {
     current: string;

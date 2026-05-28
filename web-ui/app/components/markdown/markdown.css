@@ -58,12 +58,13 @@
 }
 
 /* Lists */
+/* 对齐安卓 commit 9417bc4a: 移除列表节点的上下边距，让列表与上下文衔接更紧凑 */
 .markdown ul {
-  @apply my-3 ml-6 list-disc [&>li]:mt-1.5;
+  @apply ml-6 list-disc [&>li]:mt-1.5;
 }
 
 .markdown ol {
-  @apply my-3 ml-6 list-decimal [&>li]:mt-1.5;
+  @apply ml-6 list-decimal [&>li]:mt-1.5;
 }
 
 .markdown li {

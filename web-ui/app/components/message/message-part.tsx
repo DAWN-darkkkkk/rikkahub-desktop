@@ -11,7 +11,7 @@ import { ImagePart } from "./parts/image-part";
 import { ReasoningPart as ReasoningFallbackPart } from "./parts/reasoning-part";
 import { ReasoningStepPart } from "./parts/reasoning-step-part";
 import { TextPart } from "./parts/text-part";
-import { ToolPart as ToolStepPart } from "./parts/tool-part";
+import { ToolPart as ToolStepPart, PendingToolAttentionCard } from "./parts/tool-part";
 import { VideoPart } from "./parts/video-part";
 import { TypingIndicator } from "~/components/ui/typing-indicator";
 import { applyAssistantRegexes } from "~/lib/assistant-regex";
@@ -35,7 +35,20 @@ type MessagePartBlock =
       type: "content";
       part: UIMessagePart;
       index: number;
+    }
+  | {
+      // 任何 pending 状态的工具调用都必须从思考链折叠中抽出，作为独立的
+      // attention 块渲染。否则 ChainOfThought 默认折叠态会把它藏在
+      // "展开 N 个步骤"按钮后面，用户根本意识不到 AI 正在等待审批，
+      // 误以为生成意外中止了。
+      type: "pendingTool";
+      tool: ToolPart;
+      index: number;
     };
+
+function isPendingTool(tool: ToolPart): boolean {
+  return tool.approvalState?.type === "pending";
+}
 
 export function groupMessageParts(parts: UIMessagePart[]): MessagePartBlock[] {
   const result: MessagePartBlock[] = [];
@@ -60,6 +73,11 @@ export function groupMessageParts(parts: UIMessagePart[]): MessagePartBlock[] {
     }
 
     if (part.type === "tool") {
+      if (isPendingTool(part)) {
+        flushThinkingSteps();
+        result.push({ type: "pendingTool", tool: part, index });
+        return;
+      }
       currentThinkingSteps.push({ type: "tool", tool: part });
       return;
     }
@@ -150,6 +168,21 @@ export const MessageParts = React.memo(({
     <>
       {loading && parts.length === 0 ? <TypingIndicator className="px-1 py-2" /> : null}
       {groupedParts.map((block, blockIndex) => {
+        if (block.type === "pendingTool") {
+          // pending tool 从思考链中抽出，渲染独立 attention 卡片。ToolStepPart
+          // 内部对 ask_user 已有专属醒目卡片；其它 pending tool 由我们在这里
+          // 包一层 banner，明确告诉用户"AI 正在请求授权"，并显示工具名+参数+
+          // 通过/拒绝按钮。
+          return (
+            <PendingToolAttentionCard
+              key={`pending-tool-${block.tool.toolCallId || block.index}`}
+              tool={block.tool}
+              loading={loading && block.tool.output.length === 0}
+              onToolApproval={onToolApproval}
+            />
+          );
+        }
+
         if (block.type === "thinking") {
           if (block.steps.length === 0) return null;
 

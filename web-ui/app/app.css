@@ -714,8 +714,22 @@
   background: var(--muted) !important;
   color: var(--primary) !important;
   padding: 0.1rem 0.32rem !important;
-  font-family: var(--rikkahub-chat-font, inherit) !important;
+  /* 对齐安卓 commit 436603c9: 代码相关元素统一使用等宽字体，不被聊天字体覆盖 */
+  font-family: var(--font-mono) !important;
   font-size: 0.95em !important;
+}
+
+/* 对齐安卓 commit 436603c9: pre/code 与语言标签也强制等宽字体 */
+.message-markdown pre,
+.message-markdown pre code,
+.message-markdown .code-block-content,
+.message-markdown .code-block-content pre,
+.message-markdown .code-block-content pre code,
+.message-markdown .code-block-language,
+[data-message-role] .message-markdown pre,
+[data-message-role] .message-markdown pre code,
+[data-message-role] .message-markdown .code-block-language {
+  font-family: var(--font-mono) !important;
 }
 
 [data-message-role],

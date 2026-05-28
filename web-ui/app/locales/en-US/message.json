@@ -63,7 +63,14 @@
     "ask_user_title": "Ask User",
     "ask_user_questions_count": "Ask {{count}} questions",
     "ask_user_submit": "Submit",
-    "ask_user_answered": "Answered"
+    "ask_user_answered": "Answered",
+    "ask_user_waiting_title": "The assistant is waiting for your reply",
+    "ask_user_waiting_desc": "Pick an option below or type a custom answer, then click \"Submit\" to continue.",
+    "ask_user_custom_placeholder": "Or enter a custom answer…",
+    "pending_approval_title": "Awaiting your approval to call a tool",
+    "pending_approval_desc": "The assistant wants to call \"{{toolName}}\" to continue. Generation is paused until you approve or deny.",
+    "pending_approve": "Approve",
+    "pending_deny": "Deny"
   },
   "media_part": {
     "video_load_failed": "Failed to load video: {{url}}",

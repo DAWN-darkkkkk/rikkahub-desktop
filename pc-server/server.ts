@@ -31,6 +31,10 @@ interface Provider {
   baseUrl: string;
   chatCompletionsPath?: string;
   useResponseApi?: boolean;
+  // 对齐安卓 commit e63d017：OpenAI provider 是否在历史回放里把
+  // assistant 的 reasoning_content 也回传给上游。默认 true（保持过去行为）；
+  // 用户可以为某些代理/平台关闭，避免它们因为不识别这个字段而拒绝请求。
+  includeHistoryReasoning?: boolean;
   promptCaching?: boolean;
   promptCacheTtl?: "5m" | "1h";
   testPassed?: boolean;
@@ -392,7 +396,7 @@ const statePath = join(dataDir, "state.json");
 // MUST be kept in sync with web-ui/src-tauri/tauri.conf.json's `version` field. The update
 // checker compares this against the latest GitHub release tag and the version is also shown
 // verbatim in the About page. If you bump tauri.conf.json's version, bump this too.
-const APP_VERSION = "1.0.6";
+const APP_VERSION = "1.0.7";
 
 type GithubRelease = {
   tag_name?: string;
@@ -583,6 +587,8 @@ function provider(input: Partial<Provider> & Pick<Provider, "id" | "name" | "bas
     apiKey: "",
     chatCompletionsPath: "/chat/completions",
     useResponseApi: false,
+    // 对齐安卓 ProviderSetting.OpenAI.includeHistoryReasoning 默认值 (commit e63d017)
+    includeHistoryReasoning: true,
     promptCaching: false,
     promptCacheTtl: "5m",
     testPassed: input.name === "RikkaHub" || input.id === "a8d2d463-e8c0-41f2-b89e-f5eb8e716cce",
@@ -2003,6 +2009,40 @@ function hasResumableToolParts(msg: Message) {
     (!Array.isArray(part.output) || part.output.length === 0) &&
     canResumeToolExecution(part)
   );
+}
+
+// 把上一条 ASSISTANT 消息里所有处于 pending 状态的工具（典型场景：ask_user
+// 没等用户点选项，用户直接发了下一条消息或要求重生成）标记为"用户已取消"，
+// 让本轮生成能干净地接续——对齐安卓 commit 05c12488 的 finishInterruptedPendingTools。
+// 返回 true 表示发生了修改，调用方需要广播状态变更。
+function finishInterruptedPendingToolsInConversation(conversation: Conversation): boolean {
+  const lastNode = conversation.messages[conversation.messages.length - 1];
+  if (!lastNode) return false;
+  const lastMessage = lastNode.messages[lastNode.selectIndex] ?? lastNode.messages[0];
+  if (!lastMessage || lastMessage.role !== "ASSISTANT") return false;
+  let changed = false;
+  lastMessage.parts = lastMessage.parts.map((part) => {
+    if (!isRecord(part) || part.type !== "tool") return part;
+    if (toolApprovalType(part) !== "pending") return part;
+    changed = true;
+    return {
+      ...part,
+      approvalState: {
+        type: "denied",
+        reason: "User cancelled by sending a new message",
+      },
+      output: Array.isArray(part.output) && part.output.length > 0 ? part.output : [
+        { type: "text", text: "Tool execution cancelled by user (new message sent)." },
+      ],
+    };
+  });
+  if (!changed) return false;
+  if (!lastMessage.finishedAt) lastMessage.finishedAt = new Date().toISOString();
+  // 清理 loading 占位符（如果旧 generation 留下了）
+  lastMessage.parts = lastMessage.parts.filter((part) =>
+    !(isRecord(part) && part.type === "loading"),
+  );
+  return true;
 }
 
 function templateVariables(messageText: string, role: string, assistant: Assistant, modelItem: Model) {
@@ -3726,31 +3766,45 @@ async function importSkillFromGitHub(repoUrl: string) {
   await collectGitHubSkillFiles(info, info.path, info.path, files);
   const skillFile = files.find((file) => file.relativePath === "SKILL.md");
   if (!skillFile) throw new Error("目录中未找到 SKILL.md");
-  const downloaded = new Map<string, string>();
+  const downloaded = new Map<string, Buffer>();
   for (const file of files) {
     const response = await fetch(file.downloadUrl, { headers: { "User-Agent": "RikkaHub-PC" } });
     if (!response.ok) throw new Error(`下载文件失败 ${file.relativePath}: ${response.status}`);
-    downloaded.set(file.relativePath, await response.text());
+    downloaded.set(file.relativePath, Buffer.from(await response.arrayBuffer()));
   }
-  const skillContent = downloaded.get("SKILL.md") ?? "";
+  const skillContent = downloaded.get("SKILL.md")?.toString("utf8") ?? "";
   const frontmatter = parseSkillFrontmatter(skillContent);
   const name = frontmatter.name?.trim();
   if (!name) throw new Error("SKILL.md 格式错误：缺少 name 字段");
-  const targetDir = safeSkillDir(name);
+  saveSkillFileBytesAtomically(name, downloaded);
+  const metadata = skillMetadataFromFile(name);
+  if (!metadata) throw new Error("Skill frontmatter must include name and description");
+  return { ...metadata, content: skillContent };
+}
+
+// 对齐安卓 SkillManager.saveSkillFileBytesAtomically (commit af9b1f35)：
+// 1) 在 .{name}.staging.<rand>.tmp 中先写完整目录；2) rename 旧目录到
+// .{name}.backup.<rand>.tmp；3) 把 staging 重命名为正式目录；4) 删除 backup。
+// 任意一步失败都回滚到原状态。
+function saveSkillFileBytesAtomically(skillName: string, files: Map<string, Buffer>) {
+  const targetDir = safeSkillDir(skillName);
   if (!targetDir) throw new Error("Skill name 无效");
   mkdirSync(skillsDir, { recursive: true });
-  const stagingDir = join(skillsDir, `.${name}.staging.${Date.now()}.${Math.random().toString(16).slice(2)}.tmp`);
-  const backupDir = join(skillsDir, `.${name}.backup.${Date.now()}.${Math.random().toString(16).slice(2)}.tmp`);
+  const stagingDir = join(skillsDir, `.${skillName}.staging.${Date.now()}.${Math.random().toString(16).slice(2)}.tmp`);
+  const backupDir = join(skillsDir, `.${skillName}.backup.${Date.now()}.${Math.random().toString(16).slice(2)}.tmp`);
   try {
     mkdirSync(stagingDir, { recursive: true });
-    for (const [relativePath, content] of downloaded) {
-      const root = resolve(stagingDir);
+    const root = resolve(stagingDir);
+    for (const [relativePath, content] of files) {
       const target = resolve(root, relativePath);
       if (target !== root && !target.startsWith(root + "\\") && !target.startsWith(root + "/")) {
         throw new Error(`非法文件路径：${relativePath}`);
       }
       mkdirSync(dirname(target), { recursive: true });
       writeFileSync(target, content);
+    }
+    if (!existsSync(join(stagingDir, "SKILL.md"))) {
+      throw new Error("缺少 SKILL.md 文件");
     }
     if (existsSync(targetDir)) renameSync(targetDir, backupDir);
     renameSync(stagingDir, targetDir);
@@ -3760,9 +3814,108 @@ async function importSkillFromGitHub(repoUrl: string) {
     if (!existsSync(targetDir) && existsSync(backupDir)) renameSync(backupDir, targetDir);
     throw err;
   }
-  const metadata = skillMetadataFromFile(name);
-  if (!metadata) throw new Error("Skill frontmatter must include name and description");
-  return { ...metadata, content: skillContent };
+}
+
+// 规范化 ZIP 条目路径：把反斜杠/前导斜杠/`.` 段抹掉，拒绝 `..`。
+function normalizeZipEntryPath(path: string): string | null {
+  const parts = path.replace(/\\/g, "/").replace(/^\/+/, "").split("/")
+    .filter((part) => part.length > 0 && part !== ".");
+  if (parts.length === 0 || parts.some((part) => part === "..")) return null;
+  return parts.join("/");
+}
+
+function isPathInsideBase(path: string, basePath: string): boolean {
+  return basePath.length === 0 || path === basePath || path.startsWith(`${basePath}/`);
+}
+
+function relativeToSkillBase(path: string, basePath: string): string | null {
+  if (basePath.length === 0) return path;
+  if (path === basePath) return null;
+  const stripped = path.startsWith(`${basePath}/`) ? path.slice(basePath.length + 1) : path;
+  return stripped === path ? null : stripped;
+}
+
+function isZipBuffer(fileName: string, buf: Buffer): boolean {
+  if (fileName.toLowerCase().endsWith(".zip")) return true;
+  if (buf.length < 4) return false;
+  const sig = buf.readUInt32LE(0);
+  // PK\x03\x04 | PK\x05\x06 | PK\x07\x08
+  return sig === 0x04034b50 || sig === 0x06054b50 || sig === 0x08074b50;
+}
+
+// 镜像安卓 SkillsVM.importSkillMarkdown / importSkillsFromZip：
+//  - 单个 markdown：解析 frontmatter，原子写入；
+//  - zip：扫所有 SKILL.md，对每个根目录原子写入一组文件，跳过嵌套技能。
+// 返回成功导入的 skill 名称数组。失败抛错。
+function importSkillFromBuffer(fileName: string, buf: Buffer): string[] {
+  if (isZipBuffer(fileName, buf)) {
+    return importSkillsFromZipBuffer(buf);
+  }
+  const content = buf.toString("utf8");
+  const frontmatter = parseSkillFrontmatter(content);
+  const name = frontmatter.name?.trim();
+  if (!name) throw new Error("SKILL.md 格式错误：缺少 name 字段");
+  if (!frontmatter.description?.trim()) throw new Error("SKILL.md 格式错误：缺少 description 字段");
+  saveSkillFileBytesAtomically(name, new Map([["SKILL.md", Buffer.from(content, "utf8")]]));
+  return [name];
+}
+
+function importSkillsFromZipBuffer(buf: Buffer): string[] {
+  // 用现有的 readZipEntries（仅支持 store/deflate，跟安卓 ZipInputStream 覆盖
+  // 的基础情况一致）。把条目按规范化路径聚合到 Map 里。
+  const rawEntries = readZipEntries(buf);
+  if (rawEntries.length === 0) throw new Error("压缩包为空或无法读取");
+  const files = new Map<string, Buffer>();
+  for (const entry of rawEntries) {
+    const path = normalizeZipEntryPath(entry.name);
+    if (!path) continue;
+    files.set(path, entry.data);
+  }
+
+  const skillMdPaths = Array.from(files.keys())
+    .filter((path) => path.split("/").pop()?.toLowerCase() === "skill.md")
+    .sort();
+  if (skillMdPaths.length === 0) throw new Error("压缩包中未找到 SKILL.md");
+
+  const skillBasePaths = skillMdPaths.map((path) => {
+    const slash = path.lastIndexOf("/");
+    return slash < 0 ? "" : path.slice(0, slash);
+  });
+
+  const importedNames: string[] = [];
+  for (let i = 0; i < skillMdPaths.length; i += 1) {
+    const skillMdPath = skillMdPaths[i];
+    const basePath = skillBasePaths[i];
+    const skillBuf = files.get(skillMdPath);
+    if (!skillBuf) throw new Error(`读取失败：${skillMdPath}`);
+    const skillContent = skillBuf.toString("utf8");
+    const frontmatter = parseSkillFrontmatter(skillContent);
+    const name = frontmatter.name?.trim();
+    if (!name) throw new Error(`${skillMdPath} 格式错误：缺少 name 字段`);
+    if (!frontmatter.description?.trim()) throw new Error(`${skillMdPath} 格式错误：缺少 description 字段`);
+
+    const skillFiles = new Map<string, Buffer>();
+    for (const [path, content] of files) {
+      // 跳过嵌套技能内部文件
+      const insideNested = skillBasePaths.some((otherBase, otherIndex) => {
+        if (otherIndex === i) return false;
+        return isPathInsideBase(path, otherBase) && (basePath.length === 0 || isPathInsideBase(otherBase, basePath));
+      });
+      if (insideNested) continue;
+      const relative = relativeToSkillBase(path, basePath);
+      if (relative == null) continue;
+      const targetPath = relative.toLowerCase() === "skill.md" ? "SKILL.md" : relative;
+      skillFiles.set(targetPath, content);
+    }
+
+    if (!skillFiles.has("SKILL.md")) {
+      // 主入口文件大小写规范化（zip 里可能写成 Skill.md 等）
+      skillFiles.set("SKILL.md", Buffer.from(skillContent, "utf8"));
+    }
+    saveSkillFileBytesAtomically(name, skillFiles);
+    if (!importedNames.includes(name)) importedNames.push(name);
+  }
+  return importedNames;
 }
 
 function normalizeInjectionPosition(value: unknown) {
@@ -5108,7 +5261,20 @@ async function mcpSsePostEndpoint(server: Record<string, JsonValue>) {
   const target = String(server.url ?? "").trim();
   if (!/^https?:\/\//i.test(target)) throw new Error("MCP SSE server URL must be http(s)");
   const started = Date.now();
-  const response = await fetch(target, { headers: headersFromMcpServer(server) });
+  // 给握手阶段的 fetch 加 30s 超时——SSE 流读取本身已有内部 15s 超时
+  // (readMcpSseUntilEndpoint)，但外层 fetch 在服务器吊死/不回响应头时
+  // 永远不会返回，导致前端"连接异常"被卡在 connecting 状态。
+  const ac = new AbortController();
+  const timeoutId = setTimeout(() => ac.abort(), 30_000);
+  let response: Response;
+  try {
+    response = await fetch(target, { headers: headersFromMcpServer(server), signal: ac.signal });
+  } catch (err) {
+    clearTimeout(timeoutId);
+    const aborted = err instanceof Error && (err.name === "AbortError" || /abort/i.test(err.message));
+    throw new Error(aborted ? "MCP SSE handshake timed out after 30s" : err instanceof Error ? err.message : String(err));
+  }
+  clearTimeout(timeoutId);
   const endpoint = resolveMcpSseEndpoint(target, await readMcpSseUntilEndpoint(response));
   addLog({
     providerId: String(server.id ?? "mcp"),
@@ -5140,8 +5306,41 @@ async function postMcpJsonRpc(
     ? { jsonrpc: "2.0", method, params: params ?? {} }
     : { jsonrpc: "2.0", id: id(), method, params: params ?? {} };
   const started = Date.now();
-  const response = await fetch(target, { method: "POST", headers: { ...headersFromMcpServer(server), ...extraHeaders }, body: JSON.stringify(body) });
-  const text = await response.text();
+  // 给 fetch 加 30s 超时，避免 MCP 服务卡死时把"启用/同步工具"流程一直
+  // 卡在 connecting 状态——对齐安卓 commit 4d257320 的修复目标：sync
+  // 必须有失败终点，前端才能切换到错误态。
+  const ac = new AbortController();
+  const timeoutId = setTimeout(() => ac.abort(), 30_000);
+  let response: Response;
+  let text: string;
+  try {
+    response = await fetch(target, {
+      method: "POST",
+      headers: { ...headersFromMcpServer(server), ...extraHeaders },
+      body: JSON.stringify(body),
+      signal: ac.signal,
+    });
+    text = await response.text();
+  } catch (err) {
+    clearTimeout(timeoutId);
+    const aborted = err instanceof Error && (err.name === "AbortError" || /abort/i.test(err.message));
+    const reason = aborted ? "MCP request timed out after 30s" : err instanceof Error ? err.message : String(err);
+    addLog({
+      providerId: String(server.id ?? "mcp"),
+      providerName: String(isRecord(server.commonOptions) ? server.commonOptions.name ?? "MCP Server" : "MCP Server"),
+      url: target,
+      ok: false,
+      status: 0,
+      kind: `mcp:${method}`,
+      durationMs: Date.now() - started,
+      requestPreview: jsonPreview(body),
+      responsePreview: "",
+      toolName: method,
+      error: reason,
+    });
+    throw new Error(reason);
+  }
+  clearTimeout(timeoutId);
   const raw: any = parseMcpResponseText(text);
   addLog({
     providerId: String(server.id ?? "mcp"),
@@ -6031,7 +6230,46 @@ function claudeToolsFromOpenAiTools(tools: any[], providerItem: Provider) {
     .filter(Boolean);
 }
 
+// 按工具边界把 ASSISTANT 消息的 parts 分组。镜像安卓
+// ai/src/main/java/me/rerere/ai/provider/providers/ProviderMessageUtils.kt 的
+// groupPartsByToolBoundary：连续的"已执行 tool" parts 合为一组，与它们之前的
+// content（含 reasoning）共同组成一条 assistant 消息，避免把同一个 reasoning
+// 在多次 tool flush 中提前清空——这是 DeepSeek V4 thinking 模式要求每条带
+// tool_calls 的 assistant 消息都必须携带 reasoning_content 的核心修复点。
+function groupAssistantPartsByToolBoundary(parts: JsonValue[]): Array<
+  { kind: "content"; parts: JsonValue[] } | { kind: "tools"; tools: JsonValue[] }
+> {
+  const groups: Array<{ kind: "content"; parts: JsonValue[] } | { kind: "tools"; tools: JsonValue[] }> = [];
+  let pendingContent: JsonValue[] = [];
+  let pendingTools: JsonValue[] = [];
+  const flushContent = () => {
+    if (pendingContent.length) {
+      groups.push({ kind: "content", parts: pendingContent });
+      pendingContent = [];
+    }
+  };
+  const flushTools = () => {
+    if (pendingTools.length) {
+      groups.push({ kind: "tools", tools: pendingTools });
+      pendingTools = [];
+    }
+  };
+  for (const part of parts) {
+    if (isRecord(part) && part.type === "tool") {
+      flushContent();
+      pendingTools.push(part);
+    } else {
+      flushTools();
+      pendingContent.push(part);
+    }
+  }
+  flushContent();
+  flushTools();
+  return groups;
+}
+
 function appendAssistantApiMessages(items: ApiMessage[], message: Message, includeReasoning: boolean) {
+  const groups = groupAssistantPartsByToolBoundary(message.parts);
   const contentBuffer: string[] = [];
   let reasoningBuffer = "";
 
@@ -6059,29 +6297,40 @@ function appendAssistantApiMessages(items: ApiMessage[], message: Message, inclu
     }
     items.push(payload);
     contentBuffer.length = 0;
+    // 同一条 ASSISTANT 消息里 reasoning 只贴在它后面"第一组"
+    // tool_calls 上（与安卓 addAssistantMessages 行为一致：reasoning
+    // 在 Tools group 输出后不会被复用）。
     reasoningBuffer = "";
   };
 
-  for (const part of message.parts) {
-    if (!isRecord(part)) continue;
-    if (part.type === "reasoning") {
-      const reasoning = String(part.reasoning ?? "").trim();
-      if (reasoning) reasoningBuffer += `${reasoningBuffer ? "\n" : ""}${reasoning}`;
+  for (const group of groups) {
+    if (group.kind === "content") {
+      for (const part of group.parts) {
+        if (!isRecord(part)) continue;
+        if (part.type === "reasoning") {
+          const reasoning = String(part.reasoning ?? "").trim();
+          if (reasoning) reasoningBuffer += `${reasoningBuffer ? "\n" : ""}${reasoning}`;
+          continue;
+        }
+        if (part.type === "text") {
+          const text = String(part.text ?? "").trim();
+          if (text) contentBuffer.push(text);
+          continue;
+        }
+        if (part.type === "image" || part.type === "document" || part.type === "audio" || part.type === "video") {
+          const url = String(part.url ?? "");
+          const name = String(part.fileName ?? part.type);
+          if (url) contentBuffer.push(`[${name}] ${url}`);
+          continue;
+        }
+      }
       continue;
     }
-    if (part.type === "text") {
-      const text = String(part.text ?? "").trim();
-      if (text) contentBuffer.push(text);
-      continue;
-    }
-    if (part.type === "image" || part.type === "document" || part.type === "audio" || part.type === "video") {
-      const url = String(part.url ?? "");
-      const name = String(part.fileName ?? part.type);
-      if (url) contentBuffer.push(`[${name}] ${url}`);
-      continue;
-    }
-    if (part.type === "tool") {
-      flushAssistant([part]);
+    // Tools group：所有连续的 tool 调用合并到同一条 assistant 消息里，
+    // 紧跟它们的 role:"tool" 结果消息。
+    flushAssistant(group.tools);
+    for (const part of group.tools) {
+      if (!isRecord(part)) continue;
       items.push({
         role: "tool",
         name: String(part.toolName ?? ""),
@@ -6140,7 +6389,14 @@ function conversationTransformedMessages(conversation: Conversation, assistant: 
   return { messages: applyPromptInjectionsToMessages(messagesAfterTimeReminder, injections), picked };
 }
 
-function conversationMessagesForApi(conversation: Conversation, assistant: Assistant) {
+function conversationMessagesForApi(
+  conversation: Conversation,
+  assistant: Assistant,
+  // 对齐安卓 commit e63d017：OpenAI providerSetting.includeHistoryReasoning
+  // 控制是否把历史 assistant 消息的 reasoning_content 回传给上游。默认 true，
+  // 与安卓 ChatCompletionsAPI.buildMessages 的默认值一致。
+  includeHistoryReasoning: boolean = true,
+) {
   const template = assistant.messageTemplate?.trim() || "{{ message }}";
   const { messages: transformedMessages, picked } = conversationTransformedMessages(conversation, assistant);
 
@@ -6153,7 +6409,7 @@ function conversationMessagesForApi(conversation: Conversation, assistant: Assis
           ...selected,
           parts: applyMessageTemplateToParts(selected.parts, "assistant", template),
         },
-        true,
+        includeHistoryReasoning,
       );
       continue;
     }
@@ -7388,7 +7644,11 @@ async function callProvider(
   const selectedModel = picked.model.modelId === "auto" ? "gpt-4o-mini" : picked.model.modelId;
   const url = endpointFor(providerItem);
   const headers = applyRequestHeaders({ "Content-Type": "application/json" }, assistant, providerItem, picked.model);
-  const messagesForApi = conversationMessagesForApi(conversation, assistant);
+  // 对齐 e63d017：OpenAI 路径才让 includeHistoryReasoning 生效；
+  // claude/google 不走 OpenAI assistant 序列化，一律保持 true。
+  const includeHistoryReasoning =
+    providerItem.type === "openai" ? providerItem.includeHistoryReasoning !== false : true;
+  const messagesForApi = conversationMessagesForApi(conversation, assistant, includeHistoryReasoning);
   let body: Record<string, any>;
 
   if (providerItem.type === "google") {
@@ -7430,6 +7690,11 @@ async function callProvider(
       stream: canStream,
       system: claudeSystemContent(systemContent, providerItem),
       messages: claudeMessagesFromApiMessages(messages, providerItem),
+      // 顶层 cache_control: 让 Anthropic 自动管理缓存断点
+      // 对齐安卓 ClaudeProvider.kt:275-278 (commit d2e52106)
+      ...(providerItem.promptCaching === true
+        ? { cache_control: claudeCacheControlEphemeral(providerItem) }
+        : {}),
       ...(assistant.temperature != null && !reasoningActive ? { temperature: assistant.temperature } : {}),
       ...(assistant.topP != null ? { top_p: assistant.topP } : {}),
       ...(supportsAbility(picked.model, "REASONING")
@@ -7548,7 +7813,13 @@ async function callProviderStreaming(conversation: Conversation, assistantMessag
     providerItem,
     picked.model,
   );
-  const messagesForApi = conversationMessagesForApi(conversation, assistant);
+  const messagesForApi = conversationMessagesForApi(
+    conversation,
+    assistant,
+    // 对齐 e63d017：OpenAI 类型 provider 才尊重 includeHistoryReasoning 选项；
+    // 默认 true，仅当用户显式关闭时才不回传历史 reasoning_content。
+    providerItem.type === "openai" ? providerItem.includeHistoryReasoning !== false : true,
+  );
   const tools = supportsAbility(picked.model, "TOOL") ? [...openAiSearchTools(), ...openAiLocalTools(assistant), ...openAiSkillTools(assistant), ...openAiMcpTools(assistant)] : [];
   if (providerItem.type !== "openai") {
     return callProvider(conversation, signal, {
@@ -7727,6 +7998,7 @@ type ClaudeStreamRoundResult = {
 async function readClaudeStreamingRound(
   response: Response,
   hooks: StreamHooks,
+  assistant: Assistant,
   signal?: AbortSignal,
 ): Promise<ClaudeStreamRoundResult> {
   const reader = response.body?.getReader();
@@ -7941,7 +8213,7 @@ async function streamClaudeChatWithTools(
       });
       throw new Error(`${providerItem.name} ${response.status}: ${text.slice(0, 500)}`);
     }
-    const round_ = await readClaudeStreamingRound(response, hooks, signal);
+    const round_ = await readClaudeStreamingRound(response, hooks, assistant, signal);
     if (hooks.message && round_.usage) hooks.message.usage = round_.usage;
     addLog({
       providerId: providerItem.id,
@@ -11501,6 +11773,14 @@ async function routeApi(request: Request, url: URL) {
       const body = await readJson<{ parts: JsonValue[] }>(request);
       const assistant = findAssistant(conversation.assistantId);
       const picked = findModel(assistant.chatModelId ?? state.settings.chatModelId);
+      // 用户在 ask_user 等待中直接发新消息时，旧 generation 可能还在跑（不太常
+      // 见，因为 ask_user 通常会中止流并等待）也可能已经停了。无论如何先 abort
+      // 旧 controller，避免后续 race；然后把上一条 ASSISTANT 残留的 pending 工具
+      // 标记为"用户取消"，让历史回放时模型看到的是 denied tool 结果而不是空 output
+      // ——对齐安卓 commit 05c12488 finishInterruptedPendingTools 的修复目标。
+      generating.get(conversation.id)?.abort();
+      generating.delete(conversation.id);
+      finishInterruptedPendingToolsInConversation(conversation);
       const processedParts = applyInputRegexTransformParts(body.parts ?? [], assistant);
       const userMessage = message("USER", markOcrPendingParts(processedParts, picked.model));
       const userNode = { id: id(), messages: [userMessage], selectIndex: 0 };
@@ -11557,6 +11837,11 @@ async function routeApi(request: Request, url: URL) {
       const controller = generating.get(conversation.id);
       controller?.abort();
       generating.delete(conversation.id);
+      // 与新消息入口对齐：用户主动停止时，也把残留的 pending tool 标记成"用户取消"，
+      // 否则下次重生成/继续时会基于一条 output 为空的 pending tool 节点继续。
+      // 对齐安卓 commit 05c12488 把 finishInterruptedPendingTools 同时用在新消息
+      // 和 stopGenerating 两条路径上。
+      finishInterruptedPendingToolsInConversation(conversation);
       const lastNode = conversation.messages[conversation.messages.length - 1];
       if (lastNode) {
         const msg = lastNode.messages[lastNode.selectIndex];
@@ -11877,6 +12162,26 @@ async function routeApi(request: Request, url: URL) {
       return json({ status: "ok", skill });
     } catch (err) {
       return error(err instanceof Error ? err.message : String(err), 502);
+    }
+  }
+  if (path === "skills/import-file" && request.method === "POST") {
+    // 对齐安卓 commit af9b1f35：支持从本地文件导入单个 Markdown 或 ZIP 技能包。
+    // 前端用 multipart/form-data 把文件 POST 上来；这里取出二进制内容后委派给
+    // importSkillFromBuffer 处理。
+    try {
+      const form = await request.formData();
+      const file = form.get("file");
+      if (!(file instanceof File)) return error("Missing file", 400);
+      const buf = Buffer.from(await file.arrayBuffer());
+      const imported = importSkillFromBuffer(file.name || "", buf);
+      const skills = imported.map((name) => {
+        const metadata = skillMetadataFromFile(name);
+        const content = readSkillContent(name) ?? "";
+        return metadata ? { ...metadata, content } : { name, description: "", content };
+      });
+      return json({ status: "ok", imported, skills });
+    } catch (err) {
+      return error(err instanceof Error ? err.message : String(err), 400);
     }
   }
   if (skillDetail && request.method === "DELETE") {

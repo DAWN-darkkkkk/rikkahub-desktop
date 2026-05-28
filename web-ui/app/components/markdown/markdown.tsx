@@ -19,6 +19,9 @@ import "streamdown/styles.css";
 const INLINE_LATEX_REGEX = /\\\((.+?)\\\)/g;
 const BLOCK_LATEX_REGEX = /\\\[(.+?)\\\]/gs;
 const CODE_BLOCK_REGEX = /```[\s\S]*?```|`[^`\n]*`/g;
+// 块级 LaTeX 内部换行会让 KaTeX 渲染失败。对齐安卓
+// commit 95bef6de，把块公式里的换行（含周围空白）压成单个空格。
+const LATEX_BLOCK_LINE_BREAK_REGEX = /[ \t]*\r?\n[ \t]*/g;
 
 // Preprocess markdown content
 function preProcess(content: string): string {
@@ -51,7 +54,8 @@ function preProcess(content: string): string {
     if (isInCodeBlock(offset)) {
       return match;
     }
-    return `$$${group1}$$`;
+    const formula = String(group1).trim().replace(LATEX_BLOCK_LINE_BREAK_REGEX, " ");
+    return `$$${formula}$$`;
   });
 
   return result.replace(
