@@ -3115,6 +3115,12 @@ function generateRikkaHubDb(dbPath: string): boolean {
     for (const row of schemaRows) {
       if (row.name === 'android_metadata' || row.name === 'room_master_table') continue;
       if (row.name?.startsWith('sqlite_')) continue;
+      // Skip FTS5 virtual tables. Creating one auto-generates shadow tables
+      // (message_fts_data, etc.) that Room expects to create itself in onOpen.
+      // If we pre-create them, Room's CREATE VIRTUAL TABLE ... IF NOT EXISTS
+      // still triggers shadow-table creation internally and crashes with
+      // "table 'message_fts_data' already exists".
+      if (/\bUSING\s+fts5\b/i.test(row.sql ?? "")) continue;
       try { db.exec(row.sql); } catch { /* */ }
     }
     insertConversationsIntoDb(db);
