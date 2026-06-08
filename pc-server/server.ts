@@ -6333,6 +6333,36 @@ async function extractStoredFileText(entry: StoredFile): Promise<string> {
   return extractStoredFileTextSync(entry);
 }
 
+// Format a fallback prompt fragment for a document whose text content isn't available —
+// either the size cap kicked in, the format isn't extractable here (image-only PDF that
+// MuPDF couldn't OCR, exotic mime), or the entry record is gone. The model needs *some*
+// signal that the user attached a file, plus a hint about why it can't see the content,
+// so it doesn't hallucinate that it read the contents.
+function fallbackDocumentText(part: { fileName: string; url: string; entry: StoredFile | null }): string {
+  const { fileName, url, entry } = part;
+  if (!entry) {
+    return `[Document: ${fileName}] ${url} (file entry missing — user may need to re-upload)`;
+  }
+  const size = getStoredFileSize(entry);
+  const name = entry.fileName.toLowerCase();
+  const mimeValue = entry.mime.toLowerCase();
+  const sizeMb = (size / (1024 * 1024)).toFixed(1);
+
+  // Size-cap path: tell the model the file is too big to inline so it can ask the user
+  // to split / summarize rather than pretend to have read it.
+  const overCap =
+    ((mimeValue === "application/pdf" || name.endsWith(".pdf")) && size > MAX_PDF_EXTRACT_BYTES) ||
+    ((mimeValue === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || name.endsWith(".docx")) && size > MAX_DOCX_EXTRACT_BYTES) ||
+    ((mimeValue === "application/vnd.openxmlformats-officedocument.presentationml.presentation" || name.endsWith(".pptx")) && size > MAX_PPTX_EXTRACT_BYTES) ||
+    ((mimeValue === "application/epub+zip" || name.endsWith(".epub")) && size > MAX_EPUB_EXTRACT_BYTES);
+  if (overCap) {
+    return `[Document: ${fileName} — too large to inline (${sizeMb} MB). Ask the user to split it or describe the part they need.]`;
+  }
+  // Extraction was attempted but came back empty — could be a scanned PDF without OCR-able
+  // text, an unsupported binary format, or a parse failure logged at upload time.
+  return `[Document: ${fileName} — content could not be extracted; the file may be image-only or use an unsupported format.] ${url}`;
+}
+
 // --- Document parsers: aligned with Android's document module ---
 
 // PDF parser — mirrors Android's PdfParser.kt:
@@ -6591,7 +6621,7 @@ function contentPartsForApi(parts: JsonValue[], targetModel?: Model) {
         type: "text",
         text: extractedText
           ? documentPromptText(fileName, extractedText)
-          : `[Document: ${fileName}] ${url}`,
+          : fallbackDocumentText({ fileName, url, entry: entry ?? null }),
       });
     } else if (part.type === "audio" || part.type === "video") {
       const url = String(part.url ?? "");
@@ -6684,7 +6714,7 @@ function claudeBlocksFromUiParts(parts: JsonValue[]) {
         type: "text",
         text: extractedText
           ? documentPromptText(fileName, extractedText)
-          : `[Document: ${fileName}] ${url}`,
+          : fallbackDocumentText({ fileName, url, entry: entry ?? null }),
       });
     }
   }
@@ -7233,7 +7263,7 @@ function responseApiDocumentPart(part: Record<string, JsonValue>) {
     }
   }
   return responseApiTextPart(
-    extractedText ? documentPromptText(fileName, extractedText) : `[Document: ${fileName}] ${url}`,
+    extractedText ? documentPromptText(fileName, extractedText) : fallbackDocumentText({ fileName, url, entry: entry ?? null }),
     "user",
   );
 }
