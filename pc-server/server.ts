@@ -6231,6 +6231,107 @@ const MAX_EXTRACTED_CHARS = 240_000;
 // JS heap. Threshold picked at the point where in-memory cost starts to matter.
 const DOCX_STREAMING_THRESHOLD_BYTES = 20 * 1024 * 1024;
 
+// --- Lightweight XML pull parser (mirrors Android XmlPullParser) ----------------
+//
+// Tokenizes well-formed XML into START_TAG / END_TAG / TEXT events with depth
+// tracking. Namespace prefixes are stripped from tag names (e.g. <w:p> → "p")
+// to match Android's isNamespaceAware=true behaviour. Not a general-purpose XML
+// parser — no entity resolution, no CDATA, no DTD validation — but sufficient
+// for the predictable XML inside DOCX / PPTX / EPUB zips.
+const XML_START_TAG = 0;
+const XML_END_TAG = 1;
+const XML_TEXT = 2;
+const XML_EOF = -1;
+
+interface XmlToken {
+  type: number;
+  name?: string;
+  attrs?: Record<string, string>;
+  text?: string;
+  depth: number;
+}
+
+function tokenizeXml(xml: string): XmlToken[] {
+  const tokens: XmlToken[] = [];
+  let depth = 0;
+  let i = 0;
+  const len = xml.length;
+  while (i < len) {
+    if (xml[i] === "<") {
+      if (xml.startsWith("!--", i + 1)) {
+        const end = xml.indexOf("-->", i + 4);
+        i = end >= 0 ? end + 3 : len;
+        continue;
+      }
+      if (xml[i + 1] === "?") {
+        const end = xml.indexOf("?>", i + 2);
+        i = end >= 0 ? end + 2 : len;
+        continue;
+      }
+      if (xml[i + 1] === "/") {
+        const end = xml.indexOf(">", i + 2);
+        if (end < 0) break;
+        let raw = xml.slice(i + 2, end).trim();
+        const colon = raw.indexOf(":");
+        if (colon >= 0) raw = raw.slice(colon + 1);
+        depth--;
+        tokens.push({ type: XML_END_TAG, name: raw, depth });
+        i = end + 1;
+        continue;
+      }
+      const end = xml.indexOf(">", i + 1);
+      if (end < 0) break;
+      let tagContent = xml.slice(i + 1, end);
+      const selfClose = tagContent.endsWith("/");
+      if (selfClose) tagContent = tagContent.slice(0, -1);
+      const spaceIdx = tagContent.search(/[\s/]/);
+      let rawName = spaceIdx >= 0 ? tagContent.slice(0, spaceIdx).trim() : tagContent.trim();
+      const colon = rawName.indexOf(":");
+      const localName = colon >= 0 ? rawName.slice(colon + 1) : rawName;
+      const attrs: Record<string, string> = {};
+      if (spaceIdx >= 0) {
+        const attrStr = tagContent.slice(spaceIdx);
+        const attrRe = /([a-zA-Z_:][\w:.-]*)\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
+        let am: RegExpExecArray | null;
+        while ((am = attrRe.exec(attrStr)) !== null) {
+          attrs[am[1]] = am[2] ?? am[3] ?? "";
+        }
+      }
+      tokens.push({ type: XML_START_TAG, name: localName, attrs, depth });
+      if (selfClose) {
+        tokens.push({ type: XML_END_TAG, name: localName, depth });
+      } else {
+        depth++;
+      }
+      i = end + 1;
+    } else {
+      let end = xml.indexOf("<", i);
+      if (end < 0) end = len;
+      const text = xml.slice(i, end);
+      if (text.length > 0) {
+        tokens.push({ type: XML_TEXT, text, depth });
+      }
+      i = end;
+    }
+  }
+  return tokens;
+}
+
+class XmlPull {
+  private tokens: XmlToken[];
+  private pos = 0;
+  constructor(xml: string) { this.tokens = tokenizeXml(xml); }
+  get eventType() { return this.pos < this.tokens.length ? this.tokens[this.pos].type : XML_EOF; }
+  get name() { return this.pos < this.tokens.length ? this.tokens[this.pos].name : undefined; }
+  get attrs() { return this.pos < this.tokens.length ? this.tokens[this.pos].attrs : undefined; }
+  get text() { return this.pos < this.tokens.length ? this.tokens[this.pos].text : undefined; }
+  get depth() { return this.pos < this.tokens.length ? this.tokens[this.pos].depth : -1; }
+  next(): number { this.pos++; return this.eventType; }
+  getAttributeValue(_ns: string | null, attrName: string): string | null {
+    return this.attrs?.[attrName] ?? null;
+  }
+}
+
 function getStoredFileSize(entry: StoredFile): number {
   if (typeof entry.size === "number" && entry.size > 0) return entry.size;
   try {
@@ -6240,17 +6341,148 @@ function getStoredFileSize(entry: StoredFile): number {
   }
 }
 
+// EPUB parser — mirrors Android's EpubParser.kt:
+// 1. Read META-INF/container.xml → find OPF path
+// 2. Parse OPF → extract manifest + spine (chapter reading order)
+// 3. Follow spine order, parse each XHTML file with structured text extraction
+// Falls back to filename-sorted stripXmlText if container/OPF is missing.
 function extractEpubText(pathValue: string) {
-  const entries = readZipEntries(readFileSync(pathValue));
+  try {
+    const entries = readZipEntries(readFileSync(pathValue));
+    const entryMap = new Map(entries.map((e) => [e.name, e]));
+
+    const containerEntry = entryMap.get("META-INF/container.xml");
+    if (!containerEntry) return extractEpubFallback(entries);
+
+    const opfPath = findEpubOpfPath(containerEntry.data.toString("utf8"));
+    if (!opfPath) return extractEpubFallback(entries);
+
+    const opfEntry = entryMap.get(opfPath);
+    if (!opfEntry) return extractEpubFallback(entries);
+
+    const opfDir = opfPath.includes("/") ? opfPath.substring(0, opfPath.lastIndexOf("/")) : "";
+    return extractEpubFromOpf(entries, entryMap, opfEntry.data.toString("utf8"), opfDir);
+  } catch (err) {
+    console.warn("[document] EPUB extract failed:", err);
+    return "";
+  }
+}
+
+function findEpubOpfPath(containerXml: string): string | null {
+  const p = new XmlPull(containerXml);
+  while (p.eventType !== XML_EOF) {
+    if (p.eventType === XML_START_TAG && p.name === "rootfile") {
+      return p.getAttributeValue(null, "full-path");
+    }
+    p.next();
+  }
+  return null;
+}
+
+function extractEpubFromOpf(
+  entries: Array<{ name: string; data: Buffer }>,
+  entryMap: Map<string, { name: string; data: Buffer }>,
+  opfXml: string,
+  opfDir: string,
+): string {
+  const p = new XmlPull(opfXml);
+  const manifest = new Map<string, { href: string; mediaType: string }>();
+  const spine: string[] = [];
+  while (p.eventType !== XML_EOF) {
+    if (p.eventType === XML_START_TAG) {
+      if (p.name === "item") {
+        const id = p.getAttributeValue(null, "id") ?? "";
+        const href = p.getAttributeValue(null, "href") ?? "";
+        const mediaType = p.getAttributeValue(null, "media-type") ?? "";
+        if (id) manifest.set(id, { href, mediaType });
+      } else if (p.name === "itemref") {
+        const idref = p.getAttributeValue(null, "idref") ?? "";
+        if (idref) spine.push(idref);
+      }
+    }
+    p.next();
+  }
+  const parts: string[] = [];
+  for (const itemId of spine) {
+    const item = manifest.get(itemId);
+    if (!item || !item.mediaType.includes("html")) continue;
+    const itemPath = opfDir ? `${opfDir}/${item.href}` : item.href;
+    const entry = entryMap.get(itemPath);
+    if (!entry) continue;
+    const content = parseEpubXhtml(entry.data.toString("utf8"));
+    if (content) parts.push(content);
+  }
+  const text = parts.join("\n\n").trim();
+  return text ? text.slice(0, MAX_EXTRACTED_CHARS) : "";
+}
+
+// Structured XHTML text extraction — mirrors Android's parseXhtml.
+// Handles headings, lists (ol/ul/li), bold/italic, blockquotes, images, hr.
+function parseEpubXhtml(xhtml: string): string {
+  try {
+    const p = new XmlPull(xhtml);
+    const result: string[] = [];
+    const tagStack: string[] = [];
+    let inBody = false;
+    let listCounter = 0;
+    while (p.eventType !== XML_EOF) {
+      if (p.eventType === XML_START_TAG) {
+        const tag = p.name ?? "";
+        tagStack.push(tag);
+        if (tag === "body") inBody = true;
+        else if (inBody) {
+          if (tag === "ol") { listCounter = 0; }
+          else if (tag === "li") {
+            const parent = tagStack.length >= 2 ? tagStack[tagStack.length - 2] : "";
+            if (parent === "ol") { listCounter++; result.push(`${listCounter}. `); }
+            else { result.push("- "); }
+          }
+          else if (tag === "br") { result.push("\n"); }
+          else if (tag === "img") {
+            const alt = p.getAttributeValue(null, "alt");
+            if (alt) result.push(`[image: ${alt}]`);
+          }
+          else if (/^h[1-6]$/.test(tag)) { result.push(`${"#".repeat(parseInt(tag[1]))} `); }
+          else if (tag === "strong" || tag === "b") { result.push("**"); }
+          else if (tag === "em" || tag === "i") { result.push("*"); }
+          else if (tag === "hr") { result.push("\n---\n"); }
+          else if (tag === "blockquote") { result.push("> "); }
+        }
+      } else if (p.eventType === XML_TEXT) {
+        if (inBody && p.text) {
+          const text = p.text.replace(/[\n\r]/g, " ").replace(/\s+/g, " ");
+          if (text.trim()) result.push(text);
+        }
+      } else if (p.eventType === XML_END_TAG) {
+        const tag = p.name ?? "";
+        if (tagStack.length > 0) tagStack.pop();
+        if (tag === "body") inBody = false;
+        else if (inBody) {
+          if (tag === "p" || tag === "div") { result.push("\n\n"); }
+          else if (/^h[1-6]$/.test(tag)) { result.push("\n\n"); }
+          else if (tag === "li") { result.push("\n"); }
+          else if (tag === "ul" || tag === "ol") { result.push("\n"); }
+          else if (tag === "strong" || tag === "b") { result.push("**"); }
+          else if (tag === "em" || tag === "i") { result.push("*"); }
+          else if (tag === "blockquote") { result.push("\n"); }
+        }
+      }
+      p.next();
+    }
+    return result.join("").replace(/\n{3,}/g, "\n\n").trim();
+  } catch { return ""; }
+}
+
+function extractEpubFallback(entries: Array<{ name: string; data: Buffer }>): string {
   const textEntries = entries
-    .filter((entry) => /\.(xhtml|html|htm|xml|opf|ncx)$/i.test(entry.name))
-    .filter((entry) => !/^(META-INF\/|mimetype$)/i.test(entry.name))
+    .filter((e) => /\.(xhtml|html|htm|xml|opf|ncx)$/i.test(e.name))
+    .filter((e) => !/^(META-INF\/|mimetype$)/i.test(e.name))
     .sort((a, b) => a.name.localeCompare(b.name));
-  const text = textEntries
-    .map((entry) => stripXmlText(entry.data.toString("utf8")))
+  return textEntries
+    .map((e) => stripXmlText(e.data.toString("utf8")))
     .filter(Boolean)
-    .join("\n\n");
-  return text.slice(0, MAX_EXTRACTED_CHARS);
+    .join("\n\n")
+    .slice(0, MAX_EXTRACTED_CHARS);
 }
 
 // Synchronous text extraction for the non-PDF formats. The three on-demand call sites
@@ -6520,9 +6752,11 @@ function extractDocxTable(xml: string): string {
 }
 
 // PPTX parser — mirrors Android's PptxParser.kt:
-// Parse ppt/slides/slideN.xml, extract shape text + speaker notes.
+// Process <sp> shapes (with bullet/numbering detection) and <graphicFrame> tables.
+// Speaker notes extracted via <ph type="body"> detection (same as Android).
 function extractPptxText(pathValue: string) {
   const entries = readZipEntries(readFileSync(pathValue));
+  const entryMap = new Map(entries.map((e) => [e.name, e]));
   const slideEntries = entries
     .filter((e) => /^ppt\/slides\/slide\d+\.xml$/i.test(e.name))
     .sort((a, b) => {
@@ -6533,34 +6767,178 @@ function extractPptxText(pathValue: string) {
   if (!slideEntries.length) return "";
   const slides: string[] = [];
   for (let i = 0; i < slideEntries.length; i++) {
-    const xml = slideEntries[i].data.toString("utf8");
-    const parts: string[] = [];
-    // Extract text from <a:t> tags (matches Android's extractTextRun / extractShapeText)
-    const tRe = /<a:t(?:\s[^>]*)?>([\s\S]*?)<\/a:t>/gi;
-    let tMatch: RegExpExecArray | null;
-    while ((tMatch = tRe.exec(xml)) !== null) {
-      parts.push(tMatch[1]);
-    }
-    // Try to get speaker notes
-    const notesEntry = entries.find((e) => e.name === `ppt/notesSlides/notesSlide${i + 1}.xml`);
-    let notes = "";
-    if (notesEntry) {
-      const notesXml = notesEntry.data.toString("utf8");
-      const notesParts: string[] = [];
-      const notesRe = /<a:t(?:\s[^>]*)?>([\s\S]*?)<\/a:t>/gi;
-      let nMatch: RegExpExecArray | null;
-      while ((nMatch = notesRe.exec(notesXml)) !== null) {
-        notesParts.push(nMatch[1]);
-      }
-      notes = notesParts.join(" ").trim();
-    }
-    const content = parts.join(" ").trim();
+    const slideNumber = i + 1;
+    const content = parsePptxSlideXml(slideEntries[i].data.toString("utf8"));
+    const notesEntry = entryMap.get(`ppt/notesSlides/notesSlide${slideNumber}.xml`);
+    const notes = notesEntry ? parsePptxNotesXml(notesEntry.data.toString("utf8")) : "";
     if (!content && !notes) continue;
-    let slide = `## Slide ${i + 1}\n\n${content}`;
+    let slide = `## Slide ${slideNumber}\n\n${content}`;
     if (notes) slide += `\n\n### Speaker Notes\n\n${notes}`;
     slides.push(slide);
   }
   return slides.join("\n\n").slice(0, MAX_EXTRACTED_CHARS);
+}
+
+function parsePptxSlideXml(xml: string): string {
+  try {
+    const p = new XmlPull(xml);
+    const result: string[] = [];
+    while (p.eventType !== XML_EOF) {
+      if (p.eventType === XML_START_TAG) {
+        if (p.name === "sp") processPptxShape(p, result);
+        else if (p.name === "graphicFrame") processPptxGraphicFrame(p, result);
+      }
+      p.next();
+    }
+    return result.join("");
+  } catch { return ""; }
+}
+
+function processPptxShape(p: XmlPull, result: string[]) {
+  const startDepth = p.depth;
+  const textParts: string[] = [];
+  while (p.next() !== XML_EOF) {
+    if (p.eventType === XML_START_TAG && p.name === "p") processPptxParagraph(p, textParts);
+    if (p.eventType === XML_END_TAG && p.name === "sp" && p.depth === startDepth) break;
+  }
+  const text = textParts.join("").trim();
+  if (text) { result.push(text); result.push("\n\n"); }
+}
+
+function processPptxParagraph(p: XmlPull, result: string[]) {
+  const startDepth = p.depth;
+  const runTexts: string[] = [];
+  let hasBullet = false, bulletLevel = 0, isNumbered = false;
+  while (p.next() !== XML_EOF) {
+    if (p.eventType === XML_START_TAG) {
+      if (p.name === "pPr") {
+        const info = extractPptxBulletInfo(p);
+        hasBullet = info.hasBullet; bulletLevel = info.level; isNumbered = info.isNumbered;
+      }
+      if (p.name === "r") extractPptxTextRun(p, runTexts);
+    }
+    if (p.eventType === XML_END_TAG && p.name === "p" && p.depth === startDepth) break;
+  }
+  const text = runTexts.join("").trim();
+  if (!text) return;
+  if (hasBullet) {
+    const indent = "  ".repeat(bulletLevel);
+    result.push(`${indent}${isNumbered ? "1. " : "- "}${text}\n`);
+  } else {
+    result.push(`${text}\n`);
+  }
+}
+
+function extractPptxBulletInfo(p: XmlPull): { hasBullet: boolean; level: number; isNumbered: boolean } {
+  const startDepth = p.depth;
+  let hasBullet = false, level = 0, isNumbered = false;
+  while (p.next() !== XML_EOF) {
+    if (p.eventType === XML_START_TAG) {
+      if (p.name === "buChar") { hasBullet = true; isNumbered = false; }
+      if (p.name === "buAutoNum") { hasBullet = true; isNumbered = true; }
+      if (p.name === "lvl") { const v = p.getAttributeValue(null, "val"); if (v) level = parseInt(v) || 0; }
+    }
+    if (p.eventType === XML_END_TAG && p.name === "pPr" && p.depth === startDepth) break;
+  }
+  return { hasBullet, level, isNumbered };
+}
+
+function extractPptxTextRun(p: XmlPull, result: string[]) {
+  const startDepth = p.depth;
+  while (p.next() !== XML_EOF) {
+    if (p.eventType === XML_START_TAG && p.name === "t") {
+      p.next();
+      if (p.eventType === XML_TEXT && p.text) result.push(p.text);
+    }
+    if (p.eventType === XML_END_TAG && p.name === "r" && p.depth === startDepth) break;
+  }
+}
+
+function processPptxGraphicFrame(p: XmlPull, result: string[]) {
+  const startDepth = p.depth;
+  while (p.next() !== XML_EOF) {
+    if (p.eventType === XML_START_TAG && p.name === "tbl") processPptxTable(p, result);
+    if (p.eventType === XML_END_TAG && p.name === "graphicFrame" && p.depth === startDepth) break;
+  }
+}
+
+function processPptxTable(p: XmlPull, result: string[]) {
+  const startDepth = p.depth;
+  const rows: string[][] = [];
+  while (p.next() !== XML_EOF) {
+    if (p.eventType === XML_START_TAG && p.name === "tr") {
+      const cells = extractPptxTableRow(p);
+      if (cells.length) rows.push(cells);
+    }
+    if (p.eventType === XML_END_TAG && p.name === "tbl" && p.depth === startDepth) break;
+  }
+  if (!rows.length) return;
+  const maxCols = Math.max(...rows.map((r) => r.length));
+  for (let i = 0; i < rows.length; i++) {
+    result.push("| " + Array.from({ length: maxCols }, (_, ci) => rows[i][ci] ?? "").join(" | ") + " |\n");
+    if (i === 0) result.push("| " + Array(maxCols).fill("---").join(" | ") + " |\n");
+  }
+  result.push("\n");
+}
+
+function extractPptxTableRow(p: XmlPull): string[] {
+  const startDepth = p.depth;
+  const cells: string[] = [];
+  while (p.next() !== XML_EOF) {
+    if (p.eventType === XML_START_TAG && p.name === "tc") cells.push(extractPptxTableCell(p));
+    if (p.eventType === XML_END_TAG && p.name === "tr" && p.depth === startDepth) break;
+  }
+  return cells;
+}
+
+function extractPptxTableCell(p: XmlPull): string {
+  const startDepth = p.depth;
+  const parts: string[] = [];
+  while (p.next() !== XML_EOF) {
+    if (p.eventType === XML_START_TAG && p.name === "t") {
+      p.next();
+      if (p.eventType === XML_TEXT && p.text) {
+        if (parts.length > 0) parts.push(" ");
+        parts.push(p.text);
+      }
+    }
+    if (p.eventType === XML_END_TAG && p.name === "tc" && p.depth === startDepth) break;
+  }
+  return parts.join("").trim();
+}
+
+function parsePptxNotesXml(xml: string): string {
+  try {
+    const p = new XmlPull(xml);
+    const result: string[] = [];
+    while (p.eventType !== XML_EOF) {
+      if (p.eventType === XML_START_TAG && p.name === "sp") {
+        if (isPptxNotesTextShape(p)) extractPptxShapeText(p, result);
+      }
+      p.next();
+    }
+    return result.join("").trim();
+  } catch { return ""; }
+}
+
+// Look ahead inside <sp> for <ph type="body"> — marks the notes text area (not the slide preview).
+function isPptxNotesTextShape(p: XmlPull): boolean {
+  const d = p.depth;
+  while (p.next() !== XML_EOF) {
+    if (p.eventType === XML_START_TAG && p.name === "ph") return p.getAttributeValue(null, "type") === "body";
+    if (p.eventType === XML_END_TAG && p.depth <= d) return false;
+  }
+  return false;
+}
+
+function extractPptxShapeText(p: XmlPull, result: string[]) {
+  while (p.next() !== XML_EOF) {
+    if (p.eventType === XML_START_TAG && p.name === "t") {
+      p.next();
+      if (p.eventType === XML_TEXT && p.text) result.push(p.text);
+    }
+    if (p.eventType === XML_END_TAG && p.name === "p") result.push("\n");
+  }
 }
 
 function documentPromptText(fileName: string, content: string) {
