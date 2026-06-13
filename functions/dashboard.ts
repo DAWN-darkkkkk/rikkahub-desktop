@@ -91,20 +91,21 @@ const dashboardHtml = `<!DOCTYPE html>
     gap: 12px;
   }
   .brand-mark {
-    width: 32px;
-    height: 32px;
-    border-radius: 8px;
-    background: linear-gradient(135deg, var(--indigo) 0%, var(--violet) 100%);
-    box-shadow: 0 8px 24px -8px rgba(129, 140, 248, 0.5);
-    position: relative;
+    width: 34px;
+    height: 34px;
+    border-radius: 9px;
     overflow: hidden;
+    box-shadow: 0 8px 24px -8px rgba(129, 140, 248, 0.4), 0 0 0 1px rgba(255,255,255,0.06);
+    background: #1a1a28;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
-  .brand-mark::after {
-    content: '';
-    position: absolute;
-    inset: 1px;
-    border-radius: 7px;
-    background: linear-gradient(135deg, transparent 0%, rgba(255,255,255,0.15) 100%);
+  .brand-mark img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
   }
   .brand-text {
     display: flex;
@@ -440,7 +441,7 @@ const dashboardHtml = `<!DOCTYPE html>
   <!-- 顶部:品牌 + 工具栏 -->
   <div class="header fade-in">
     <div class="brand">
-      <div class="brand-mark"></div>
+      <div class="brand-mark"><img src="/icon.png" alt="RikkaHub" onerror="this.style.display='none';this.parentElement.style.background='linear-gradient(135deg,#818cf8,#a78bfa)'"></div>
       <div class="brand-text">
         <div class="brand-name">RikkaHub 数据看板</div>
         <div class="brand-sub">用户活跃度与留存分析</div>
