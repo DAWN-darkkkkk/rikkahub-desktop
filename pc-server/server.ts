@@ -764,6 +764,20 @@ function provider(input: Partial<Provider> & Pick<Provider, "id" | "name" | "bas
   };
 }
 
+// 一次性下架的预置供应商(合作终止)。它们已从 defaultProviders/defaultTtsProviders 移除,
+// 但老用户 state 里可能还存着 —— normalize 时做一次清理:只删用户从未真正使用(未填
+// apiKey)的;已配 key 的保留,避免静默删掉用户的接入凭据。
+const SUNSET_PROVIDER_IDS = new Set<string>([
+  "1b1395ed-b702-4aeb-8bc1-b681c4456953", // AiHubMix
+  "da020a90-f7b3-4c29-b90e-c511a0630630", // 小马算力
+  "da93779f-3956-48cc-82ef-67bb482eaaf7", // 302.AI
+  "53027b08-1b58-43d5-90ed-29173203e3d8", // AckAI
+  "4da09554-8844-4cc8-a4a9-fe1b2515e91b", // UnifyLLM
+]);
+const SUNSET_TTS_PROVIDER_IDS = new Set<string>([
+  "e36b22ef-ca82-40ab-9e70-60cad861911c", // AiHubMix (TTS)
+]);
+
 function defaultProviders(): Provider[] {
   return [
     provider({
@@ -798,14 +812,6 @@ function defaultProviders(): Provider[] {
       models: [model("gemini-2.5-flash"), model("gemini-2.5-pro")],
     }),
     provider({
-      id: "1b1395ed-b702-4aeb-8bc1-b681c4456953",
-      name: "AiHubMix",
-      baseUrl: "https://aihubmix.com/v1",
-      enabled: true,
-      shortDescription: "Supports GPT, Claude, Gemini and 200+ models",
-      description: "OpenAI-compatible multi-model gateway. Website: https://aihubmix.com",
-    }),
-    provider({
       id: "56a94d29-c88b-41c5-8e09-38a7612d6cf8",
       name: "硅基流动",
       baseUrl: "https://api.siliconflow.cn/v1",
@@ -833,7 +839,6 @@ function defaultProviders(): Provider[] {
       shortDescription: "Vercel AI Gateway",
       balanceOption: { enabled: true, apiPath: "/credits", resultPath: "balance" },
     }),
-    provider({ id: "da020a90-f7b3-4c29-b90e-c511a0630630", name: "小马算力", baseUrl: "https://api.tokenpony.cn/v1" }),
     provider({ id: "f76cae46-069a-4334-ab8e-224e4979e58c", name: "阿里云百炼", baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1" }),
     provider({ id: "3dfd6f9b-f9d9-417f-80c1-ff8d77184191", name: "火山引擎", baseUrl: "https://ark.cn-beijing.volces.com/api/v3" }),
     provider({
@@ -844,11 +849,8 @@ function defaultProviders(): Provider[] {
     }),
     provider({ id: "3bc40dc1-b11a-46fa-863b-6306971223be", name: "智谱AI开放平台", baseUrl: "https://open.bigmodel.cn/api/paas/v4" }),
     provider({ id: "f4f8870e-82d3-495b-9b64-d58e508b3b2c", name: "阶跃星辰", baseUrl: "https://api.stepfun.com/v1" }),
-    provider({ id: "da93779f-3956-48cc-82ef-67bb482eaaf7", name: "302.AI", baseUrl: "https://api.302.ai/v1" }),
     provider({ id: "ef5d149b-8e34-404b-818c-6ec242e5c3c5", name: "腾讯Hunyuan", baseUrl: "https://api.hunyuan.cloud.tencent.com/v1" }),
     provider({ id: "ff3cde7e-0f65-43d7-8fb2-6475c99f5990", name: "xAI", baseUrl: "https://api.x.ai/v1", useResponseApi: true }),
-    provider({ id: "53027b08-1b58-43d5-90ed-29173203e3d8", name: "AckAI", baseUrl: "https://ackai.fun/v1" }),
-    provider({ id: "4da09554-8844-4cc8-a4a9-fe1b2515e91b", name: "UnifyLLM", baseUrl: "https://apicn.unifyllm.top/v1" }),
   ];
 }
 
@@ -1108,6 +1110,10 @@ function normalizeState(input: Partial<State>): State {
       return merged.length === current.length ? modelItem : { ...modelItem, abilities: merged };
     }),
   }));
+  // 下架清理(见 SUNSET_PROVIDER_IDS):仅删老用户 state 里残留、且从未配置 apiKey 的。
+  normalized.settings.providers = normalized.settings.providers.filter(
+    (providerItem) => !SUNSET_PROVIDER_IDS.has(providerItem.id) || String(providerItem.apiKey ?? "").trim() !== "",
+  );
   normalized.settings.searchServices = normalized.settings.searchServices?.length
     ? normalized.settings.searchServices
     : defaults.searchServices;
@@ -1139,6 +1145,9 @@ function normalizeState(input: Partial<State>): State {
     ? normalized.settings.selectedASRProviderId
     : normalized.settings.asrProviders[0]?.id ?? null;
   normalized.settings.ttsProviders = normalizeTtsProviders(normalized.settings.ttsProviders);
+  normalized.settings.ttsProviders = normalized.settings.ttsProviders.filter(
+    (providerItem) => !SUNSET_TTS_PROVIDER_IDS.has(providerItem.id) || String(providerItem.apiKey ?? "").trim() !== "",
+  );
   normalized.settings.selectedTTSProviderId = normalized.settings.ttsProviders.some((provider) => provider.id === normalized.settings.selectedTTSProviderId)
     ? normalized.settings.selectedTTSProviderId
     : normalized.settings.ttsProviders[0]?.id ?? null;
@@ -1300,12 +1309,6 @@ function defaultTtsProvider(type: TtsProvider["type"] = "system"): TtsProvider {
 function defaultTtsProviders(): TtsProvider[] {
   return [
     defaultTtsProvider("system"),
-    {
-      ...defaultTtsProvider("openai"),
-      id: "e36b22ef-ca82-40ab-9e70-60cad861911c",
-      name: "AiHubMix",
-      baseUrl: "https://aihubmix.com/v1",
-    },
   ];
 }
 
