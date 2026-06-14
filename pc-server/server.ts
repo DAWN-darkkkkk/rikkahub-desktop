@@ -2044,6 +2044,7 @@ function hasOpenReasoningPart(msg: Message) {
 }
 
 function replaceLoadingReasoningWithTool(msg: Message, toolPart: JsonValue) {
+  markStreamFirstContent(msg);
   msg.parts = msg.parts.filter((part) => !(
     part &&
     typeof part === "object" &&
@@ -9069,8 +9070,25 @@ function touchStream(hooks?: StreamHooks) {
   scheduleNodeBroadcast(hooks.conversation, hooks.node);
 }
 
+// Tracks which assistant messages have already received their first real streaming chunk.
+// We use it to rewrite `createdAt` from "when the send button was pressed" to "when the
+// first content delta arrived" — matching the Android client, which only constructs the
+// assistant UIMessage object on the first chunk. Without this correction, the token/s and
+// duration stats include the upstream TTFT (time-to-first-token) wait, understating speed.
+// In-memory only: it doesn't persist, which is fine because finished messages never stream
+// again; on reload they keep whatever createdAt was recorded during generation.
+const streamStartedMessages = new WeakSet<Message>();
+
+function markStreamFirstContent(msg: Message | undefined) {
+  if (!msg) return;
+  if (streamStartedMessages.has(msg)) return;
+  streamStartedMessages.add(msg);
+  msg.createdAt = new Date().toISOString();
+}
+
 function addStreamText(hooks: StreamHooks | undefined, text: string) {
   if (!hooks?.message || !text) return;
+  markStreamFirstContent(hooks.message);
   const hadOpenReasoning = hasOpenReasoningPart(hooks.message);
   hooks.message.parts = hooks.message.parts.filter((part) => !(
     part &&
@@ -10720,6 +10738,7 @@ function ensureReasoningPart(hooks: StreamHooks, metadata?: Record<string, JsonV
 
 function appendReasoningDelta(hooks: StreamHooks, text: string, metadata?: Record<string, JsonValue>) {
   if (!hooks.message) return;
+  markStreamFirstContent(hooks.message);
   const part = ensureReasoningPart(hooks, metadata);
   if (part && text) part.reasoning = String(part.reasoning ?? "") + text;
   touchStream(hooks);
@@ -10735,6 +10754,7 @@ function addStreamImage(hooks: StreamHooks | undefined, url: string, metadata: R
   if (!hooks?.message) return;
   const normalized = normalizeGeneratedImageUrl(url);
   if (!normalized) return;
+  markStreamFirstContent(hooks.message);
   hooks.message.parts.push({ type: "image", url: normalized, metadata });
   touchStream(hooks);
 }
@@ -12289,6 +12309,9 @@ async function generateAnswer(conversation: Conversation) {
   const currentMessage = assistantNode.messages[assistantNode.selectIndex];
   const resumingApprovedTools = hasResumableToolParts(currentMessage);
   currentMessage.finishedAt = null;
+  // Allow createdAt to be re-stamped on the first content chunk of this generation pass —
+  // supports regenerate, which reuses the same message object.
+  streamStartedMessages.delete(currentMessage);
   if (!resumingApprovedTools) {
     // Show a loading placeholder immediately so the UI has visual feedback during the
     // upstream first-token wait. addStreamText / replaceLoadingReasoningWithTool will
