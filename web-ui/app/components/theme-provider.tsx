@@ -3,9 +3,20 @@ import { createContext, useContext, useEffect, useState } from "react";
 export type ThemeMode = "dark" | "light" | "system";
 export type Theme = ThemeMode;
 
-// 内置色主题(只有这几种写死在 app.css 里)
-export type BuiltinColorTheme = "default" | "claude" | "mono";
-export const BUILTIN_COLOR_THEMES: BuiltinColorTheme[] = ["default", "claude", "mono"];
+// 所有内置预置主题的 data-theme 值。新增预置主题时:在 app.css 写对应的
+// :root[data-theme="..."] / :root.dark[data-theme="..."] 变量块,再在这里登记,
+// 然后到 conversation-sidebar 的 COLOR_THEME_OPTIONS 加选项。
+export const BUILTIN_COLOR_THEMES: readonly string[] = [
+  "default",
+  "mono",
+  "claude",
+  "claude-plus",
+  "vermillion",
+  "amber-mono",
+  "mx-brutalist",
+  "tiesen",
+  "vescrow",
+];
 
 // colorTheme 是内置主题名(default/claude/mono)或用户主题的 id("user-xxx"),所以用 string。
 export type ColorTheme = string;
@@ -166,7 +177,7 @@ function resolveInitialColorTheme(storageKey: string, userThemes: UserTheme[]): 
   if (stored.startsWith("user-")) {
     return userThemes.some((u) => u.id === stored) ? stored : "default";
   }
-  return BUILTIN_COLOR_THEMES.includes(stored as BuiltinColorTheme) ? stored : "default";
+  return BUILTIN_COLOR_THEMES.includes(stored) ? stored : "default";
 }
 
 export function ThemeProvider({

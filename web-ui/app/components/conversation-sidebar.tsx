@@ -108,19 +108,44 @@ const THEME_OPTIONS: Array<{
 
 const COLOR_THEME_OPTIONS: Array<{
   value: ColorTheme;
-  labelKey: string;
+  labelKey?: string;
+  label?: string;
 }> = [
   {
     value: "default",
     labelKey: "color_default",
   },
   {
+    value: "mono",
+    labelKey: "color_mono",
+  },
+  {
     value: "claude",
     labelKey: "color_claude",
   },
   {
-    value: "mono",
-    labelKey: "color_mono",
+    value: "claude-plus",
+    label: "Claude +",
+  },
+  {
+    value: "vermillion",
+    label: "Vermillion",
+  },
+  {
+    value: "amber-mono",
+    label: "Amber Mono",
+  },
+  {
+    value: "mx-brutalist",
+    label: "MX Brutalist",
+  },
+  {
+    value: "tiesen",
+    label: "Tiesen",
+  },
+  {
+    value: "vescrow",
+    label: "Vescrow",
   },
 ];
 
@@ -610,7 +635,8 @@ export const ConversationSidebar = React.memo(({
     (option) => option.value === colorTheme,
   );
   const currentColorLabel = currentColorThemeOption
-    ? t(`conversation_sidebar.${currentColorThemeOption.labelKey}`)
+    ? (currentColorThemeOption.label ??
+      t(`conversation_sidebar.${currentColorThemeOption.labelKey}`))
     : userThemes.find((ut) => ut.id === colorTheme)?.name ??
       t("conversation_sidebar.color_default");
 
@@ -1169,7 +1195,9 @@ export const ConversationSidebar = React.memo(({
                       setColorTheme(option.value);
                     }}
                   >
-                    <span className="flex-1">{t(`conversation_sidebar.${option.labelKey}`)}</span>
+                    <span className="flex-1">
+                      {option.label ?? t(`conversation_sidebar.${option.labelKey}`)}
+                    </span>
                     <Check className={selected ? "size-4" : "size-4 opacity-0"} />
                   </DropdownMenuItem>
                 );
