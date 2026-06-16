@@ -4723,6 +4723,7 @@ function EditorShell({
 }
 
 function DataSection({ settings, onSettings }: { settings: Settings; onSettings: (settings: Settings) => void }) {
+  const { t } = useTranslation();
   const importInputRef = React.useRef<HTMLInputElement>(null);
   const schemaInputRef = React.useRef<HTMLInputElement>(null);
   const [exporting, setExporting] = React.useState(false);
@@ -4803,11 +4804,11 @@ function DataSection({ settings, onSettings }: { settings: Settings; onSettings:
         } else if (eventName === "done") {
           return data;
         } else if (eventName === "error") {
-          throw new Error(String(data.error ?? "操作失败"));
+          throw new Error(String(data.error ?? t("settings:data.op_failed")));
         }
       }
     }
-    throw new Error("连接意外关闭");
+    throw new Error(t("settings:data.conn_closed"));
   };
 
   const patchWebDav = (patch: Partial<WebDavConfig>) => {
@@ -4820,16 +4821,16 @@ function DataSection({ settings, onSettings }: { settings: Settings; onSettings:
     const result = await api.post<{ config: WebDavConfig }>("data/webdav/config", webDavDraft);
     webDavDirtyRef.current = false;
     onSettings({ ...settings, webDavConfig: result.config } as Settings);
-    if (announce) toast.success("WebDAV 配置已保存");
-  }, [onSettings, settings, webDavDraft]);
+    if (announce) toast.success(t("settings:data.webdav_saved"));
+  }, [onSettings, settings, webDavDraft, t]);
 
   React.useEffect(() => {
     if (!webDavDirtyRef.current) return;
     const timer = window.setTimeout(() => {
-      void saveWebDav(false).catch((error: Error) => toast.error(error.message || "自动保存 WebDAV 失败"));
+      void saveWebDav(false).catch((error: Error) => toast.error(error.message || t("settings:data.webdav_autosave_failed")));
     }, 700);
     return () => window.clearTimeout(timer);
-  }, [saveWebDav, webDavDraft]);
+  }, [saveWebDav, webDavDraft, t]);
 
   const refreshWebDavList = async () => {
     setWebDavBusy("list");
@@ -4847,9 +4848,9 @@ function DataSection({ settings, onSettings }: { settings: Settings; onSettings:
     try {
       await saveWebDav(false);
       await api.post("data/webdav/test", { config: webDavDraft }, { timeout: false });
-      toast.success("WebDAV 连接成功");
+      toast.success(t("settings:data.webdav_conn_ok"));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "WebDAV 连接失败");
+      toast.error(error instanceof Error ? error.message : t("settings:data.webdav_conn_failed"));
     } finally {
       setWebDavBusy("");
     }
@@ -4861,7 +4862,7 @@ function DataSection({ settings, onSettings }: { settings: Settings; onSettings:
       if (res.ok) {
         const s = await res.json();
         if (!s.hasAndroidSchema && s.conversationCount > 0) {
-          toast("提示：尚未获取手机端数据库格式，备份不含对话记录。请在「数据备份」区域点击「导出备份」完成格式注册。", { duration: 6000 });
+          toast(t("settings:data.no_schema_warn"), { duration: 6000 });
         }
       }
     } catch { /* */ }
@@ -4870,16 +4871,16 @@ function DataSection({ settings, onSettings }: { settings: Settings; onSettings:
   const backupWebDav = async () => {
     await warnIfNoSchema();
     setWebDavBusy("backup");
-    setWebDavBackupProgress({ message: "准备中...", percent: 0 });
+    setWebDavBackupProgress({ message: t("settings:data.preparing"), percent: 0 });
     try {
       await saveWebDav(false);
       const data = await consumeBackupSse("/api/data/webdav/backup/stream", (message, percent) => {
         setWebDavBackupProgress({ message, percent });
       });
       if (Array.isArray(data.items)) setWebDavItems(data.items as WebDavBackupItem[]);
-      toast.success("WebDAV 备份完成");
+      toast.success(t("settings:data.webdav_backup_done"));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "WebDAV 备份失败");
+      toast.error(error instanceof Error ? error.message : t("settings:data.webdav_backup_failed"));
     } finally {
       setWebDavBusy("");
       setWebDavBackupProgress(null);
@@ -4887,17 +4888,17 @@ function DataSection({ settings, onSettings }: { settings: Settings; onSettings:
   };
 
   const restoreWebDav = async (item: WebDavBackupItem) => {
-    if (!window.confirm(`恢复 ${item.displayName} 会覆盖当前本地设置、会话和日志。继续？`)) return;
+    if (!window.confirm(t("settings:data.restore_confirm", { name: item.displayName }))) return;
     setWebDavBusy(`restore:${item.displayName}`);
-    setWebDavBackupProgress({ message: "准备中...", percent: 0 });
+    setWebDavBackupProgress({ message: t("settings:data.preparing"), percent: 0 });
     try {
       const data = await consumeBackupSse("/api/data/webdav/restore/stream", (message, percent) => {
         setWebDavBackupProgress({ message, percent });
       }, JSON.stringify({ fileName: item.displayName }));
       if (data.settings) onSettings(data.settings as Settings);
-      toast.success("WebDAV 备份已恢复");
+      toast.success(t("settings:data.webdav_restored"));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "WebDAV 恢复失败");
+      toast.error(error instanceof Error ? error.message : t("settings:data.webdav_restore_failed"));
     } finally {
       setWebDavBusy("");
       setWebDavBackupProgress(null);
@@ -4905,14 +4906,14 @@ function DataSection({ settings, onSettings }: { settings: Settings; onSettings:
   };
 
   const deleteWebDav = async (item: WebDavBackupItem) => {
-    if (!window.confirm(`删除远端备份 ${item.displayName}？`)) return;
+    if (!window.confirm(t("settings:data.delete_confirm", { name: item.displayName }))) return;
     setWebDavBusy(`delete:${item.displayName}`);
     try {
       const result = await api.post<{ items: WebDavBackupItem[] }>("data/webdav/delete", { fileName: item.displayName }, { timeout: false });
       setWebDavItems(result.items);
-      toast.success("WebDAV 备份已删除");
+      toast.success(t("settings:data.webdav_deleted"));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "WebDAV 删除失败");
+      toast.error(error instanceof Error ? error.message : t("settings:data.webdav_delete_failed"));
     } finally {
       setWebDavBusy("");
     }
@@ -4932,15 +4933,15 @@ function DataSection({ settings, onSettings }: { settings: Settings; onSettings:
     const result = await api.post<{ config: S3Config }>("data/s3/config", s3Draft);
     s3DirtyRef.current = false;
     onSettings({ ...settings, s3Config: result.config } as Settings);
-    if (announce) toast.success("S3 配置已保存");
-  }, [onSettings, settings, s3Draft]);
+    if (announce) toast.success(t("settings:data.s3_saved"));
+  }, [onSettings, settings, s3Draft, t]);
   React.useEffect(() => {
     if (!s3DirtyRef.current) return;
     const timer = window.setTimeout(() => {
-      void saveS3(false).catch((error: Error) => toast.error(error.message || "自动保存 S3 失败"));
+      void saveS3(false).catch((error: Error) => toast.error(error.message || t("settings:data.s3_autosave_failed")));
     }, 700);
     return () => window.clearTimeout(timer);
-  }, [saveS3, s3Draft]);
+  }, [saveS3, s3Draft, t]);
   const refreshS3List = async () => {
     setS3Busy("list");
     try {
@@ -4948,7 +4949,7 @@ function DataSection({ settings, onSettings }: { settings: Settings; onSettings:
       const result = await api.get<{ items: S3BackupItem[] }>("data/s3/list", { timeout: false });
       setS3Items(result.items);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "S3 列表失败");
+      toast.error(error instanceof Error ? error.message : t("settings:data.s3_list_failed"));
     } finally {
       setS3Busy("");
     }
@@ -4958,9 +4959,9 @@ function DataSection({ settings, onSettings }: { settings: Settings; onSettings:
     try {
       await saveS3(false);
       await api.post("data/s3/test", { config: s3Draft }, { timeout: false });
-      toast.success("S3 连接成功");
+      toast.success(t("settings:data.s3_conn_ok"));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "S3 连接失败");
+      toast.error(error instanceof Error ? error.message : t("settings:data.s3_conn_failed"));
     } finally {
       setS3Busy("");
     }
@@ -4968,47 +4969,47 @@ function DataSection({ settings, onSettings }: { settings: Settings; onSettings:
   const backupS3 = async () => {
     await warnIfNoSchema();
     setS3Busy("backup");
-    setS3BackupProgress({ message: "准备中...", percent: 0 });
+    setS3BackupProgress({ message: t("settings:data.preparing"), percent: 0 });
     try {
       await saveS3(false);
       const data = await consumeBackupSse("/api/data/s3/backup/stream", (message, percent) => {
         setS3BackupProgress({ message, percent });
       });
       if (Array.isArray(data.items)) setS3Items(data.items as S3BackupItem[]);
-      toast.success("S3 备份完成");
+      toast.success(t("settings:data.s3_backup_done"));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "S3 备份失败");
+      toast.error(error instanceof Error ? error.message : t("settings:data.s3_backup_failed"));
     } finally {
       setS3Busy("");
       setS3BackupProgress(null);
     }
   };
   const restoreS3 = async (item: S3BackupItem) => {
-    if (!window.confirm(`从远端备份 ${item.displayName} 恢复？这会覆盖当前本地状态。`)) return;
+    if (!window.confirm(t("settings:data.s3_restore_confirm", { name: item.displayName }))) return;
     setS3Busy(`restore:${item.displayName}`);
-    setS3BackupProgress({ message: "准备中...", percent: 0 });
+    setS3BackupProgress({ message: t("settings:data.preparing"), percent: 0 });
     try {
       const data = await consumeBackupSse("/api/data/s3/restore/stream", (message, percent) => {
         setS3BackupProgress({ message, percent });
       }, JSON.stringify({ fileName: item.displayName }));
       if (data.settings) onSettings(data.settings as Settings);
-      toast.success("S3 备份已恢复");
+      toast.success(t("settings:data.s3_restored"));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "S3 恢复失败");
+      toast.error(error instanceof Error ? error.message : t("settings:data.s3_restore_failed"));
     } finally {
       setS3Busy("");
       setS3BackupProgress(null);
     }
   };
   const deleteS3 = async (item: S3BackupItem) => {
-    if (!window.confirm(`删除远端备份 ${item.displayName}？`)) return;
+    if (!window.confirm(t("settings:data.delete_confirm", { name: item.displayName }))) return;
     setS3Busy(`delete:${item.displayName}`);
     try {
       const result = await api.post<{ items: S3BackupItem[] }>("data/s3/delete", { fileName: item.displayName }, { timeout: false });
       setS3Items(result.items);
-      toast.success("S3 备份已删除");
+      toast.success(t("settings:data.s3_deleted"));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "S3 删除失败");
+      toast.error(error instanceof Error ? error.message : t("settings:data.s3_delete_failed"));
     } finally {
       setS3Busy("");
     }
@@ -5035,11 +5036,11 @@ function DataSection({ settings, onSettings }: { settings: Settings; onSettings:
         body: formData,
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "注册失败");
+      if (!res.ok) throw new Error(data.error || t("settings:data.register_failed"));
       setSchemaStatus((prev) => prev ? { ...prev, hasAndroidSchema: true, schemaInfo: data.schemaInfo } : { hasAndroidSchema: true, schemaInfo: data.schemaInfo, conversationCount: 0 });
-      toast.success(`已成功获取手机端数据库格式（版本 ${data.schemaInfo.version}，标识 ${data.schemaInfo.identityHash.slice(0, 8)}...）`);
+      toast.success(t("settings:data.register_ok", { version: data.schemaInfo.version, hash: data.schemaInfo.identityHash.slice(0, 8) }));
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "注册失败");
+      toast.error(err instanceof Error ? err.message : t("settings:data.register_failed"));
     } finally {
       setRegisteringSchema(false);
     }
@@ -5051,7 +5052,7 @@ function DataSection({ settings, onSettings }: { settings: Settings; onSettings:
     setExportProgress(0);
     setExportedBytes(0);
     setExportTotalBytes(0);
-    const prepToast = toast.loading("正在准备备份文件，请稍候...");
+    const prepToast = toast.loading(t("settings:data.export_preparing"));
     try {
       // Download the zip via XHR so we can read onprogress (loaded / total) and surface a
       // progress bar — Bun's response carries a Content-Length so the browser knows the
@@ -5072,8 +5073,8 @@ function DataSection({ settings, onSettings }: { settings: Settings; onSettings:
             setExportedBytes(ev.loaded);
           }
         };
-        xhr.onerror = () => reject(new Error("网络错误，导出失败"));
-        xhr.onabort = () => reject(new Error("导出已取消"));
+        xhr.onerror = () => reject(new Error(t("settings:data.export_network_error")));
+        xhr.onabort = () => reject(new Error(t("settings:data.export_cancelled")));
         xhr.onload = () => {
           if (xhr.status >= 200 && xhr.status < 300) {
             // X-Export-Filename is set by the server with the canonical zip filename, so we
@@ -5082,7 +5083,7 @@ function DataSection({ settings, onSettings }: { settings: Settings; onSettings:
             const fallback = `rikkahub-backup-${new Date().toISOString().replace(/[:.]/g, "-")}.zip`;
             resolve({ blob: xhr.response as Blob, fileName: headerName || fallback });
           } else {
-            reject(new Error(`导出失败：HTTP ${xhr.status}`));
+            reject(new Error(t("settings:data.export_http_error", { status: xhr.status })));
           }
         };
         xhr.send();
@@ -5104,12 +5105,12 @@ function DataSection({ settings, onSettings }: { settings: Settings; onSettings:
       // Long-lived success toast so the user has time to read the filename before it dismisses.
       // 8s is enough to copy the name into a file manager search box if they want.
       toast.success(
-        `备份已导出：${result.fileName}\n请在浏览器默认下载位置（通常为「下载」文件夹）查看`,
+        t("settings:data.export_done", { name: result.fileName }),
         { duration: 8000 },
       );
     } catch (error) {
       toast.dismiss(prepToast);
-      toast.error(error instanceof Error ? error.message : "导出失败");
+      toast.error(error instanceof Error ? error.message : t("settings:data.export_failed"));
     } finally {
       setExporting(false);
       setExportProgress(0);
@@ -5122,7 +5123,7 @@ function DataSection({ settings, onSettings }: { settings: Settings; onSettings:
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file) return;
-    if (!window.confirm("导入会覆盖当前本地设置、会话和日志。继续？")) return;
+    if (!window.confirm(t("settings:data.import_confirm"))) return;
 
     setImporting(true);
     setImportPhase("uploading");
@@ -5179,8 +5180,8 @@ function DataSection({ settings, onSettings }: { settings: Settings; onSettings:
             reject(new Error(serverError));
           }
         };
-        xhr.onerror = () => reject(new Error("网络错误，请检查后端服务是否在运行"));
-        xhr.onabort = () => reject(new Error("上传被中止"));
+        xhr.onerror = () => reject(new Error(t("settings:data.import_network_error")));
+        xhr.onabort = () => reject(new Error(t("settings:data.import_cancelled")));
         // No timeout — large backups may take 10+ minutes through upload + extract + SQLite.
         xhr.timeout = 0;
         xhr.send(file);
@@ -5188,12 +5189,12 @@ function DataSection({ settings, onSettings }: { settings: Settings; onSettings:
       onSettings(result.settings);
       if (result.source === "android-zip") {
         const lines = (result.summary ?? []).filter(Boolean);
-        toast.success(lines.length ? `已从 Android 备份导入：${lines.join("；")}` : "已从 Android 备份导入");
+        toast.success(lines.length ? t("settings:data.import_android_lines", { lines: lines.join("；") }) : t("settings:data.import_android"));
       } else {
-        toast.success("备份已导入");
+        toast.success(t("settings:data.import_done"));
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "导入失败");
+      toast.error(error instanceof Error ? error.message : t("settings:data.import_failed"));
     } finally {
       setImporting(false);
       setImportPhase("idle");
@@ -5206,65 +5207,63 @@ function DataSection({ settings, onSettings }: { settings: Settings; onSettings:
       {showExportDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowExportDialog(false)}>
           <div className="mx-4 max-w-md rounded-lg bg-card p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-semibold">确认导出</h3>
+            <h3 className="text-lg font-semibold">{t("settings:data.export_confirm_title")}</h3>
             <div className="mt-3 text-sm text-muted-foreground">
               {schemaStatus?.hasAndroidSchema
-                ? `本次导出包含 ${schemaStatus.conversationCount} 条对话记录及全部配置，可直接在手机端导入。`
-                : "当前未注册手机端格式，导出的备份不含对话记录。请先在上方「手机端适配」区域完成注册。"}
+                ? t("settings:data.export_with_schema", { count: schemaStatus.conversationCount })
+                : t("settings:data.export_without_schema")}
             </div>
             <div className="mt-4 flex justify-end gap-2">
-              <Button variant="ghost" onClick={() => setShowExportDialog(false)}>取消</Button>
+              <Button variant="ghost" onClick={() => setShowExportDialog(false)}>{t("settings:data.cancel")}</Button>
               <Button onClick={() => void doExport()}>
                 <Download className="mr-1 size-4" />
-                {schemaStatus?.hasAndroidSchema ? "确认导出" : "导出（不含对话）"}
+                {schemaStatus?.hasAndroidSchema ? t("settings:data.confirm_export") : t("settings:data.export_no_chat")}
               </Button>
             </div>
           </div>
         </div>
       )}
-      <SectionHeader icon={Database} title="数据设置" subtitle="本地状态导入导出、聊天文件存储路径，以及 WebDAV / S3 远端同步。" />
+      <SectionHeader icon={Database} title={t("settings:data.title")} subtitle={t("settings:data.subtitle")} />
       <div className="mb-4 rounded-lg border p-4">
         <div className="flex items-center gap-2 cursor-pointer" onClick={() => schemaStatus?.hasAndroidSchema && setSchemaExpanded(!schemaExpanded)}>
-          <div className="text-sm font-medium">手机端适配</div>
+          <div className="text-sm font-medium">{t("settings:data.android_compat")}</div>
           {schemaStatus?.hasAndroidSchema ? (
-            <span className="rounded bg-green-100 px-1.5 py-0.5 text-xs text-green-700 dark:bg-green-900 dark:text-green-300">已就绪</span>
+            <span className="rounded bg-green-100 px-1.5 py-0.5 text-xs text-green-700 dark:bg-green-900 dark:text-green-300">{t("settings:data.ready")}</span>
           ) : (
-            <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700 dark:bg-amber-900 dark:text-amber-300">未注册</span>
+            <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700 dark:bg-amber-900 dark:text-amber-300">{t("settings:data.unregistered")}</span>
           )}
           {schemaStatus?.hasAndroidSchema && (
-            <span className="ml-auto text-xs text-muted-foreground">{schemaExpanded ? "收起" : "展开"}</span>
+            <span className="ml-auto text-xs text-muted-foreground">{schemaExpanded ? t("settings:data.collapse") : t("settings:data.expand")}</span>
           )}
         </div>
         {schemaStatus?.hasAndroidSchema && !schemaExpanded && (
           <div className="mt-2 text-xs text-muted-foreground">
-            已获取手机端数据库格式（版本 {schemaStatus.schemaInfo?.version}，标识 {schemaStatus.schemaInfo?.identityHash.slice(0, 8)}...）。PC 端导出的备份可被手机端正常识别。
+            {t("settings:data.compat_summary", { version: schemaStatus.schemaInfo?.version, hash: schemaStatus.schemaInfo?.identityHash.slice(0, 8) })}
           </div>
         )}
         {(!schemaStatus?.hasAndroidSchema || schemaExpanded) && (
           <div className="mt-2 space-y-2">
             {!schemaStatus?.hasAndroidSchema && (
-              <div className="text-xs text-muted-foreground">
-                未注册手机端数据库格式。<strong>PC 端的对话数据将无法导入到手机端</strong>，S3 备份和 WebDAV 备份中也不会包含对话记录。
-              </div>
+              <div className="text-xs text-muted-foreground" dangerouslySetInnerHTML={{ __html: t("settings:data.unregistered_warn") }} />
             )}
             {schemaStatus?.hasAndroidSchema && (
               <div className="text-xs text-muted-foreground">
-                当前格式：版本 {schemaStatus.schemaInfo?.version}，标识 {schemaStatus.schemaInfo?.identityHash.slice(0, 8)}...。如需更新，请重新上传手机端备份。
+                {t("settings:data.current_format", { version: schemaStatus.schemaInfo?.version, hash: schemaStatus.schemaInfo?.identityHash.slice(0, 8) })}
               </div>
             )}
             <div className="rounded-md border border-amber-200 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-950">
-              <div className="text-xs font-medium">{schemaStatus?.hasAndroidSchema ? "更新格式" : "如何注册？"}</div>
+              <div className="text-xs font-medium">{schemaStatus?.hasAndroidSchema ? t("settings:data.update_format") : t("settings:data.how_to_register")}</div>
               <ol className="mt-1.5 list-inside list-decimal space-y-1 text-xs text-muted-foreground">
-                <li>在手机端 Rikkahub 中，进入「设置 → 备份」，导出一份 .zip 备份文件</li>
-                <li>点击下方按钮，选择刚才导出的 .zip 文件上传</li>
-                <li>PC 端会从中提取数据库格式信息（不会导入任何数据到 PC）</li>
+                <li>{t("settings:data.step1")}</li>
+                <li>{t("settings:data.step2")}</li>
+                <li>{t("settings:data.step3")}</li>
               </ol>
               <div className="mt-2 text-xs font-bold text-amber-700 dark:text-amber-300">
-                注：首次使用需要执行一次此操作。如果手机端 APP 有版本更新，需要重新获取一次。
+                {t("settings:data.register_note")}
               </div>
               <Button variant="outline" size="sm" className="mt-3" onClick={() => schemaInputRef.current?.click()} disabled={registeringSchema}>
                 {registeringSchema ? <Loader2 className="mr-1 size-3 animate-spin" /> : <Upload className="mr-1 size-3" />}
-                上传手机备份（仅提取格式）
+                {t("settings:data.upload_phone_backup")}
               </Button>
               <input ref={schemaInputRef} className="sr-only" type="file" accept="application/zip,.zip" onChange={(e) => void handleRegisterSchema(e)} />
             </div>
@@ -5273,16 +5272,16 @@ function DataSection({ settings, onSettings }: { settings: Settings; onSettings:
       </div>
       <div className="grid gap-4 md:grid-cols-2">
         <div className="rounded-lg border bg-card p-4">
-          <div className="text-sm font-medium">数据备份</div>
-          <div className="mt-1 text-xs text-muted-foreground">导出 .zip 备份（兼容 Android 端导入），包含设置、会话、文件、Skills、MCP / 提示注入 / 世界书 / 快捷消息等。导入也接受 Android 端导出的 .zip 备份及历史 PC 版本的 .json 备份。备份较大时导入可能需要 1-2 分钟。</div>
+          <div className="text-sm font-medium">{t("settings:data.backup_title")}</div>
+          <div className="mt-1 text-xs text-muted-foreground">{t("settings:data.backup_desc")}</div>
           <div className="mt-4 flex flex-wrap gap-2">
             <Button variant="outline" onClick={() => void handleExportClick()} disabled={exporting || importing}>
               {exporting ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
-              导出备份
+              {t("settings:data.export_backup")}
             </Button>
             <Button variant="outline" onClick={() => importInputRef.current?.click()} disabled={importing || exporting}>
               {importing ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}
-              导入备份
+              {t("settings:data.import_backup")}
             </Button>
             <input ref={importInputRef} className="sr-only" type="file" accept="application/json,.json,application/zip,.zip" onChange={(event) => void importData(event)} />
           </div>
@@ -5291,8 +5290,8 @@ function DataSection({ settings, onSettings }: { settings: Settings; onSettings:
               <div className="flex items-center justify-between text-xs text-muted-foreground">
                 <span>
                   {exportTotalBytes > 0
-                    ? `正在下载备份文件...`
-                    : `正在准备备份文件...`}
+                    ? t("settings:data.downloading")
+                    : t("settings:data.preparing_file")}
                 </span>
                 {exportTotalBytes > 0 ? (
                   <span>
@@ -5307,7 +5306,7 @@ function DataSection({ settings, onSettings }: { settings: Settings; onSettings:
                 />
               </div>
               {exportTotalBytes === 0 ? (
-                <div className="text-[11px] text-muted-foreground">附件较多时打包可能需要几十秒，请耐心等待</div>
+                <div className="text-[11px] text-muted-foreground">{t("settings:data.pack_slow")}</div>
               ) : null}
             </div>
           ) : null}
@@ -5315,9 +5314,9 @@ function DataSection({ settings, onSettings }: { settings: Settings; onSettings:
             <div className="mt-3 space-y-1.5">
               <div className="flex items-center justify-between text-xs text-muted-foreground">
                 <span>
-                  {importPhase === "uploading" && "正在上传备份文件..."}
-                  {importPhase === "processing" && "上传完成，正在解压并导入数据..."}
-                  {importPhase === "idle" && "准备中..."}
+                  {importPhase === "uploading" && t("settings:data.uploading")}
+                  {importPhase === "processing" && t("settings:data.extracting")}
+                  {importPhase === "idle" && t("settings:data.preparing")}
                 </span>
                 {importPhase === "uploading" ? <span>{importProgress}%</span> : null}
               </div>
@@ -5331,42 +5330,42 @@ function DataSection({ settings, onSettings }: { settings: Settings; onSettings:
                 />
               </div>
               {importPhase === "processing" ? (
-                <div className="text-[11px] text-muted-foreground">大备份的对话历史解析可能需要几分钟，请勿关闭应用</div>
+                <div className="text-[11px] text-muted-foreground">{t("settings:data.extract_slow")}</div>
               ) : null}
             </div>
           ) : null}
         </div>
         <div className="rounded-lg border bg-card p-4">
-          <div className="text-sm font-medium">聊天文件储存</div>
-          <div className="mt-1 text-xs text-muted-foreground">上传的头像和附件会保存到本地数据目录，并通过 /api/files 提供内容。</div>
+          <div className="text-sm font-medium">{t("settings:data.chat_files_title")}</div>
+          <div className="mt-1 text-xs text-muted-foreground">{t("settings:data.chat_files_desc")}</div>
         </div>
         <div className="rounded-lg border bg-card p-4">
-          <div className="text-sm font-medium">Web 服务</div>
-          <div className="mt-1 text-xs text-muted-foreground">当前 Web JWT：{settings.webServerJwtEnabled ? "已启用" : "未启用"}</div>
+          <div className="text-sm font-medium">{t("settings:data.web_service_title")}</div>
+          <div className="mt-1 text-xs text-muted-foreground">{t("settings:data.web_service_desc", { status: settings.webServerJwtEnabled ? t("settings:data.enabled") : t("settings:data.disabled") })}</div>
         </div>
         <div className="rounded-lg border bg-card p-4 md:col-span-2">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <div className="flex items-center gap-2 text-sm font-medium">WebDAV 备份{!schemaStatus?.hasAndroidSchema && <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] text-amber-700 dark:bg-amber-900 dark:text-amber-300">对话不可同步</span>}</div>
-              <div className="mt-1 text-xs text-muted-foreground">通过 WebDAV 测试连接、立即备份、列出远端备份、恢复或删除。备份内容包含本地 JSON 状态、Skills 与上传文件。</div>
+              <div className="flex items-center gap-2 text-sm font-medium">{t("settings:data.webdav_title")}{!schemaStatus?.hasAndroidSchema && <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] text-amber-700 dark:bg-amber-900 dark:text-amber-300">{t("settings:data.chat_unsyncable")}</span>}</div>
+              <div className="mt-1 text-xs text-muted-foreground">{t("settings:data.webdav_desc")}</div>
             </div>
-            <div className="text-xs text-muted-foreground">{webDavBusy ? "正在处理..." : "已自动保存"}</div>
+            <div className="text-xs text-muted-foreground">{webDavBusy ? t("settings:data.processing") : t("settings:common.autosaved")}</div>
           </div>
           <div className="mt-4 grid gap-3 md:grid-cols-2">
             <label className="space-y-1">
-              <span className="text-xs font-medium text-muted-foreground">服务器地址</span>
+              <span className="text-xs font-medium text-muted-foreground">{t("settings:data.server_url")}</span>
               <Input value={webDavDraft.url} onChange={(event) => patchWebDav({ url: event.target.value })} placeholder="https://example.com/dav" />
             </label>
             <label className="space-y-1">
-              <span className="text-xs font-medium text-muted-foreground">备份路径</span>
+              <span className="text-xs font-medium text-muted-foreground">{t("settings:data.backup_path")}</span>
               <Input value={webDavDraft.path} onChange={(event) => patchWebDav({ path: event.target.value })} placeholder="rikkahub_backups" />
             </label>
             <label className="space-y-1">
-              <span className="text-xs font-medium text-muted-foreground">用户名</span>
+              <span className="text-xs font-medium text-muted-foreground">{t("settings:proxy.username")}</span>
               <Input value={webDavDraft.username} onChange={(event) => patchWebDav({ username: event.target.value })} />
             </label>
             <label className="space-y-1">
-              <span className="text-xs font-medium text-muted-foreground">密码</span>
+              <span className="text-xs font-medium text-muted-foreground">{t("settings:proxy.password")}</span>
               <div className="flex gap-2">
                 <Input type={showWebDavPassword ? "text" : "password"} value={webDavDraft.password} onChange={(event) => patchWebDav({ password: event.target.value })} />
                 <Button type="button" variant="outline" size="icon" onClick={() => setShowWebDavPassword((value) => !value)}>
@@ -5387,22 +5386,22 @@ function DataSection({ settings, onSettings }: { settings: Settings; onSettings:
                     patchWebDav({ items: [...items] });
                   }}
                 />
-                {item === "DATABASE" ? "设置与会话" : "上传文件"}
+                {item === "DATABASE" ? t("settings:data.item_database") : t("settings:data.item_files")}
               </label>
             ))}
           </div>
           <div className="mt-4 flex flex-wrap gap-2">
             <Button variant="outline" onClick={() => void testWebDav()} disabled={Boolean(webDavBusy) || !webDavDraft.url.trim()}>
               {webDavBusy === "test" ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
-              测试连接
+              {t("settings:data.test_conn")}
             </Button>
             <Button variant="outline" onClick={() => void refreshWebDavList()} disabled={Boolean(webDavBusy) || !webDavDraft.url.trim()}>
               {webDavBusy === "list" ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
-              刷新备份
+              {t("settings:data.refresh_backups")}
             </Button>
             <Button onClick={() => void backupWebDav()} disabled={Boolean(webDavBusy) || !webDavDraft.url.trim()}>
               {webDavBusy === "backup" && !webDavBackupProgress ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}
-              立即备份
+              {t("settings:data.backup_now")}
             </Button>
           </div>
           {(webDavBusy === "backup" || webDavBusy.startsWith("restore:")) && webDavBackupProgress ? (
@@ -5420,7 +5419,7 @@ function DataSection({ settings, onSettings }: { settings: Settings; onSettings:
             </div>
           ) : null}
           <div className="mt-4 rounded-md border">
-            {webDavItems.length === 0 ? <div className="p-4 text-sm text-muted-foreground">暂无远端备份。点击“刷新备份”读取 WebDAV 目录。</div> : null}
+            {webDavItems.length === 0 ? <div className="p-4 text-sm text-muted-foreground">{t("settings:data.no_remote_backups")}</div> : null}
             {webDavItems.map((item, index) => (
               <React.Fragment key={item.displayName}>
                 {index > 0 ? <Separator /> : null}
@@ -5432,7 +5431,7 @@ function DataSection({ settings, onSettings }: { settings: Settings; onSettings:
                   <div className="flex shrink-0 gap-2">
                     <Button type="button" size="sm" variant="outline" onClick={() => void restoreWebDav(item)} disabled={Boolean(webDavBusy)}>
                       {webDavBusy === `restore:${item.displayName}` ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
-                      恢复
+                      {t("settings:data.restore")}
                     </Button>
                     <Button type="button" size="sm" variant="ghost" onClick={() => void deleteWebDav(item)} disabled={Boolean(webDavBusy)}>
                       {webDavBusy === `delete:${item.displayName}` ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
@@ -5446,8 +5445,8 @@ function DataSection({ settings, onSettings }: { settings: Settings; onSettings:
         <div className="rounded-lg border bg-card p-4 md:col-span-2">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <div className="flex items-center gap-2 text-sm font-medium">S3 备份{!schemaStatus?.hasAndroidSchema && <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] text-amber-700 dark:bg-amber-900 dark:text-amber-300">对话不可同步</span>}</div>
-              <div className="mt-1 text-xs text-muted-foreground">支持标准 AWS S3 与兼容 endpoint（MinIO/R2/腾讯云 COS/阿里云 OSS 等）。备份内容与 WebDAV 一致。</div>
+              <div className="flex items-center gap-2 text-sm font-medium">{t("settings:data.s3_title")}{!schemaStatus?.hasAndroidSchema && <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] text-amber-700 dark:bg-amber-900 dark:text-amber-300">{t("settings:data.chat_unsyncable")}</span>}</div>
+              <div className="mt-1 text-xs text-muted-foreground">{t("settings:data.s3_desc")}</div>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-xs text-muted-foreground">Path-style</span>
@@ -5456,7 +5455,7 @@ function DataSection({ settings, onSettings }: { settings: Settings; onSettings:
           </div>
           <div className="mt-3 grid gap-3 md:grid-cols-2">
             <label className="space-y-1">
-              <span className="text-xs font-medium text-muted-foreground">Endpoint（留空使用 AWS 官方）</span>
+              <span className="text-xs font-medium text-muted-foreground">{t("settings:data.endpoint_label")}</span>
               <Input value={s3Draft.endpoint} onChange={(event) => patchS3({ endpoint: event.target.value })} placeholder="https://s3.example.com" />
             </label>
             <label className="space-y-1">
@@ -5468,7 +5467,7 @@ function DataSection({ settings, onSettings }: { settings: Settings; onSettings:
               <Input value={s3Draft.bucket} onChange={(event) => patchS3({ bucket: event.target.value })} placeholder="my-rikkahub-bucket" />
             </label>
             <label className="space-y-1">
-              <span className="text-xs font-medium text-muted-foreground">前缀路径</span>
+              <span className="text-xs font-medium text-muted-foreground">{t("settings:data.prefix_path")}</span>
               <Input value={s3Draft.prefix} onChange={(event) => patchS3({ prefix: event.target.value })} placeholder="rikkahub_backups" />
             </label>
             <label className="space-y-1">
@@ -5488,15 +5487,15 @@ function DataSection({ settings, onSettings }: { settings: Settings; onSettings:
           <div className="mt-3 flex flex-wrap gap-2">
             <Button variant="outline" onClick={() => void testS3()} disabled={Boolean(s3Busy) || !s3Draft.bucket.trim() || !s3Draft.accessKeyId.trim()}>
               {s3Busy === "test" ? <Loader2 className="size-4 animate-spin" /> : <CheckCircle2 className="size-4" />}
-              测试连接
+              {t("settings:data.test_conn")}
             </Button>
             <Button variant="outline" onClick={() => void refreshS3List()} disabled={Boolean(s3Busy) || !s3Draft.bucket.trim()}>
               {s3Busy === "list" ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
-              刷新备份
+              {t("settings:data.refresh_backups")}
             </Button>
             <Button onClick={() => void backupS3()} disabled={Boolean(s3Busy) || !s3Draft.bucket.trim() || !s3Draft.accessKeyId.trim()}>
               {s3Busy === "backup" && !s3BackupProgress ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}
-              立即备份
+              {t("settings:data.backup_now")}
             </Button>
           </div>
           {(s3Busy === "backup" || s3Busy.startsWith("restore:")) && s3BackupProgress ? (
@@ -5514,7 +5513,7 @@ function DataSection({ settings, onSettings }: { settings: Settings; onSettings:
             </div>
           ) : null}
           <div className="mt-3 overflow-hidden rounded-md border">
-            {s3Items.length === 0 ? <div className="p-4 text-sm text-muted-foreground">暂无远端备份。点击"刷新备份"读取 S3 目录。</div> : null}
+            {s3Items.length === 0 ? <div className="p-4 text-sm text-muted-foreground">{t("settings:data.no_remote_backups_s3")}</div> : null}
             {s3Items.map((item, index) => (
               <React.Fragment key={item.displayName}>
                 {index > 0 ? <Separator /> : null}
@@ -5526,7 +5525,7 @@ function DataSection({ settings, onSettings }: { settings: Settings; onSettings:
                   <div className="flex shrink-0 gap-2">
                     <Button type="button" size="sm" variant="outline" onClick={() => void restoreS3(item)} disabled={Boolean(s3Busy)}>
                       {s3Busy === `restore:${item.displayName}` ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
-                      恢复
+                      {t("settings:data.restore")}
                     </Button>
                     <Button type="button" size="sm" variant="ghost" onClick={() => void deleteS3(item)} disabled={Boolean(s3Busy)}>
                       {s3Busy === `delete:${item.displayName}` ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
