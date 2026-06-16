@@ -95,7 +95,12 @@ interface MessagePartsProps {
   loading?: boolean;
   assistant?: AssistantProfile | null;
   role?: "USER" | "ASSISTANT" | "SYSTEM" | "TOOL";
-  onToolApproval?: (toolCallId: string, approved: boolean, reason: string, answer?: string) => void | Promise<void>;
+  onToolApproval?: (
+    toolCallId: string,
+    approved: boolean,
+    reason: string,
+    answer?: string,
+  ) => void | Promise<void>;
   onClickCitation?: (id: string) => void;
   citationOrdinalMap?: Map<string, number>;
 }
@@ -111,7 +116,19 @@ function renderContentPart(
 ) {
   switch (part.type) {
     case "text":
-      return <TextPart text={applyAssistantRegexes(part.text, assistant, role === "USER" ? "USER" : "ASSISTANT", true)} isAnimating={loading} onClickCitation={onClickCitation} citationOrdinalMap={citationOrdinalMap} />;
+      return (
+        <TextPart
+          text={applyAssistantRegexes(
+            part.text,
+            assistant,
+            role === "USER" ? "USER" : "ASSISTANT",
+            true,
+          )}
+          isAnimating={loading}
+          onClickCitation={onClickCitation}
+          citationOrdinalMap={citationOrdinalMap}
+        />
+      );
     case "image":
       return <ImagePart url={part.url} metadata={part.metadata} />;
     case "video":
@@ -133,127 +150,154 @@ function renderContentPart(
   }
 }
 
-export const MessageParts = React.memo(({
-  parts,
-  loading = false,
-  assistant,
-  role,
-  onToolApproval,
-  onClickCitation,
-  citationOrdinalMap,
-}: MessagePartsProps) => {
-  const { t } = useTranslation("message");
-  const groupedParts = React.useMemo(() => groupMessageParts(parts), [parts]);
-  const hasContentPart = React.useMemo(
-    () =>
-      parts.some((part) => {
-        if (part.type === "text") return part.text.trim().length > 0;
-        if (part.type === "image" || part.type === "video" || part.type === "audio") return part.url.trim().length > 0;
-        if (part.type === "document") return part.url.trim().length > 0 || part.fileName.trim().length > 0;
-        if (part.type === "loading") return false;
-        return false;
-      }),
-    [parts],
-  );
-  // The backend inserts a `{type:"loading"}` placeholder while waiting for the first chunk; that
-  // part already renders a TypingIndicator below, so the fallback waiting indicator would double
-  // up when the only "part" is the placeholder. Treat the placeholder as the visible indicator.
-  const hasLoadingPart = React.useMemo(
-    () => parts.some((part) => part.type === "loading"),
-    [parts],
-  );
-  const showWaitingIndicator = loading && !hasContentPart && !hasLoadingPart;
+export const MessageParts = React.memo(
+  ({
+    parts,
+    loading = false,
+    assistant,
+    role,
+    onToolApproval,
+    onClickCitation,
+    citationOrdinalMap,
+  }: MessagePartsProps) => {
+    const { t } = useTranslation("message");
+    const groupedParts = React.useMemo(() => groupMessageParts(parts), [parts]);
+    const hasContentPart = React.useMemo(
+      () =>
+        parts.some((part) => {
+          if (part.type === "text") return part.text.trim().length > 0;
+          if (part.type === "image" || part.type === "video" || part.type === "audio")
+            return part.url.trim().length > 0;
+          if (part.type === "document")
+            return part.url.trim().length > 0 || part.fileName.trim().length > 0;
+          if (part.type === "loading") return false;
+          return false;
+        }),
+      [parts],
+    );
+    // The backend inserts a `{type:"loading"}` placeholder while waiting for the first chunk; that
+    // part already renders a TypingIndicator below, so the fallback waiting indicator would double
+    // up when the only "part" is the placeholder. Treat the placeholder as the visible indicator.
+    const hasLoadingPart = React.useMemo(
+      () => parts.some((part) => part.type === "loading"),
+      [parts],
+    );
+    const showWaitingIndicator = loading && !hasContentPart && !hasLoadingPart;
 
-  return (
-    <>
-      {loading && parts.length === 0 ? <TypingIndicator className="px-1 py-2" /> : null}
-      {groupedParts.map((block, blockIndex) => {
-        if (block.type === "pendingTool") {
-          // pending tool 从思考链中抽出，渲染独立 attention 卡片。ToolStepPart
-          // 内部对 ask_user 已有专属醒目卡片；其它 pending tool 由我们在这里
-          // 包一层 banner，明确告诉用户"AI 正在请求授权"，并显示工具名+参数+
-          // 通过/拒绝按钮。
-          return (
-            <PendingToolAttentionCard
-              key={`pending-tool-${block.tool.toolCallId || block.index}`}
-              tool={block.tool}
-              loading={loading && block.tool.output.length === 0}
-              onToolApproval={onToolApproval}
-            />
-          );
-        }
+    return (
+      <>
+        {loading && parts.length === 0 ? <TypingIndicator className="px-1 py-2" /> : null}
+        {groupedParts.map((block, blockIndex) => {
+          if (block.type === "pendingTool") {
+            // pending tool 从思考链中抽出，渲染独立 attention 卡片。ToolStepPart
+            // 内部对 ask_user 已有专属醒目卡片；其它 pending tool 由我们在这里
+            // 包一层 banner，明确告诉用户"AI 正在请求授权"，并显示工具名+参数+
+            // 通过/拒绝按钮。
+            return (
+              <PendingToolAttentionCard
+                key={`pending-tool-${block.tool.toolCallId || block.index}`}
+                tool={block.tool}
+                loading={loading && block.tool.output.length === 0}
+                onToolApproval={onToolApproval}
+              />
+            );
+          }
 
-        if (block.type === "thinking") {
-          if (block.steps.length === 0) return null;
+          if (block.type === "thinking") {
+            if (block.steps.length === 0) return null;
 
-          const isReasoningOnlyBlock = block.steps.every((step) => step.type === "reasoning");
-          const hasLoadingReasoning = block.steps.some(
-            (step) => step.type === "reasoning" && step.reasoning.finishedAt == null,
-          );
-          const enableAdaptiveWidth = isReasoningOnlyBlock && !hasLoadingReasoning;
+            const isReasoningOnlyBlock = block.steps.every((step) => step.type === "reasoning");
+            const hasLoadingReasoning = block.steps.some(
+              (step) => step.type === "reasoning" && step.reasoning.finishedAt == null,
+            );
+            const enableAdaptiveWidth = isReasoningOnlyBlock && !hasLoadingReasoning;
 
-          return (
-            <ChainOfThought
-              key={`thinking-${blockIndex}`}
-              className="my-1"
-              collapsedAdaptiveWidth={enableAdaptiveWidth}
-              collapseLabel={t("message_parts.collapse_thinking")}
-              showMoreLabel={(hiddenCount) =>
-                t("message_parts.expand_thinking_steps", { count: hiddenCount })
-              }
-              steps={block.steps}
-              renderStep={(step, stepIndex, { isFirst, isLast }) => {
-                if (step.type === "reasoning") {
-                  const stepKey = step.reasoning.createdAt ?? `${blockIndex}-${stepIndex}`;
+            return (
+              <ChainOfThought
+                key={`thinking-${blockIndex}`}
+                className="my-1"
+                collapsedAdaptiveWidth={enableAdaptiveWidth}
+                collapseLabel={t("message_parts.collapse_thinking")}
+                showMoreLabel={(hiddenCount) =>
+                  t("message_parts.expand_thinking_steps", { count: hiddenCount })
+                }
+                steps={block.steps}
+                renderStep={(step, stepIndex, { isFirst, isLast }) => {
+                  if (step.type === "reasoning") {
+                    const stepKey = step.reasoning.createdAt ?? `${blockIndex}-${stepIndex}`;
+                    return (
+                      <ReasoningStepPart
+                        key={stepKey}
+                        reasoning={step.reasoning}
+                        collapsedAdaptiveWidth={enableAdaptiveWidth}
+                        isFirst={isFirst}
+                        isLast={isLast}
+                      />
+                    );
+                  }
+
+                  const stepKey = step.tool.toolCallId || `${blockIndex}-${stepIndex}`;
                   return (
-                    <ReasoningStepPart
+                    <ToolStepPart
                       key={stepKey}
-                      reasoning={step.reasoning}
-                      collapsedAdaptiveWidth={enableAdaptiveWidth}
+                      tool={step.tool}
+                      loading={loading && step.tool.output.length === 0}
+                      onToolApproval={onToolApproval}
                       isFirst={isFirst}
                       isLast={isLast}
                     />
                   );
-                }
+                }}
+              />
+            );
+          }
 
-                const stepKey = step.tool.toolCallId || `${blockIndex}-${stepIndex}`;
-                return (
-                  <ToolStepPart
-                    key={stepKey}
-                    tool={step.tool}
-                    loading={loading && step.tool.output.length === 0}
-                    onToolApproval={onToolApproval}
-                    isFirst={isFirst}
-                    isLast={isLast}
-                  />
-                );
-              }}
-            />
+          return (
+            <React.Fragment key={`content-${block.index}`}>
+              {renderContentPart(
+                block.part,
+                t,
+                loading,
+                onClickCitation,
+                assistant,
+                role,
+                citationOrdinalMap,
+              )}
+            </React.Fragment>
           );
-        }
-
-        return (
-          <React.Fragment key={`content-${block.index}`}>
-            {renderContentPart(block.part, t, loading, onClickCitation, assistant, role, citationOrdinalMap)}
-          </React.Fragment>
-        );
-      })}
-      {showWaitingIndicator && parts.length > 0 ? <TypingIndicator className="px-1 py-2" /> : null}
-    </>
-  );
-});
+        })}
+        {showWaitingIndicator && parts.length > 0 ? (
+          <TypingIndicator className="px-1 py-2" />
+        ) : null}
+      </>
+    );
+  },
+);
 
 interface MessagePartProps {
   part: UIMessagePart;
   loading?: boolean;
   assistant?: AssistantProfile | null;
   role?: "USER" | "ASSISTANT" | "SYSTEM" | "TOOL";
-  onToolApproval?: (toolCallId: string, approved: boolean, reason: string, answer?: string) => void | Promise<void>;
+  onToolApproval?: (
+    toolCallId: string,
+    approved: boolean,
+    reason: string,
+    answer?: string,
+  ) => void | Promise<void>;
   onClickCitation?: (id: string) => void;
   citationOrdinalMap?: Map<string, number>;
 }
 
-export function MessagePart({ part, loading, assistant, role, onToolApproval, onClickCitation, citationOrdinalMap }: MessagePartProps) {
+export function MessagePart({
+  part,
+  loading,
+  assistant,
+  role,
+  onToolApproval,
+  onClickCitation,
+  citationOrdinalMap,
+}: MessagePartProps) {
   return (
     <MessageParts
       parts={[part]}

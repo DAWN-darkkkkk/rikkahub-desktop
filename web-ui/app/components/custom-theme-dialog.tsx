@@ -62,8 +62,7 @@ export function CustomThemeDialog({
     }
 
     let lightCss = cssDraft.match(/:root\s*\{[\s\S]*?\}/)?.[0]?.trim() ?? "";
-    let darkCss =
-      cssDraft.match(/(?:\.dark|:root\.dark)\s*\{[\s\S]*?\}/)?.[0]?.trim() ?? "";
+    let darkCss = cssDraft.match(/(?:\.dark|:root\.dark)\s*\{[\s\S]*?\}/)?.[0]?.trim() ?? "";
 
     if (!lightCss && !darkCss && cssDraft.trim()) {
       lightCss = cssDraft.trim();

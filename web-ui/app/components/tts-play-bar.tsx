@@ -15,11 +15,7 @@ import { FastForward, Pause, Play, Rewind, X } from "lucide-react";
 
 import { ttsController, useTtsPlaybackState } from "~/lib/tts/tts-controller";
 import { Button } from "~/components/ui/button";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "~/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "~/components/ui/popover";
 import { cn } from "~/lib/utils";
 
 const SPEED_OPTIONS = [0.8, 1.0, 1.2, 1.5] as const;
@@ -31,7 +27,9 @@ export function TtsPlayBar() {
 
   // Drag state
   const [offset, setOffset] = React.useState({ x: 0, y: 0 });
-  const dragRef = React.useRef<{ startX: number; startY: number; ox: number; oy: number } | null>(null);
+  const dragRef = React.useRef<{ startX: number; startY: number; ox: number; oy: number } | null>(
+    null,
+  );
 
   const handlePointerDown = (e: React.PointerEvent) => {
     if ((e.target as HTMLElement).closest("button, [role=button]")) return;
@@ -45,7 +43,9 @@ export function TtsPlayBar() {
       y: dragRef.current.oy + (e.clientY - dragRef.current.startY),
     });
   };
-  const handlePointerUp = () => { dragRef.current = null; };
+  const handlePointerUp = () => {
+    dragRef.current = null;
+  };
 
   if (!visible) return null;
 
@@ -70,7 +70,11 @@ export function TtsPlayBar() {
 
   const statusLabel = state.errorMessage
     ? state.errorMessage
-    : isBuffering ? "合成中..." : isPaused ? "已暂停" : "朗读中";
+    : isBuffering
+      ? "合成中..."
+      : isPaused
+        ? "已暂停"
+        : "朗读中";
 
   return (
     <div
@@ -87,19 +91,43 @@ export function TtsPlayBar() {
         <div className="flex items-center gap-1.5">
           <div className="relative flex size-11 shrink-0 items-center justify-center">
             <svg viewBox="0 0 56 56" className="absolute inset-0 size-11 -rotate-90">
-              <circle cx="28" cy="28" r={OUTER_R} fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/20" />
               <circle
-                cx="28" cy="28" r={OUTER_R} fill="none"
-                stroke="currentColor" strokeWidth="3"
+                cx="28"
+                cy="28"
+                r={OUTER_R}
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                className="text-muted-foreground/20"
+              />
+              <circle
+                cx="28"
+                cy="28"
+                r={OUTER_R}
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="3"
                 strokeDasharray={outerC}
                 strokeDashoffset={outerC * (1 - chunkFraction)}
                 strokeLinecap="round"
                 className="text-primary transition-[stroke-dashoffset] duration-100"
               />
-              <circle cx="28" cy="28" r={INNER_R} fill="none" stroke="currentColor" strokeWidth="1.5" className="text-muted-foreground/15" />
               <circle
-                cx="28" cy="28" r={INNER_R} fill="none"
-                stroke="currentColor" strokeWidth="2.5"
+                cx="28"
+                cy="28"
+                r={INNER_R}
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                className="text-muted-foreground/15"
+              />
+              <circle
+                cx="28"
+                cy="28"
+                r={INNER_R}
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
                 strokeDasharray={innerC}
                 strokeDashoffset={innerC * (1 - overallFraction)}
                 strokeLinecap="round"
@@ -113,25 +141,58 @@ export function TtsPlayBar() {
         </div>
 
         <span
-          className={cn("min-w-[3rem] text-sm", state.errorMessage ? "text-destructive" : "text-muted-foreground")}
+          className={cn(
+            "min-w-[3rem] text-sm",
+            state.errorMessage ? "text-destructive" : "text-muted-foreground",
+          )}
           title={statusLabel}
         >
           {statusLabel}
         </span>
 
         <div className="flex items-center gap-0.5">
-          <Button type="button" variant="ghost" size="icon" className="size-9" onClick={() => ttsController.seekBy(-5_000)} title="后退 5 秒">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="size-9"
+            onClick={() => ttsController.seekBy(-5_000)}
+            title="后退 5 秒"
+          >
             <Rewind className="size-4" />
           </Button>
-          <Button type="button" variant="ghost" size="icon" className="size-10" onClick={togglePlayPause} title={isPlaying || isBuffering ? "暂停" : "继续"}>
-            {isPlaying || isBuffering ? <Pause className="size-5" /> : <Play className="size-5 translate-x-[1px]" />}
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="size-10"
+            onClick={togglePlayPause}
+            title={isPlaying || isBuffering ? "暂停" : "继续"}
+          >
+            {isPlaying || isBuffering ? (
+              <Pause className="size-5" />
+            ) : (
+              <Play className="size-5 translate-x-[1px]" />
+            )}
           </Button>
-          <Button type="button" variant="ghost" size="icon" className="size-9" onClick={() => ttsController.seekBy(5_000)} title="前进 5 秒">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="size-9"
+            onClick={() => ttsController.seekBy(5_000)}
+            title="前进 5 秒"
+          >
             <FastForward className="size-4" />
           </Button>
           <Popover open={speedOpen} onOpenChange={setSpeedOpen}>
             <PopoverTrigger asChild>
-              <Button type="button" variant="ghost" size="sm" className="h-9 px-2.5 text-sm tabular-nums">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-9 px-2.5 text-sm tabular-nums"
+              >
                 ×{state.speed.toFixed(1)}
               </Button>
             </PopoverTrigger>
@@ -141,8 +202,14 @@ export function TtsPlayBar() {
                   <button
                     key={s}
                     type="button"
-                    onClick={() => { ttsController.setSpeed(s); setSpeedOpen(false); }}
-                    className={cn("rounded px-2 py-1 text-left text-sm tabular-nums hover:bg-muted", Math.abs(s - state.speed) < 0.01 && "bg-primary/10 text-primary")}
+                    onClick={() => {
+                      ttsController.setSpeed(s);
+                      setSpeedOpen(false);
+                    }}
+                    className={cn(
+                      "rounded px-2 py-1 text-left text-sm tabular-nums hover:bg-muted",
+                      Math.abs(s - state.speed) < 0.01 && "bg-primary/10 text-primary",
+                    )}
                   >
                     ×{s.toFixed(1)}
                   </button>
@@ -150,7 +217,14 @@ export function TtsPlayBar() {
               </div>
             </PopoverContent>
           </Popover>
-          <Button type="button" variant="ghost" size="icon" className="size-9" onClick={() => ttsController.stop()} title="停止">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="size-9"
+            onClick={() => ttsController.stop()}
+            title="停止"
+          >
             <X className="size-4" />
           </Button>
         </div>

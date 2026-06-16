@@ -56,12 +56,16 @@ class TtsControllerImpl {
 
   // ── public API ───────────────────────────────────────────────────────────
 
-  getState(): PlaybackState { return this.state; }
+  getState(): PlaybackState {
+    return this.state;
+  }
 
   subscribe(listener: Subscriber): () => void {
     this.subscribers.add(listener);
     listener(this.state);
-    return () => { this.subscribers.delete(listener); };
+    return () => {
+      this.subscribers.delete(listener);
+    };
   }
 
   speak(text: string, ownerKey: string | null = null, flush = true) {
@@ -100,7 +104,12 @@ class TtsControllerImpl {
   pause() {
     if (this.state.status !== "Playing" && this.state.status !== "Buffering") return;
     this.isPaused = true;
-    if (this.audio) try { this.audio.pause(); } catch { /* */ }
+    if (this.audio)
+      try {
+        this.audio.pause();
+      } catch {
+        /* */
+      }
     this.stopPositionUpdates();
     this.updateState({ status: "Paused" });
   }
@@ -109,7 +118,9 @@ class TtsControllerImpl {
     if (this.state.status !== "Paused") return;
     this.isPaused = false;
     if (this.audio && this.audio.readyState >= 2) {
-      this.audio.play().catch(() => { /* */ });
+      this.audio.play().catch(() => {
+        /* */
+      });
       this.startPositionUpdates();
       this.updateState({ status: "Playing" });
     } else {
@@ -212,11 +223,20 @@ class TtsControllerImpl {
     if (this.activePlayReject) {
       const rej = this.activePlayReject;
       this.activePlayReject = null;
-      try { rej(new Error("TTS reset")); } catch { /* */ }
+      try {
+        rej(new Error("TTS reset"));
+      } catch {
+        /* */
+      }
     }
 
     for (const audio of Array.from(this.aliveAudios)) {
-      try { audio.pause(); audio.src = ""; } catch { /* */ }
+      try {
+        audio.pause();
+        audio.src = "";
+      } catch {
+        /* */
+      }
     }
     this.aliveAudios.clear();
     this.audio = null;
@@ -226,7 +246,11 @@ class TtsControllerImpl {
     this.queue = [];
     this.allChunks = [];
     for (const pending of this.cache.values()) {
-      try { pending.abort.abort(); } catch { /* */ }
+      try {
+        pending.abort.abort();
+      } catch {
+        /* */
+      }
     }
     this.cache.clear();
     this.lastPrefetchedIndex = -1;
@@ -291,7 +315,12 @@ class TtsControllerImpl {
       };
 
       this.activePlayReject = (err) => {
-        try { audio.pause(); audio.src = ""; } catch { /* */ }
+        try {
+          audio.pause();
+          audio.src = "";
+        } catch {
+          /* */
+        }
         cleanup();
         reject(err);
       };
@@ -326,7 +355,9 @@ class TtsControllerImpl {
     this.positionInterval = setInterval(() => {
       if (!this.audio) return;
       const pos = this.audio.currentTime * 1000;
-      const dur = Number.isFinite(this.audio.duration) ? this.audio.duration * 1000 : this.state.durationMs;
+      const dur = Number.isFinite(this.audio.duration)
+        ? this.audio.duration * 1000
+        : this.state.durationMs;
       this.updateState({ positionMs: pos, durationMs: dur });
     }, POSITION_POLL_MS);
   }
@@ -345,7 +376,11 @@ class TtsControllerImpl {
 
   private notify() {
     for (const sub of Array.from(this.subscribers)) {
-      try { sub(this.state); } catch { /* */ }
+      try {
+        sub(this.state);
+      } catch {
+        /* */
+      }
     }
   }
 }

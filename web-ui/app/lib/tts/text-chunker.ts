@@ -46,7 +46,10 @@ export class TextChunker {
       // Greedy accumulator — mirrors Kotlin's `fold(mutableListOf<StringBuilder>()) { acc, seg -> ... }`.
       const bucket: string[] = [];
       for (const segment of segments) {
-        if (bucket.length === 0 || bucket[bucket.length - 1].length + segment.length > this.maxChunkLength) {
+        if (
+          bucket.length === 0 ||
+          bucket[bucket.length - 1].length + segment.length > this.maxChunkLength
+        ) {
           bucket.push(segment);
         } else {
           bucket[bucket.length - 1] = bucket[bucket.length - 1] + segment;

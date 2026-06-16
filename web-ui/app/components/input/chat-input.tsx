@@ -90,7 +90,10 @@ const DOCUMENT_UPLOAD_ACCEPT = [
 const ASR_FRAME_SIZE = 4096;
 
 function websocketApiUrl(path: string) {
-  const base = typeof window === "undefined" ? "ws://localhost:8080" : window.location.origin.replace(/^http/i, "ws");
+  const base =
+    typeof window === "undefined"
+      ? "ws://localhost:8080"
+      : window.location.origin.replace(/^http/i, "ws");
   return `${base}/api/${path.replace(/^\/+/, "")}`;
 }
 
@@ -144,7 +147,8 @@ async function detectUploadFile(
   const detected = await fileTypeFromBuffer(buffer);
 
   // 无法识别 magic bytes → 文本文件 → 允许，强制 text/plain 防止 OS MIME 映射污染（如 .ts → video/mp2t）
-  if (!detected) return { allowed: true, mimeType: DOCUMENT_MIME_BY_EXTENSION[extension] ?? "text/plain" };
+  if (!detected)
+    return { allowed: true, mimeType: DOCUMENT_MIME_BY_EXTENSION[extension] ?? "text/plain" };
 
   // 识别为图片 / 视频 / 音频 → 允许，使用 magic bytes 检测到的 MIME
   if (
@@ -177,9 +181,7 @@ async function detectUploadFile(
   return { allowed: false, mimeType: detected.mime };
 }
 
-function toMessagePart(
-  file: UploadFilesResponseDto["files"][number],
-): UIMessagePart {
+function toMessagePart(file: UploadFilesResponseDto["files"][number]): UIMessagePart {
   if (file.mime.startsWith("image/")) {
     return {
       type: "image",
@@ -380,10 +382,8 @@ function ChatInputInner({
 
   const canStop = ready && Boolean(onStop) && isGenerating && !disabled;
   const canSend = ready && !isGenerating && !disabled && !isEmpty;
-  const canUpload =
-    ready && !disabled && !isGenerating && !uploading && !submitting;
-  const canSwitchModel =
-    ready && !disabled && !isGenerating && !uploading && !submitting;
+  const canUpload = ready && !disabled && !isGenerating && !uploading && !submitting;
+  const canSwitchModel = ready && !disabled && !isGenerating && !uploading && !submitting;
   const canUseQuickMessage = ready && !disabled && !uploading && !submitting;
   const canUseAsr = ready && !disabled && !isGenerating && !uploading && !submitting;
   const actionDisabled = submitting || uploading || (!canStop && !canSend);
@@ -439,9 +439,7 @@ function ChatInputInner({
         const skippedFiles = results.filter((r) => !r.allowed);
 
         if (skippedFiles.length > 0) {
-          toast.warning(
-            t("chat.unsupported_file_skipped", { count: skippedFiles.length }),
-          );
+          toast.warning(t("chat.unsupported_file_skipped", { count: skippedFiles.length }));
         }
 
         if (uploadableFiles.length === 0) {
@@ -449,35 +447,32 @@ function ChatInputInner({
         }
 
         const formData = new FormData();
-        const safeFiles = await Promise.all(uploadableFiles.map(async ({ file, mimeType }) => {
-          // 用 magic bytes 检测结果覆盖浏览器的 file.type，修正跨平台 MIME 歧义
-          const safeFile =
-            file.type !== mimeType
-              ? new globalThis.File([file], file.name, { type: mimeType })
-              : file;
-          // Image normalization can throw on corrupt/unsupported images — never let that
-          // abort the whole upload; fall back to the original file.
-          try {
-            return await normalizeImageForModelUpload(safeFile);
-          } catch {
-            return safeFile;
-          }
-        }));
+        const safeFiles = await Promise.all(
+          uploadableFiles.map(async ({ file, mimeType }) => {
+            // 用 magic bytes 检测结果覆盖浏览器的 file.type，修正跨平台 MIME 歧义
+            const safeFile =
+              file.type !== mimeType
+                ? new globalThis.File([file], file.name, { type: mimeType })
+                : file;
+            // Image normalization can throw on corrupt/unsupported images — never let that
+            // abort the whole upload; fall back to the original file.
+            try {
+              return await normalizeImageForModelUpload(safeFile);
+            } catch {
+              return safeFile;
+            }
+          }),
+        );
         safeFiles.forEach((safeFile) => {
           formData.append("files", safeFile, safeFile.name);
         });
 
-        const response = await api.postMultipart<UploadFilesResponseDto>(
-          "files/upload",
-          formData,
-        );
+        const response = await api.postMultipart<UploadFilesResponseDto>("files/upload", formData);
         const parts = response.files.map(toMessagePart);
         onAddParts(parts);
       } catch (uploadError) {
         const message =
-          uploadError instanceof Error
-            ? uploadError.message
-            : t("chat.upload_failed");
+          uploadError instanceof Error ? uploadError.message : t("chat.upload_failed");
         setError(message);
       } finally {
         setUploading(false);
@@ -505,10 +500,7 @@ function ChatInputInner({
         await onSend();
       }
     } catch (submitError) {
-      const message =
-        submitError instanceof Error
-          ? submitError.message
-          : t("chat.send_failed");
+      const message = submitError instanceof Error ? submitError.message : t("chat.send_failed");
       setError(message);
     } finally {
       setSubmitting(false);
@@ -540,7 +532,8 @@ function ChatInputInner({
       toast.success("已优化提示词");
     } catch (err) {
       // 区分超时和其他错误,给更可操作的提示。AbortError/TimeoutError 是 ky 超时抛的。
-      const isTimeout = err instanceof Error && (err.name === "AbortError" || err.name === "TimeoutError");
+      const isTimeout =
+        err instanceof Error && (err.name === "AbortError" || err.name === "TimeoutError");
       toast.error(
         isTimeout
           ? "优化超时,请稍后重试或检查优化模型是否可用"
@@ -608,7 +601,9 @@ function ChatInputInner({
     }
 
     try {
-      const provider = settings.asrProviders?.find((item) => item.id === settings.selectedASRProviderId);
+      const provider = settings.asrProviders?.find(
+        (item) => item.id === settings.selectedASRProviderId,
+      );
       if (!provider) {
         toast.error("请先在设置中配置并选择 ASR 服务");
         return;
@@ -630,24 +625,32 @@ function ChatInputInner({
       const applyTranscript = (transcript: string) => {
         latestTranscript = transcript.trim();
         if (!latestTranscript) return;
-        const prefix = baseText.trim().length > 0 && !baseText.endsWith("\n") ? `${baseText}\n` : baseText;
+        const prefix =
+          baseText.trim().length > 0 && !baseText.endsWith("\n") ? `${baseText}\n` : baseText;
         onValueChange(`${prefix}${latestTranscript}`.trimStart());
         if (error) setError(null);
       };
       socket.onopen = async () => {
         socket.send(JSON.stringify({ type: "start", providerId: provider.id }));
-        const AudioContextCtor = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+        const AudioContextCtor =
+          window.AudioContext ||
+          (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
         const audioContext = new AudioContextCtor();
         const source = audioContext.createMediaStreamSource(stream);
         const processor = audioContext.createScriptProcessor(4096, 1, 1);
         asrAudioContextRef.current = audioContext;
         asrSourceRef.current = source;
         asrProcessorRef.current = processor;
-        const targetSampleRate = Math.max(8000, Number(provider.sampleRate || (provider.type === "openai_realtime" ? 24000 : 16000)));
+        const targetSampleRate = Math.max(
+          8000,
+          Number(provider.sampleRate || (provider.type === "openai_realtime" ? 24000 : 16000)),
+        );
         processor.onaudioprocess = (event) => {
           if (socket.readyState !== WebSocket.OPEN) return;
           const channel = event.inputBuffer.getChannelData(0);
-          const pcmBuffer = floatToPcm16(resampleLinear(channel, audioContext.sampleRate, targetSampleRate));
+          const pcmBuffer = floatToPcm16(
+            resampleLinear(channel, audioContext.sampleRate, targetSampleRate),
+          );
           const chunk = new Int16Array(pcmBuffer);
           asrFrameRef.current.push(chunk);
           asrFrameSamplesRef.current += chunk.length;
@@ -674,7 +677,11 @@ function ChatInputInner({
       };
       socket.onmessage = (event) => {
         if (typeof event.data !== "string") return;
-        const payload = JSON.parse(event.data) as { type?: string; transcript?: string; error?: string };
+        const payload = JSON.parse(event.data) as {
+          type?: string;
+          transcript?: string;
+          error?: string;
+        };
         if (payload.type === "transcript") applyTranscript(payload.transcript ?? "");
         if (payload.type === "error") {
           const message = payload.error || "语音识别失败";
@@ -699,7 +706,16 @@ function ChatInputInner({
       toast.error(message);
       stopAsr();
     }
-  }, [asrListening, canUseAsr, error, onValueChange, releaseAsrResources, settings, stopAsr, value]);
+  }, [
+    asrListening,
+    canUseAsr,
+    error,
+    onValueChange,
+    releaseAsrResources,
+    settings,
+    stopAsr,
+    value,
+  ]);
 
   const handleSuggestionSelect = React.useCallback(
     (suggestion: string) => {
@@ -799,17 +815,14 @@ function ChatInputInner({
     [canUpload, dragActive],
   );
 
-  const handleDragLeave = React.useCallback(
-    (event: React.DragEvent<HTMLDivElement>) => {
-      event.preventDefault();
-      event.stopPropagation();
-      dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
-      if (dragDepthRef.current === 0) {
-        setDragActive(false);
-      }
-    },
-    [],
-  );
+  const handleDragLeave = React.useCallback((event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+    if (dragDepthRef.current === 0) {
+      setDragActive(false);
+    }
+  }, []);
 
   const handleDrop = React.useCallback(
     async (event: React.DragEvent<HTMLDivElement>) => {
@@ -824,12 +837,8 @@ function ChatInputInner({
     [canUpload, uploadFiles],
   );
 
-  const sendHint = sendOnEnter
-    ? t("chat.send_hint_enter")
-    : t("chat.send_hint_newline");
-  const placeholder = ready
-    ? t("chat.placeholder_ready")
-    : t("chat.placeholder_not_ready");
+  const sendHint = sendOnEnter ? t("chat.send_hint_enter") : t("chat.send_hint_newline");
+  const placeholder = ready ? t("chat.placeholder_ready") : t("chat.placeholder_not_ready");
 
   return (
     <div
@@ -855,8 +864,7 @@ function ChatInputInner({
         <div
           className={cn(
             "relative flex flex-col gap-2 rounded-lg border bg-muted/50 p-2 shadow-sm transition-shadow focus-within:shadow-md focus-within:ring-1 focus-within:ring-ring",
-            dragActive &&
-              "border-primary/40 bg-primary/5 ring-2 ring-primary/30",
+            dragActive && "border-primary/40 bg-primary/5 ring-2 ring-primary/30",
           )}
           onDragEnter={handleDragEnter}
           onDragOver={handleDragOver}
@@ -928,18 +936,12 @@ function ChatInputInner({
                     <button
                       className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
                       onClick={async () => {
-                        if (!ready || disabled || isGenerating || submitting)
-                          return;
+                        if (!ready || disabled || isGenerating || submitting) return;
 
                         const fileId = getPartFileId(part);
-                        if (
-                          fileId != null &&
-                          (shouldDeleteFileOnRemove?.(part) ?? true)
-                        ) {
+                        if (fileId != null && (shouldDeleteFileOnRemove?.(part) ?? true)) {
                           try {
-                            await api.delete<{ status: string }>(
-                              `files/${fileId}`,
-                            );
+                            await api.delete<{ status: string }>(`files/${fileId}`);
                           } catch (deleteError) {
                             const message =
                               deleteError instanceof Error
@@ -968,8 +970,8 @@ function ChatInputInner({
             onChange={handleTextChange}
             onKeyDown={handleKeyDown}
             onPaste={(event) => {
-                void handlePaste(event);
-              }}
+              void handlePaste(event);
+            }}
             placeholder={placeholder}
             disabled={!ready || disabled}
             className="resize-none border-0 bg-transparent dark:bg-transparent p-2 text-sm shadow-none focus-visible:ring-0"
@@ -978,10 +980,7 @@ function ChatInputInner({
           />
           <div className="flex items-center justify-between gap-2">
             <div className="flex min-w-0 items-center gap-1">
-              <DropdownMenu
-                open={uploadMenuOpen}
-                onOpenChange={setUploadMenuOpen}
-              >
+              <DropdownMenu open={uploadMenuOpen} onOpenChange={setUploadMenuOpen}>
                 <input
                   ref={fileInputRef}
                   accept={DOCUMENT_UPLOAD_ACCEPT}
@@ -1006,18 +1005,11 @@ function ChatInputInner({
                     className="size-8 rounded-full text-muted-foreground hover:text-foreground"
                   >
                     <Plus
-                      className={cn(
-                        "size-4 transition-transform",
-                        uploadMenuOpen && "rotate-45",
-                      )}
+                      className={cn("size-4 transition-transform", uploadMenuOpen && "rotate-45")}
                     />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent
-                  className="min-w-36"
-                  side="top"
-                  align="start"
-                >
+                <DropdownMenuContent className="min-w-36" side="top" align="start">
                   <DropdownMenuItem
                     onClick={() => {
                       imageInputRef.current?.click();
@@ -1088,7 +1080,11 @@ function ChatInputInner({
                 title={asrListening ? "停止语音识别" : "语音识别"}
                 onClick={toggleAsr}
               >
-                {asrListening ? <LoaderCircle className="size-4 animate-spin" /> : <Mic className="size-4" />}
+                {asrListening ? (
+                  <LoaderCircle className="size-4 animate-spin" />
+                ) : (
+                  <Mic className="size-4" />
+                )}
               </Button>
             </div>
             <div className="relative flex items-center gap-1.5">
@@ -1109,7 +1105,11 @@ function ChatInputInner({
                 className="size-8 rounded-full text-muted-foreground hover:text-foreground"
                 title="优化提示词"
               >
-                {optimizing ? <LoaderCircle className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
+                {optimizing ? (
+                  <LoaderCircle className="size-4 animate-spin" />
+                ) : (
+                  <Sparkles className="size-4" />
+                )}
               </Button>
               {originalBeforeOptimize !== null ? (
                 <Button
@@ -1151,12 +1151,8 @@ function ChatInputInner({
             </div>
           </div>
         </div>
-        <p className="mt-2 text-center text-xs text-muted-foreground">
-          {sendHint}
-        </p>
-        {error ? (
-          <p className="mt-1 text-center text-xs text-destructive">{error}</p>
-        ) : null}
+        <p className="mt-2 text-center text-xs text-muted-foreground">{sendHint}</p>
+        {error ? <p className="mt-1 text-center text-xs text-destructive">{error}</p> : null}
       </div>
     </div>
   );
@@ -1210,9 +1206,7 @@ function QuickMessageButton({
               }}
             >
               <div className="min-w-0">
-                <div className="truncate text-sm font-medium">
-                  {quickMessage.title}
-                </div>
+                <div className="truncate text-sm font-medium">{quickMessage.title}</div>
                 <div className="text-muted-foreground mt-0.5 line-clamp-2 text-xs">
                   {quickMessage.content}
                 </div>

@@ -41,7 +41,13 @@ import { copyTextToClipboard } from "~/lib/clipboard";
 import { convertMessageToMarkdown, downloadMarkdown } from "~/lib/export-markdown";
 import { openExternal } from "~/lib/external-link";
 import { cn } from "~/lib/utils";
-import { getAudioPlaybackKey, playAudio, playSpeechSynthesis, stopAudio, useAudioPlaybackKey } from "~/lib/global-audio";
+import {
+  getAudioPlaybackKey,
+  playAudio,
+  playSpeechSynthesis,
+  stopAudio,
+  useAudioPlaybackKey,
+} from "~/lib/global-audio";
 import { ttsController, useIsTtsActiveForKey } from "~/lib/tts/tts-controller";
 import { Button } from "~/components/ui/button";
 import api from "~/services/api";
@@ -70,7 +76,12 @@ interface ChatMessageProps {
   onDelete?: (messageId: string) => void | Promise<void>;
   onFork?: (messageId: string) => void | Promise<void>;
   onTranslate?: (messageId: string) => void | Promise<void>;
-  onToolApproval?: (toolCallId: string, approved: boolean, reason: string, answer?: string) => void | Promise<void>;
+  onToolApproval?: (
+    toolCallId: string,
+    approved: boolean,
+    reason: string,
+    answer?: string,
+  ) => void | Promise<void>;
 }
 
 function hasRenderablePart(part: UIMessagePart): boolean {
@@ -96,7 +107,9 @@ function messageHasModelCallError(message: MessageDto): boolean {
   if (message.role !== "ASSISTANT") return false;
   return message.parts.some((part) => {
     if (part.type !== "text") return false;
-    return /请求失败|request failed|network error|timeout|模型不存在|model.*not.*found|401|403|404|429|500/i.test(part.text);
+    return /请求失败|request failed|network error|timeout|模型不存在|model.*not.*found|401|403|404|429|500/i.test(
+      part.text,
+    );
   });
 }
 
@@ -105,7 +118,9 @@ function providerIdForMessageModel(
   providers: ProviderProfile[] | undefined,
 ): string | null {
   if (!modelId || !providers) return null;
-  const provider = providers.find((item) => item.models?.some((modelItem) => modelItem.id === modelId || modelItem.modelId === modelId));
+  const provider = providers.find((item) =>
+    item.models?.some((modelItem) => modelItem.id === modelId || modelItem.modelId === modelId),
+  );
   return provider?.id ?? null;
 }
 
@@ -126,8 +141,8 @@ function formatPartForCopy(part: UIMessagePart, t: TFunction): string | null {
       return stripThinkTags(part.text);
     case "image":
       return `[${t("chat_message.copy_image")}] ${part.url}`;
-      // Media references are kept in copy output because the user may want the URL/filename
-      // to paste into a doc; speech output skips them via buildSpeechText.
+    // Media references are kept in copy output because the user may want the URL/filename
+    // to paste into a doc; speech output skips them via buildSpeechText.
     case "video":
       return `[${t("chat_message.copy_video")}] ${part.url}`;
     case "audio":
@@ -154,11 +169,13 @@ function formatPartForCopy(part: UIMessagePart, t: TFunction): string | null {
  * tags. Strip them here so they never leak into copy or speech output.
  */
 function stripThinkTags(text: string): string {
-  return text
-    .replace(/<think\b[^>]*>[\s\S]*?<\/think\s*>/gi, "")
-    // Open tag with no close (truncated stream): drop everything from the open onward.
-    .replace(/<think\b[^>]*>[\s\S]*$/i, "")
-    .trim();
+  return (
+    text
+      .replace(/<think\b[^>]*>[\s\S]*?<\/think\s*>/gi, "")
+      // Open tag with no close (truncated stream): drop everything from the open onward.
+      .replace(/<think\b[^>]*>[\s\S]*$/i, "")
+      .trim()
+  );
 }
 
 function buildCopyText(parts: UIMessagePart[], t: TFunction): string {
@@ -328,13 +345,17 @@ function getNerdStats(
   const contextTokens = usage.promptTokens + usage.completionTokens;
   let context: NerdStatItem | null = null;
   if (contextTokens > 0) {
-    const used = contextTokens >= 1000 ? `${(contextTokens / 1000).toFixed(1)}k` : String(contextTokens);
+    const used =
+      contextTokens >= 1000 ? `${(contextTokens / 1000).toFixed(1)}k` : String(contextTokens);
     const liveValue = liveContextLimit != null && liveContextLimit > 0 ? liveContextLimit : null;
     const snapValue = usage.contextLimit && usage.contextLimit > 0 ? usage.contextLimit : null;
     const limitValue = liveValue ?? snapValue;
-    const limit = limitValue != null
-      ? limitValue >= 1000 ? `${(limitValue / 1000).toFixed(1)}k` : String(limitValue)
-      : null;
+    const limit =
+      limitValue != null
+        ? limitValue >= 1000
+          ? `${(limitValue / 1000).toFixed(1)}k`
+          : String(limitValue)
+        : null;
     context = {
       key: "context",
       icon: <Gauge className="size-3" />,
@@ -382,7 +403,10 @@ function addCitationUrlAlias(map: Map<string, string>, id: string, url: string) 
   });
 }
 
-function buildCitationUrlMap(parts: UIMessagePart[], annotations?: UIMessageAnnotation[]): Map<string, string> {
+function buildCitationUrlMap(
+  parts: UIMessagePart[],
+  annotations?: UIMessageAnnotation[],
+): Map<string, string> {
   const map = new Map<string, string>();
 
   annotations
@@ -395,7 +419,9 @@ function buildCitationUrlMap(parts: UIMessagePart[], annotations?: UIMessageAnno
   parts.forEach((part) => {
     if (part.type !== "tool" || part.toolName !== "search_web") return;
     const outputText = part.output
-      .filter((outputPart): outputPart is { type: "text"; text: string } => outputPart.type === "text")
+      .filter(
+        (outputPart): outputPart is { type: "text"; text: string } => outputPart.type === "text",
+      )
       .map((outputPart) => outputPart.text)
       .join("\n");
     const parsed = parseToolOutputJson(outputText);
@@ -429,7 +455,10 @@ function buildCitationUrlMap(parts: UIMessagePart[], annotations?: UIMessageAnno
  * `url_citation` annotation takes precedence over the same source appearing inside a tool
  * result. A single ordinal is reused if the same id shows up multiple times.
  */
-function buildCitationOrdinalMap(parts: UIMessagePart[], annotations?: UIMessageAnnotation[]): Map<string, number> {
+function buildCitationOrdinalMap(
+  parts: UIMessagePart[],
+  annotations?: UIMessageAnnotation[],
+): Map<string, number> {
   const map = new Map<string, number>();
   let nextOrdinal = 1;
   const assign = (key: string) => {
@@ -452,7 +481,9 @@ function buildCitationOrdinalMap(parts: UIMessagePart[], annotations?: UIMessage
   parts.forEach((part) => {
     if (part.type !== "tool" || part.toolName !== "search_web") return;
     const outputText = part.output
-      .filter((outputPart): outputPart is { type: "text"; text: string } => outputPart.type === "text")
+      .filter(
+        (outputPart): outputPart is { type: "text"; text: string } => outputPart.type === "text",
+      )
       .map((outputPart) => outputPart.text)
       .join("\n");
     const parsed = parseToolOutputJson(outputText);
@@ -478,615 +509,647 @@ function buildCitationOrdinalMap(parts: UIMessagePart[], annotations?: UIMessage
   return map;
 }
 
-const ChatMessageActionsRow = React.memo(({
-  node,
-  message,
-  loading,
-  alignRight,
-  onEdit,
-  onRegenerate,
-  onSelectBranch,
-  onDelete,
-  onFork,
-  onTranslate,
-}: {
-  node: MessageNodeDto;
-  message: MessageDto;
-  loading: boolean;
-  alignRight: boolean;
-  onEdit?: (message: MessageDto) => void | Promise<void>;
-  onRegenerate?: (messageId: string) => void | Promise<void>;
-  onSelectBranch?: (nodeId: string, selectIndex: number) => void | Promise<void>;
-  onDelete?: (messageId: string) => void | Promise<void>;
-  onFork?: (messageId: string) => void | Promise<void>;
-  onTranslate?: (messageId: string) => void | Promise<void>;
-}) => {
-  const { t } = useTranslation("message");
-  const [regenerating, setRegenerating] = React.useState(false);
-  const [translating, setTranslating] = React.useState(false);
-  // `speaking` is now driven by the chunked TtsController (Android-parity, per-chunk billing).
-  // The legacy `useAudioPlaybackKey()` is retained as a fallback for unrelated one-shot
-  // audio plays (e.g. TTS-settings test sample) so their stop/play icons still toggle.
-  const playingKey = useAudioPlaybackKey();
-  const ttsActiveForThis = useIsTtsActiveForKey(message.id);
-  const speaking = ttsActiveForThis || playingKey === message.id;
-  const [switchingBranch, setSwitchingBranch] = React.useState(false);
-  const [deleting, setDeleting] = React.useState(false);
-  const [forking, setForking] = React.useState(false);
-  const [copied, setCopied] = React.useState(false);
-  const copyTimerRef = React.useRef<number | null>(null);
+const ChatMessageActionsRow = React.memo(
+  ({
+    node,
+    message,
+    loading,
+    alignRight,
+    onEdit,
+    onRegenerate,
+    onSelectBranch,
+    onDelete,
+    onFork,
+    onTranslate,
+  }: {
+    node: MessageNodeDto;
+    message: MessageDto;
+    loading: boolean;
+    alignRight: boolean;
+    onEdit?: (message: MessageDto) => void | Promise<void>;
+    onRegenerate?: (messageId: string) => void | Promise<void>;
+    onSelectBranch?: (nodeId: string, selectIndex: number) => void | Promise<void>;
+    onDelete?: (messageId: string) => void | Promise<void>;
+    onFork?: (messageId: string) => void | Promise<void>;
+    onTranslate?: (messageId: string) => void | Promise<void>;
+  }) => {
+    const { t } = useTranslation("message");
+    const [regenerating, setRegenerating] = React.useState(false);
+    const [translating, setTranslating] = React.useState(false);
+    // `speaking` is now driven by the chunked TtsController (Android-parity, per-chunk billing).
+    // The legacy `useAudioPlaybackKey()` is retained as a fallback for unrelated one-shot
+    // audio plays (e.g. TTS-settings test sample) so their stop/play icons still toggle.
+    const playingKey = useAudioPlaybackKey();
+    const ttsActiveForThis = useIsTtsActiveForKey(message.id);
+    const speaking = ttsActiveForThis || playingKey === message.id;
+    const [switchingBranch, setSwitchingBranch] = React.useState(false);
+    const [deleting, setDeleting] = React.useState(false);
+    const [forking, setForking] = React.useState(false);
+    const [copied, setCopied] = React.useState(false);
+    const copyTimerRef = React.useRef<number | null>(null);
 
-  const handleCopy = React.useCallback(async () => {
-    const text = buildCopyText(message.parts, t);
-    if (!text) return;
+    const handleCopy = React.useCallback(async () => {
+      const text = buildCopyText(message.parts, t);
+      if (!text) return;
 
-    try {
-      await copyTextToClipboard(text);
-      setCopied(true);
-      if (copyTimerRef.current != null) window.clearTimeout(copyTimerRef.current);
-      copyTimerRef.current = window.setTimeout(() => setCopied(false), 1400);
-    } catch {
-      // Ignore copy failures to keep action row interaction uninterrupted.
-    }
-  }, [message.parts, t]);
-
-  React.useEffect(() => () => {
-    if (copyTimerRef.current != null) window.clearTimeout(copyTimerRef.current);
-  }, []);
-
-  const handleRegenerate = React.useCallback(async () => {
-    if (!onRegenerate) return;
-
-    if (message.role === "USER") {
-      const confirmed = window.confirm(t("chat_message.regenerate_from_user_confirm"));
-      if (!confirmed) return;
-    }
-
-    setRegenerating(true);
-    try {
-      await onRegenerate(message.id);
-    } finally {
-      setRegenerating(false);
-    }
-  }, [message.id, message.role, onRegenerate, t]);
-
-  const handleSwitchBranch = React.useCallback(
-    async (selectIndex: number) => {
-      if (!onSelectBranch) return;
-      if (selectIndex < 0 || selectIndex > node.messages.length - 1) return;
-      if (selectIndex === node.selectIndex) return;
-
-      setSwitchingBranch(true);
       try {
-        await onSelectBranch(node.id, selectIndex);
-      } finally {
-        setSwitchingBranch(false);
+        await copyTextToClipboard(text);
+        setCopied(true);
+        if (copyTimerRef.current != null) window.clearTimeout(copyTimerRef.current);
+        copyTimerRef.current = window.setTimeout(() => setCopied(false), 1400);
+      } catch {
+        // Ignore copy failures to keep action row interaction uninterrupted.
       }
-    },
-    [node.id, node.messages.length, node.selectIndex, onSelectBranch],
-  );
+    }, [message.parts, t]);
 
-  const handleDelete = React.useCallback(async () => {
-    if (!onDelete) return;
+    React.useEffect(
+      () => () => {
+        if (copyTimerRef.current != null) window.clearTimeout(copyTimerRef.current);
+      },
+      [],
+    );
 
-    const confirmed = window.confirm(t("chat_message.delete_confirm"));
-    if (!confirmed) return;
+    const handleRegenerate = React.useCallback(async () => {
+      if (!onRegenerate) return;
 
-    setDeleting(true);
-    try {
-      await onDelete(message.id);
-    } finally {
-      setDeleting(false);
-    }
-  }, [message.id, onDelete, t]);
+      if (message.role === "USER") {
+        const confirmed = window.confirm(t("chat_message.regenerate_from_user_confirm"));
+        if (!confirmed) return;
+      }
 
-  const handleFork = React.useCallback(async () => {
-    if (!onFork) return;
+      setRegenerating(true);
+      try {
+        await onRegenerate(message.id);
+      } finally {
+        setRegenerating(false);
+      }
+    }, [message.id, message.role, onRegenerate, t]);
 
-    setForking(true);
-    try {
-      await onFork(message.id);
-    } finally {
-      setForking(false);
-    }
-  }, [message.id, onFork]);
+    const handleSwitchBranch = React.useCallback(
+      async (selectIndex: number) => {
+        if (!onSelectBranch) return;
+        if (selectIndex < 0 || selectIndex > node.messages.length - 1) return;
+        if (selectIndex === node.selectIndex) return;
 
-  // When THIS row unmounts, only stop playback if WE were the active speaker. With a
-  // virtualized list this fires whenever the message scrolls out of view; calling
-  // stopAudio() unconditionally would interrupt unrelated playback (e.g. user scrolled
-  // away while message A is being read aloud). We read the latest playback key via
-  // getAudioPlaybackKey() at cleanup time rather than relying on the captured
-  // `playingKey` — the captured value is stale (set when the effect was created, not
-  // when the cleanup fires).
-  React.useEffect(() => {
-    return () => {
-      // Stop the legacy single-blob playback (browser SpeechSynthesis / one-shot Audio)
-      // because that path can't survive a re-render anyway.
-      if (getAudioPlaybackKey() === message.id) stopAudio();
-      // INTENTIONALLY do NOT tear down ttsController here. The chunked playback singleton
-      // lives at app scope and the floating TtsPlayBar is the user's "stop" control.
-      // Tearing it down on row unmount caused two user-visible bugs:
-      //   - the last chunk of a long message would get cut off when the virtualized list
-      //     scrolled the row off-screen mid-playback
-      //   - switching to another conversation killed playback the user wanted to keep
-      // The bar stays visible regardless of which row is mounted; users explicitly stop
-      // via its ✕ button.
-    };
-  }, [message.id]);
+        setSwitchingBranch(true);
+        try {
+          await onSelectBranch(node.id, selectIndex);
+        } finally {
+          setSwitchingBranch(false);
+        }
+      },
+      [node.id, node.messages.length, node.selectIndex, onSelectBranch],
+    );
 
-  const handleSpeak = React.useCallback(async () => {
-    // Toggle: if THIS message is currently playing, stop the chunked controller and bail.
-    if (speaking) {
-      ttsController.stop();
-      // Also kill any legacy single-blob playback that might be live for this message
-      // (e.g. SpeechSynthesis fallback from a previous failed attempt).
-      stopAudio();
-      return;
-    }
-    // buildSpeechText (not buildCopyText) so the reasoning chain is skipped — users want to
-    // hear the answer, not the model's internal scratchpad.
-    const text = buildSpeechText(message.parts);
-    if (!text) return;
-    // Hand off to the chunked controller. It will:
-    //   1. split the text via TextChunker (≤160 chars, paragraph/punctuation aware)
-    //   2. prefetch up to 4 chunks ahead via /api/tts/speech (one HTTP call per chunk)
-    //   3. play them in order through HTMLAudioElement, surface state via the play-bar
-    // If the user pauses or stops mid-stream, only the chunks already in flight are billed.
-    // Per-chunk cache keeps re-plays free.
-    ttsController.speak(text, message.id, true);
-    // Note: we no longer fall back to window.speechSynthesis here. A synthesis failure
-    // surfaces via ttsController's PlaybackState.errorMessage which the play-bar reads;
-    // forcing a parallel SpeechSynthesis stream on failure would just talk over the
-    // controller-driven retry.
-  }, [message.id, message.parts, speaking]);
+    const handleDelete = React.useCallback(async () => {
+      if (!onDelete) return;
 
-  const handleTranslate = React.useCallback(async () => {
-    if (!onTranslate || translating) return;
-    setTranslating(true);
-    try {
-      await onTranslate(message.id);
-    } finally {
-      setTranslating(false);
-    }
-  }, [message.id, onTranslate, translating]);
+      const confirmed = window.confirm(t("chat_message.delete_confirm"));
+      if (!confirmed) return;
 
-  const canSwitchBranch = Boolean(onSelectBranch) && node.messages.length > 1;
-  const canEdit =
-    Boolean(onEdit) &&
-    (message.role === "USER" || message.role === "ASSISTANT") &&
-    hasEditableContent(message.parts);
-  const actionDisabled = loading || switchingBranch || regenerating || deleting || forking;
-  const actionButtonClass = "transition-all hover:shadow-sm active:shadow-inner";
+      setDeleting(true);
+      try {
+        await onDelete(message.id);
+      } finally {
+        setDeleting(false);
+      }
+    }, [message.id, onDelete, t]);
 
-  return (
-    <div
-      className={cn(
-        "flex w-full items-center gap-1 px-1",
-        alignRight ? "justify-end" : "justify-start",
-      )}
-    >
-      <Button
-        aria-label={t("chat_message.copy_message")}
-        disabled={actionDisabled}
-        className={actionButtonClass}
-        onClick={() => {
-          void handleCopy();
-        }}
-        size="icon-xs"
-        title={copied ? t("chat_message.copied", "已复制") : t("chat_message.copy")}
-        type="button"
-        variant="ghost"
-      >
-        {copied ? <Check className="size-3.5 text-emerald-500" /> : <Copy className="size-3.5" />}
-      </Button>
+    const handleFork = React.useCallback(async () => {
+      if (!onFork) return;
 
-      {canEdit && (
-        <Button
-          aria-label={t("chat_message.edit_message")}
-          disabled={actionDisabled}
-          className={actionButtonClass}
-          onClick={() => {
-            void onEdit?.(message);
-          }}
-          size="icon-xs"
-          title={t("chat_message.edit")}
-          type="button"
-          variant="ghost"
-        >
-          <Pencil className="size-3.5" />
-        </Button>
-      )}
+      setForking(true);
+      try {
+        await onFork(message.id);
+      } finally {
+        setForking(false);
+      }
+    }, [message.id, onFork]);
 
-      {onRegenerate && (
-        <Button
-          aria-label={t("chat_message.regenerate")}
-          disabled={actionDisabled}
-          className={actionButtonClass}
-          onClick={() => {
-            void handleRegenerate();
-          }}
-          size="icon-xs"
-          title={t("chat_message.regenerate")}
-          type="button"
-          variant="ghost"
-        >
-          <RefreshCw className={cn("size-3.5", regenerating && "animate-spin")} />
-        </Button>
-      )}
+    // When THIS row unmounts, only stop playback if WE were the active speaker. With a
+    // virtualized list this fires whenever the message scrolls out of view; calling
+    // stopAudio() unconditionally would interrupt unrelated playback (e.g. user scrolled
+    // away while message A is being read aloud). We read the latest playback key via
+    // getAudioPlaybackKey() at cleanup time rather than relying on the captured
+    // `playingKey` — the captured value is stale (set when the effect was created, not
+    // when the cleanup fires).
+    React.useEffect(() => {
+      return () => {
+        // Stop the legacy single-blob playback (browser SpeechSynthesis / one-shot Audio)
+        // because that path can't survive a re-render anyway.
+        if (getAudioPlaybackKey() === message.id) stopAudio();
+        // INTENTIONALLY do NOT tear down ttsController here. The chunked playback singleton
+        // lives at app scope and the floating TtsPlayBar is the user's "stop" control.
+        // Tearing it down on row unmount caused two user-visible bugs:
+        //   - the last chunk of a long message would get cut off when the virtualized list
+        //     scrolled the row off-screen mid-playback
+        //   - switching to another conversation killed playback the user wanted to keep
+        // The bar stays visible regardless of which row is mounted; users explicitly stop
+        // via its ✕ button.
+      };
+    }, [message.id]);
 
-      {message.role === "ASSISTANT" && (
-        <>
-          <Button
-            aria-label={speaking ? t("chat_message.stop_reading") : t("chat_message.read_aloud")}
-            disabled={actionDisabled}
-            className={actionButtonClass}
-            onClick={handleSpeak}
-            size="icon-xs"
-            title={speaking ? t("chat_message.stop_reading") : t("chat_message.read_aloud")}
-            type="button"
-            variant="ghost"
-          >
-            {speaking ? <VolumeX className="size-3.5" /> : <Volume2 className="size-3.5" />}
-          </Button>
-          <Button
-            aria-label={t("chat_message.translate")}
-            disabled={actionDisabled || translating}
-            className={actionButtonClass}
-            onClick={() => {
-              void handleTranslate();
-            }}
-            size="icon-xs"
-            title={translating ? t("chat_message.translating") : t("chat_message.translate")}
-            type="button"
-            variant="ghost"
-          >
-            <Languages className={cn("size-3.5", translating && "animate-pulse")} />
-          </Button>
-        </>
-      )}
+    const handleSpeak = React.useCallback(async () => {
+      // Toggle: if THIS message is currently playing, stop the chunked controller and bail.
+      if (speaking) {
+        ttsController.stop();
+        // Also kill any legacy single-blob playback that might be live for this message
+        // (e.g. SpeechSynthesis fallback from a previous failed attempt).
+        stopAudio();
+        return;
+      }
+      // buildSpeechText (not buildCopyText) so the reasoning chain is skipped — users want to
+      // hear the answer, not the model's internal scratchpad.
+      const text = buildSpeechText(message.parts);
+      if (!text) return;
+      // Hand off to the chunked controller. It will:
+      //   1. split the text via TextChunker (≤160 chars, paragraph/punctuation aware)
+      //   2. prefetch up to 4 chunks ahead via /api/tts/speech (one HTTP call per chunk)
+      //   3. play them in order through HTMLAudioElement, surface state via the play-bar
+      // If the user pauses or stops mid-stream, only the chunks already in flight are billed.
+      // Per-chunk cache keeps re-plays free.
+      ttsController.speak(text, message.id, true);
+      // Note: we no longer fall back to window.speechSynthesis here. A synthesis failure
+      // surfaces via ttsController's PlaybackState.errorMessage which the play-bar reads;
+      // forcing a parallel SpeechSynthesis stream on failure would just talk over the
+      // controller-driven retry.
+    }, [message.id, message.parts, speaking]);
 
-      {canSwitchBranch && (
-        <>
-          <Button
-            aria-label={t("chat_message.previous_branch")}
-            disabled={actionDisabled || node.selectIndex <= 0}
-            className={actionButtonClass}
-            onClick={() => {
-              void handleSwitchBranch(node.selectIndex - 1);
-            }}
-            size="icon-xs"
-            title={t("chat_message.previous_branch")}
-            type="button"
-            variant="ghost"
-          >
-            <ChevronLeft className="size-3.5" />
-          </Button>
-          <span className="text-[11px] text-muted-foreground">
-            {node.selectIndex + 1}/{node.messages.length}
-          </span>
-          <Button
-            aria-label={t("chat_message.next_branch")}
-            disabled={actionDisabled || node.selectIndex >= node.messages.length - 1}
-            className={actionButtonClass}
-            onClick={() => {
-              void handleSwitchBranch(node.selectIndex + 1);
-            }}
-            size="icon-xs"
-            title={t("chat_message.next_branch")}
-            type="button"
-            variant="ghost"
-          >
-            <ChevronRight className="size-3.5" />
-          </Button>
-        </>
-      )}
+    const handleTranslate = React.useCallback(async () => {
+      if (!onTranslate || translating) return;
+      setTranslating(true);
+      try {
+        await onTranslate(message.id);
+      } finally {
+        setTranslating(false);
+      }
+    }, [message.id, onTranslate, translating]);
 
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            aria-label={t("chat_message.more_actions")}
-            disabled={actionDisabled}
-            className={actionButtonClass}
-            size="icon-xs"
-            title={t("chat_message.more_actions")}
-            type="button"
-            variant="ghost"
-          >
-            <Ellipsis className="size-3.5" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align={alignRight ? "end" : "start"}>
-          <DropdownMenuItem
-            onSelect={() => {
-              const content = convertMessageToMarkdown(message, false);
-              downloadMarkdown(content, `message-${message.id}.md`);
-            }}
-          >
-            <FileDown className="size-3.5" />
-            {t("chat_message.export_markdown")}
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            onSelect={() => {
-              const content = convertMessageToMarkdown(message, true);
-              downloadMarkdown(content, `message-${message.id}.md`);
-            }}
-          >
-            <FileDown className="size-3.5" />
-            {t("chat_message.export_markdown_with_reasoning")}
-          </DropdownMenuItem>
-          {onFork && (
-            <DropdownMenuItem
-              disabled={actionDisabled}
-              onSelect={() => {
-                void handleFork();
-              }}
-            >
-              <GitFork className="size-3.5" />
-              {t("chat_message.create_fork")}
-            </DropdownMenuItem>
-          )}
-          <DropdownMenuItem
-            onSelect={() => {
-              const text = buildCopyText(message.parts, t);
-              void copyTextToClipboard(text)
-                .then(() => toast.success(t("chat_message.share_copied", "已复制，可粘贴到微信或其他应用")))
-                .catch((error) => toast.error(error instanceof Error ? error.message : t("chat_message.copy_failed", "复制失败")));
-            }}
-          >
-            <Share2 className="size-3.5" />
-            {t("chat_message.share")}
-          </DropdownMenuItem>
-          {onDelete && (
-            <DropdownMenuItem
-              variant="destructive"
-              disabled={actionDisabled}
-              onSelect={() => {
-                void handleDelete();
-              }}
-            >
-              <Trash2 className="size-3.5" />
-              {t("chat_message.delete")}
-            </DropdownMenuItem>
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
-  );
-});
+    const canSwitchBranch = Boolean(onSelectBranch) && node.messages.length > 1;
+    const canEdit =
+      Boolean(onEdit) &&
+      (message.role === "USER" || message.role === "ASSISTANT") &&
+      hasEditableContent(message.parts);
+    const actionDisabled = loading || switchingBranch || regenerating || deleting || forking;
+    const actionButtonClass = "transition-all hover:shadow-sm active:shadow-inner";
 
-const ChatMessageNerdLineRow = React.memo(({
-  message,
-  alignRight,
-}: {
-  message: MessageDto;
-  alignRight: boolean;
-}) => {
-  const { t } = useTranslation("message");
-  const displaySetting = useSettingsStore((state) => state.settings?.displaySetting);
-  // 分母跟随当前选中模型:切模型时这条统计行的分母立即更新(产品意图是"当下决策依据",
-  // 而非"生成时的历史快照")。loading/查不到时 getNerdStats 内部回退到 usage.contextLimit。
-  const liveContextLimit = useCurrentContextLimit();
-
-  if (!displaySetting?.showTokenUsage || !message.usage) {
-    return null;
-  }
-
-  const { items, context } = getNerdStats(message.usage, message.createdAt, message.finishedAt, t, liveContextLimit);
-  if (items.length === 0 && !context) return null;
-
-  const renderStat = (item: { key: string; icon: React.ReactNode; label: string }) => (
-    <div key={item.key} className="inline-flex items-center gap-1">
-      {item.icon}
-      <span>{item.label}</span>
-    </div>
-  );
-
-  // 上下文占用单独推到行尾右对齐,与 token / 速度 / 时长那组左对齐分开 —— 更易扫读"还剩多少额度"。
-  // 无上下文项时(items 有但 context 为空)退化为单组,保持 alignRight 的左右贴边行为。
-  if (!context) {
     return (
       <div
         className={cn(
-          "flex w-full flex-wrap items-center gap-x-3 gap-y-1 px-1 text-[11px] text-muted-foreground/50",
+          "flex w-full items-center gap-1 px-1",
           alignRight ? "justify-end" : "justify-start",
         )}
       >
-        {items.map(renderStat)}
+        <Button
+          aria-label={t("chat_message.copy_message")}
+          disabled={actionDisabled}
+          className={actionButtonClass}
+          onClick={() => {
+            void handleCopy();
+          }}
+          size="icon-xs"
+          title={copied ? t("chat_message.copied", "已复制") : t("chat_message.copy")}
+          type="button"
+          variant="ghost"
+        >
+          {copied ? <Check className="size-3.5 text-emerald-500" /> : <Copy className="size-3.5" />}
+        </Button>
+
+        {canEdit && (
+          <Button
+            aria-label={t("chat_message.edit_message")}
+            disabled={actionDisabled}
+            className={actionButtonClass}
+            onClick={() => {
+              void onEdit?.(message);
+            }}
+            size="icon-xs"
+            title={t("chat_message.edit")}
+            type="button"
+            variant="ghost"
+          >
+            <Pencil className="size-3.5" />
+          </Button>
+        )}
+
+        {onRegenerate && (
+          <Button
+            aria-label={t("chat_message.regenerate")}
+            disabled={actionDisabled}
+            className={actionButtonClass}
+            onClick={() => {
+              void handleRegenerate();
+            }}
+            size="icon-xs"
+            title={t("chat_message.regenerate")}
+            type="button"
+            variant="ghost"
+          >
+            <RefreshCw className={cn("size-3.5", regenerating && "animate-spin")} />
+          </Button>
+        )}
+
+        {message.role === "ASSISTANT" && (
+          <>
+            <Button
+              aria-label={speaking ? t("chat_message.stop_reading") : t("chat_message.read_aloud")}
+              disabled={actionDisabled}
+              className={actionButtonClass}
+              onClick={handleSpeak}
+              size="icon-xs"
+              title={speaking ? t("chat_message.stop_reading") : t("chat_message.read_aloud")}
+              type="button"
+              variant="ghost"
+            >
+              {speaking ? <VolumeX className="size-3.5" /> : <Volume2 className="size-3.5" />}
+            </Button>
+            <Button
+              aria-label={t("chat_message.translate")}
+              disabled={actionDisabled || translating}
+              className={actionButtonClass}
+              onClick={() => {
+                void handleTranslate();
+              }}
+              size="icon-xs"
+              title={translating ? t("chat_message.translating") : t("chat_message.translate")}
+              type="button"
+              variant="ghost"
+            >
+              <Languages className={cn("size-3.5", translating && "animate-pulse")} />
+            </Button>
+          </>
+        )}
+
+        {canSwitchBranch && (
+          <>
+            <Button
+              aria-label={t("chat_message.previous_branch")}
+              disabled={actionDisabled || node.selectIndex <= 0}
+              className={actionButtonClass}
+              onClick={() => {
+                void handleSwitchBranch(node.selectIndex - 1);
+              }}
+              size="icon-xs"
+              title={t("chat_message.previous_branch")}
+              type="button"
+              variant="ghost"
+            >
+              <ChevronLeft className="size-3.5" />
+            </Button>
+            <span className="text-[11px] text-muted-foreground">
+              {node.selectIndex + 1}/{node.messages.length}
+            </span>
+            <Button
+              aria-label={t("chat_message.next_branch")}
+              disabled={actionDisabled || node.selectIndex >= node.messages.length - 1}
+              className={actionButtonClass}
+              onClick={() => {
+                void handleSwitchBranch(node.selectIndex + 1);
+              }}
+              size="icon-xs"
+              title={t("chat_message.next_branch")}
+              type="button"
+              variant="ghost"
+            >
+              <ChevronRight className="size-3.5" />
+            </Button>
+          </>
+        )}
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              aria-label={t("chat_message.more_actions")}
+              disabled={actionDisabled}
+              className={actionButtonClass}
+              size="icon-xs"
+              title={t("chat_message.more_actions")}
+              type="button"
+              variant="ghost"
+            >
+              <Ellipsis className="size-3.5" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align={alignRight ? "end" : "start"}>
+            <DropdownMenuItem
+              onSelect={() => {
+                const content = convertMessageToMarkdown(message, false);
+                downloadMarkdown(content, `message-${message.id}.md`);
+              }}
+            >
+              <FileDown className="size-3.5" />
+              {t("chat_message.export_markdown")}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={() => {
+                const content = convertMessageToMarkdown(message, true);
+                downloadMarkdown(content, `message-${message.id}.md`);
+              }}
+            >
+              <FileDown className="size-3.5" />
+              {t("chat_message.export_markdown_with_reasoning")}
+            </DropdownMenuItem>
+            {onFork && (
+              <DropdownMenuItem
+                disabled={actionDisabled}
+                onSelect={() => {
+                  void handleFork();
+                }}
+              >
+                <GitFork className="size-3.5" />
+                {t("chat_message.create_fork")}
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem
+              onSelect={() => {
+                const text = buildCopyText(message.parts, t);
+                void copyTextToClipboard(text)
+                  .then(() =>
+                    toast.success(t("chat_message.share_copied", "已复制，可粘贴到微信或其他应用")),
+                  )
+                  .catch((error) =>
+                    toast.error(
+                      error instanceof Error
+                        ? error.message
+                        : t("chat_message.copy_failed", "复制失败"),
+                    ),
+                  );
+              }}
+            >
+              <Share2 className="size-3.5" />
+              {t("chat_message.share")}
+            </DropdownMenuItem>
+            {onDelete && (
+              <DropdownMenuItem
+                variant="destructive"
+                disabled={actionDisabled}
+                onSelect={() => {
+                  void handleDelete();
+                }}
+              >
+                <Trash2 className="size-3.5" />
+                {t("chat_message.delete")}
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     );
-  }
+  },
+);
 
-  return (
-    <div className="flex w-full flex-wrap items-center justify-between gap-x-3 gap-y-1 px-1 text-[11px] text-muted-foreground/50">
-      <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
-        {items.map(renderStat)}
+const ChatMessageNerdLineRow = React.memo(
+  ({ message, alignRight }: { message: MessageDto; alignRight: boolean }) => {
+    const { t } = useTranslation("message");
+    const displaySetting = useSettingsStore((state) => state.settings?.displaySetting);
+    // 分母跟随当前选中模型:切模型时这条统计行的分母立即更新(产品意图是"当下决策依据",
+    // 而非"生成时的历史快照")。loading/查不到时 getNerdStats 内部回退到 usage.contextLimit。
+    const liveContextLimit = useCurrentContextLimit();
+
+    if (!displaySetting?.showTokenUsage || !message.usage) {
+      return null;
+    }
+
+    const { items, context } = getNerdStats(
+      message.usage,
+      message.createdAt,
+      message.finishedAt,
+      t,
+      liveContextLimit,
+    );
+    if (items.length === 0 && !context) return null;
+
+    const renderStat = (item: { key: string; icon: React.ReactNode; label: string }) => (
+      <div key={item.key} className="inline-flex items-center gap-1">
+        {item.icon}
+        <span>{item.label}</span>
       </div>
-      {renderStat(context)}
-    </div>
-  );
-});
+    );
 
-export const ChatMessage = React.memo(({
-  node,
-  message,
-  loading = false,
-  isLastMessage = false,
-  assistant,
-  model,
-  onEdit,
-  onRegenerate,
-  onSelectBranch,
-  onDelete,
-  onFork,
-  onTranslate,
-  onToolApproval,
-}: ChatMessageProps) => {
-  const isUser = message.role === "USER";
-  const providers = useSettingsStore((state) => state.settings?.providers);
-  const displaySetting = useSettingsStore((state) => state.settings?.displaySetting);
-  const hasMessageContent = message.parts.some(hasRenderablePart);
-  const hasModelCallError = messageHasModelCallError(message);
-  const modelProviderId = providerIdForMessageModel(message.modelId, providers);
-  const providerModelId = providerModelIdForMessageModel(message.modelId, providers);
-  const modelSettingsHref = modelProviderId
-    ? `/settings?section=providers&providerId=${encodeURIComponent(modelProviderId)}${providerModelId ? `&modelId=${encodeURIComponent(providerModelId)}` : ""}`
-    : "/settings?section=providers";
-  const showActions = isLastMessage ? !loading : hasMessageContent;
-  const showAssistantBubble = !isUser && displaySetting?.showAssistantBubble === true;
-  const citationUrlMap = React.useMemo(
-    () => buildCitationUrlMap(message.parts, message.annotations),
-    [message.annotations, message.parts],
-  );
-  const citationOrdinalMap = React.useMemo(
-    () => buildCitationOrdinalMap(message.parts, message.annotations),
-    [message.annotations, message.parts],
-  );
-  const handleClickCitation = React.useCallback(
-    (citationId: string) => {
-      const normalized = citationId.trim();
-      const url =
-        citationUrlMap.get(normalized) ??
-        citationUrlMap.get(normalized.replace(/^s/i, "")) ??
-        citationUrlMap.get(normalized.match(/\d+/)?.[0] ?? "");
-      if (!url || typeof window === "undefined") return;
-      void openExternal(url);
-    },
-    [citationUrlMap],
-  );
+    // 上下文占用单独推到行尾右对齐,与 token / 速度 / 时长那组左对齐分开 —— 更易扫读"还剩多少额度"。
+    // 无上下文项时(items 有但 context 为空)退化为单组,保持 alignRight 的左右贴边行为。
+    if (!context) {
+      return (
+        <div
+          className={cn(
+            "flex w-full flex-wrap items-center gap-x-3 gap-y-1 px-1 text-[11px] text-muted-foreground/50",
+            alignRight ? "justify-end" : "justify-start",
+          )}
+        >
+          {items.map(renderStat)}
+        </div>
+      );
+    }
 
-  return (
-    <div
-      className={cn("flex flex-col gap-4", isUser ? "items-end" : "items-start")}
-      data-message-role={message.role.toLowerCase()}
-      data-message-loading={loading || undefined}
-    >
-      <div className="flex w-full flex-col gap-2">
-        <ChatMessageAvatarRow
-          message={message}
-          hasMessageContent={hasMessageContent}
-          loading={loading}
-          assistant={assistant}
-          model={model}
-        />
+    return (
+      <div className="flex w-full flex-wrap items-center justify-between gap-x-3 gap-y-1 px-1 text-[11px] text-muted-foreground/50">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+          {items.map(renderStat)}
+        </div>
+        {renderStat(context)}
+      </div>
+    );
+  },
+);
 
-        <div className={cn("flex w-full", isUser ? "justify-end" : "justify-start")}>
-          <div
-            data-message-bubble
-            className={cn(
-              "flex flex-col gap-2 text-sm leading-6",
-              isUser
-                ? "max-w-[85%] rounded-2xl bg-muted px-4 py-3 shadow-sm ring-1 ring-border/40"
-                : showAssistantBubble
-                  ? "w-fit max-w-[92%] rounded-2xl border border-border/70 bg-muted/55 px-3 py-2 shadow-sm"
-                  : "w-full",
-            )}
-          >
-            <MessageParts
-              parts={message.parts}
-              loading={loading}
-              assistant={assistant}
-              role={message.role as "USER" | "ASSISTANT" | "SYSTEM" | "TOOL"}
-              onToolApproval={onToolApproval}
-              onClickCitation={handleClickCitation}
-              citationOrdinalMap={citationOrdinalMap}
-            />
+export const ChatMessage = React.memo(
+  ({
+    node,
+    message,
+    loading = false,
+    isLastMessage = false,
+    assistant,
+    model,
+    onEdit,
+    onRegenerate,
+    onSelectBranch,
+    onDelete,
+    onFork,
+    onTranslate,
+    onToolApproval,
+  }: ChatMessageProps) => {
+    const isUser = message.role === "USER";
+    const providers = useSettingsStore((state) => state.settings?.providers);
+    const displaySetting = useSettingsStore((state) => state.settings?.displaySetting);
+    const hasMessageContent = message.parts.some(hasRenderablePart);
+    const hasModelCallError = messageHasModelCallError(message);
+    const modelProviderId = providerIdForMessageModel(message.modelId, providers);
+    const providerModelId = providerModelIdForMessageModel(message.modelId, providers);
+    const modelSettingsHref = modelProviderId
+      ? `/settings?section=providers&providerId=${encodeURIComponent(modelProviderId)}${providerModelId ? `&modelId=${encodeURIComponent(providerModelId)}` : ""}`
+      : "/settings?section=providers";
+    const showActions = isLastMessage ? !loading : hasMessageContent;
+    const showAssistantBubble = !isUser && displaySetting?.showAssistantBubble === true;
+    const citationUrlMap = React.useMemo(
+      () => buildCitationUrlMap(message.parts, message.annotations),
+      [message.annotations, message.parts],
+    );
+    const citationOrdinalMap = React.useMemo(
+      () => buildCitationOrdinalMap(message.parts, message.annotations),
+      [message.annotations, message.parts],
+    );
+    const handleClickCitation = React.useCallback(
+      (citationId: string) => {
+        const normalized = citationId.trim();
+        const url =
+          citationUrlMap.get(normalized) ??
+          citationUrlMap.get(normalized.replace(/^s/i, "")) ??
+          citationUrlMap.get(normalized.match(/\d+/)?.[0] ?? "");
+        if (!url || typeof window === "undefined") return;
+        void openExternal(url);
+      },
+      [citationUrlMap],
+    );
+
+    return (
+      <div
+        className={cn("flex flex-col gap-4", isUser ? "items-end" : "items-start")}
+        data-message-role={message.role.toLowerCase()}
+        data-message-loading={loading || undefined}
+      >
+        <div className="flex w-full flex-col gap-2">
+          <ChatMessageAvatarRow
+            message={message}
+            hasMessageContent={hasMessageContent}
+            loading={loading}
+            assistant={assistant}
+            model={model}
+          />
+
+          <div className={cn("flex w-full", isUser ? "justify-end" : "justify-start")}>
+            <div
+              data-message-bubble
+              className={cn(
+                "flex flex-col gap-2 text-sm leading-6",
+                isUser
+                  ? "max-w-[85%] rounded-2xl bg-muted px-4 py-3 shadow-sm ring-1 ring-border/40"
+                  : showAssistantBubble
+                    ? "w-fit max-w-[92%] rounded-2xl border border-border/70 bg-muted/55 px-3 py-2 shadow-sm"
+                    : "w-full",
+              )}
+            >
+              <MessageParts
+                parts={message.parts}
+                loading={loading}
+                assistant={assistant}
+                role={message.role as "USER" | "ASSISTANT" | "SYSTEM" | "TOOL"}
+                onToolApproval={onToolApproval}
+                onClickCitation={handleClickCitation}
+                citationOrdinalMap={citationOrdinalMap}
+              />
+            </div>
           </div>
         </div>
-      </div>
 
-      {showActions && (
-        <div data-message-actions>
-          <ChatMessageActionsRow
-            node={node}
-            message={message}
-            loading={loading}
+        {showActions && (
+          <div data-message-actions>
+            <ChatMessageActionsRow
+              node={node}
+              message={message}
+              loading={loading}
+              alignRight={isUser}
+              onEdit={onEdit}
+              onRegenerate={onRegenerate}
+              onSelectBranch={onSelectBranch}
+              onDelete={onDelete}
+              onFork={onFork}
+              onTranslate={onTranslate}
+            />
+          </div>
+        )}
+
+        {hasModelCallError ? (
+          <a
+            className="mx-1 inline-flex items-center gap-1 rounded-md border bg-card px-2 py-1 text-xs text-primary shadow-sm transition hover:bg-accent"
+            href={modelSettingsHref}
+          >
+            <Zap className="size-3.5" />
+            打开模型设置
+          </a>
+        ) : null}
+
+        <ChatMessageAnnotationsRow annotations={message.annotations} alignRight={isUser} />
+
+        {message.translation ? (
+          <TranslationBlock
+            content={message.translation}
             alignRight={isUser}
-            onEdit={onEdit}
-            onRegenerate={onRegenerate}
-            onSelectBranch={onSelectBranch}
-            onDelete={onDelete}
-            onFork={onFork}
-            onTranslate={onTranslate}
+            onClickCitation={handleClickCitation}
+            citationOrdinalMap={citationOrdinalMap}
           />
-        </div>
-      )}
+        ) : null}
 
-      {hasModelCallError ? (
-        <a
-          className="mx-1 inline-flex items-center gap-1 rounded-md border bg-card px-2 py-1 text-xs text-primary shadow-sm transition hover:bg-accent"
-          href={modelSettingsHref}
-        >
-          <Zap className="size-3.5" />
-          打开模型设置
-        </a>
-      ) : null}
-
-      <ChatMessageAnnotationsRow annotations={message.annotations} alignRight={isUser} />
-
-      {message.translation ? (
-        <TranslationBlock
-          content={message.translation}
-          alignRight={isUser}
-          onClickCitation={handleClickCitation}
-          citationOrdinalMap={citationOrdinalMap}
-        />
-      ) : null}
-
-      <ChatMessageNerdLineRow message={message} alignRight={isUser} />
-    </div>
-  );
-});
-
-const TranslationBlock = React.memo(({
-  content,
-  alignRight,
-  onClickCitation,
-  citationOrdinalMap,
-}: {
-  content: string;
-  alignRight: boolean;
-  onClickCitation: (citationId: string) => void;
-  citationOrdinalMap?: Map<string, number>;
-}) => {
-  const [collapsed, setCollapsed] = React.useState(false);
-  const isLoading = content.trim() === "" || content.trim() === "正在翻译...";
-
-  return (
-    <div className={cn("w-full px-1", alignRight ? "text-right" : "text-left")}>
-      <div className="my-1 h-px w-full bg-border/70" />
-      <div className={cn("flex items-center gap-2 py-1", alignRight ? "justify-end" : "justify-start")}>
-        <Languages className="size-4 text-primary" />
-        <button
-          type="button"
-          className="text-sm font-semibold text-primary"
-          onClick={() => setCollapsed((current) => !current)}
-        >
-          译文
-        </button>
-        <Button
-          type="button"
-          size="icon-xs"
-          variant="ghost"
-          onClick={() => setCollapsed((current) => !current)}
-          aria-label={collapsed ? "展开译文" : "收起译文"}
-          title={collapsed ? "展开译文" : "收起译文"}
-        >
-          {collapsed ? <ArrowDown className="size-3.5" /> : <ArrowUp className="size-3.5" />}
-        </Button>
+        <ChatMessageNerdLineRow message={message} alignRight={isUser} />
       </div>
-      {!collapsed && (
-        <div data-message-bubble className="rounded-md border bg-muted/40 px-3 py-2 text-left text-sm">
-          {isLoading ? (
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <span className="size-3.5 animate-spin rounded-full border-2 border-primary/30 border-t-primary" />
-              正在翻译...
-            </div>
-          ) : null}
-          {content.trim() && content.trim() !== "正在翻译..." ? (
-            <Markdown content={content} className="message-markdown" onClickCitation={onClickCitation} citationOrdinalMap={citationOrdinalMap} />
-          ) : null}
+    );
+  },
+);
+
+const TranslationBlock = React.memo(
+  ({
+    content,
+    alignRight,
+    onClickCitation,
+    citationOrdinalMap,
+  }: {
+    content: string;
+    alignRight: boolean;
+    onClickCitation: (citationId: string) => void;
+    citationOrdinalMap?: Map<string, number>;
+  }) => {
+    const [collapsed, setCollapsed] = React.useState(false);
+    const isLoading = content.trim() === "" || content.trim() === "正在翻译...";
+
+    return (
+      <div className={cn("w-full px-1", alignRight ? "text-right" : "text-left")}>
+        <div className="my-1 h-px w-full bg-border/70" />
+        <div
+          className={cn(
+            "flex items-center gap-2 py-1",
+            alignRight ? "justify-end" : "justify-start",
+          )}
+        >
+          <Languages className="size-4 text-primary" />
+          <button
+            type="button"
+            className="text-sm font-semibold text-primary"
+            onClick={() => setCollapsed((current) => !current)}
+          >
+            译文
+          </button>
+          <Button
+            type="button"
+            size="icon-xs"
+            variant="ghost"
+            onClick={() => setCollapsed((current) => !current)}
+            aria-label={collapsed ? "展开译文" : "收起译文"}
+            title={collapsed ? "展开译文" : "收起译文"}
+          >
+            {collapsed ? <ArrowDown className="size-3.5" /> : <ArrowUp className="size-3.5" />}
+          </Button>
         </div>
-      )}
-    </div>
-  );
-});
+        {!collapsed && (
+          <div
+            data-message-bubble
+            className="rounded-md border bg-muted/40 px-3 py-2 text-left text-sm"
+          >
+            {isLoading ? (
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <span className="size-3.5 animate-spin rounded-full border-2 border-primary/30 border-t-primary" />
+                正在翻译...
+              </div>
+            ) : null}
+            {content.trim() && content.trim() !== "正在翻译..." ? (
+              <Markdown
+                content={content}
+                className="message-markdown"
+                onClickCitation={onClickCitation}
+                citationOrdinalMap={citationOrdinalMap}
+              />
+            ) : null}
+          </div>
+        )}
+      </div>
+    );
+  },
+);

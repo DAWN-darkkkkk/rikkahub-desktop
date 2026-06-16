@@ -32,10 +32,7 @@ import {
 import { useIsMobile } from "~/hooks/use-mobile";
 import { resolveFileUrl } from "~/lib/files";
 import { cn } from "~/lib/utils";
-import type {
-  TextPart as UITextPart,
-  ToolPart as UIToolPart,
-} from "~/types";
+import type { TextPart as UITextPart, ToolPart as UIToolPart } from "~/types";
 
 import { ControlledChainOfThoughtStep } from "../chain-of-thought";
 import { AudioPart as AudioPartRenderer } from "./audio-part";
@@ -45,7 +42,12 @@ import { VideoPart as VideoPartRenderer } from "./video-part";
 interface ToolPartProps {
   tool: UIToolPart;
   loading?: boolean;
-  onToolApproval?: (toolCallId: string, approved: boolean, reason: string, answer?: string) => void | Promise<void>;
+  onToolApproval?: (
+    toolCallId: string,
+    approved: boolean,
+    reason: string,
+    answer?: string,
+  ) => void | Promise<void>;
   isFirst?: boolean;
   isLast?: boolean;
 }
@@ -110,12 +112,25 @@ function faviconUrl(targetUrl: string) {
 
 function googleFaviconUrl(targetUrl: string) {
   const domain = domainFromUrl(targetUrl);
-  return domain ? `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=64` : "";
+  return domain
+    ? `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=64`
+    : "";
 }
 
-function SearchFavicon({ icon, url, className }: { icon?: string; url: string; className?: string }) {
+function SearchFavicon({
+  icon,
+  url,
+  className,
+}: {
+  icon?: string;
+  url: string;
+  className?: string;
+}) {
   const candidates = React.useMemo(
-    () => [icon, faviconUrl(url), googleFaviconUrl(url)].filter((item): item is string => Boolean(item)),
+    () =>
+      [icon, faviconUrl(url), googleFaviconUrl(url)].filter((item): item is string =>
+        Boolean(item),
+      ),
     [icon, url],
   );
   const [index, setIndex] = React.useState(0);
@@ -130,7 +145,12 @@ function SearchFavicon({ icon, url, className }: { icon?: string; url: string; c
   // black square that ships in the actual favicon disappears into the dark message card.
   if (candidates[index]) {
     return (
-      <span className={cn("inline-flex items-center justify-center overflow-hidden rounded bg-white p-[2px]", className)}>
+      <span
+        className={cn(
+          "inline-flex items-center justify-center overflow-hidden rounded bg-white p-[2px]",
+          className,
+        )}
+      >
         <img
           alt=""
           className="h-full w-full object-contain"
@@ -142,7 +162,12 @@ function SearchFavicon({ icon, url, className }: { icon?: string; url: string; c
   }
 
   return (
-    <span className={cn("inline-flex items-center justify-center overflow-hidden rounded bg-muted", className)}>
+    <span
+      className={cn(
+        "inline-flex items-center justify-center overflow-hidden rounded bg-muted",
+        className,
+      )}
+    >
       <span className="flex h-full w-full items-center justify-center text-[10px] font-semibold text-muted-foreground">
         {(domain[0] ?? "?").toUpperCase()}
       </span>
@@ -152,7 +177,11 @@ function SearchFavicon({ icon, url, className }: { icon?: string; url: string; c
 
 function SearchFaviconRow({ items }: { items: unknown[] }) {
   const records = items
-    .map((item) => (!item || typeof item !== "object" || Array.isArray(item) ? null : item as Record<string, unknown>))
+    .map((item) =>
+      !item || typeof item !== "object" || Array.isArray(item)
+        ? null
+        : (item as Record<string, unknown>),
+    )
     .filter((item): item is Record<string, unknown> => Boolean(item && item.url))
     .slice(0, 5);
   if (records.length === 0) return null;
@@ -172,7 +201,11 @@ function SearchFaviconRow({ items }: { items: unknown[] }) {
 
 function SearchResultMiniList({ items }: { items: unknown[] }) {
   const records = items
-    .map((item) => (!item || typeof item !== "object" || Array.isArray(item) ? null : item as Record<string, unknown>))
+    .map((item) =>
+      !item || typeof item !== "object" || Array.isArray(item)
+        ? null
+        : (item as Record<string, unknown>),
+    )
     .filter((item): item is Record<string, unknown> => Boolean(item && item.url))
     .slice(0, 3);
   if (records.length === 0) return null;
@@ -183,14 +216,19 @@ function SearchResultMiniList({ items }: { items: unknown[] }) {
         const title = typeof record.title === "string" ? record.title : url;
         const domain = typeof record.domain === "string" ? record.domain : domainFromUrl(url);
         return (
-          <div key={`${url}-${index}`} className="flex min-w-0 items-center gap-2 rounded-md bg-background/60 px-2 py-1">
+          <div
+            key={`${url}-${index}`}
+            className="flex min-w-0 items-center gap-2 rounded-md bg-background/60 px-2 py-1"
+          >
             <SearchFavicon
               className="size-5 shrink-0 overflow-hidden rounded border bg-muted"
               icon={typeof record.icon === "string" ? record.icon : undefined}
               url={url}
             />
             <span className="min-w-0 flex-1 truncate text-xs text-foreground">{title}</span>
-            {domain ? <span className="shrink-0 text-[10px] text-muted-foreground">{domain}</span> : null}
+            {domain ? (
+              <span className="shrink-0 text-[10px] text-muted-foreground">{domain}</span>
+            ) : null}
           </div>
         );
       })}
@@ -285,7 +323,8 @@ function SearchWebPreview({ args, content }: { args: unknown; content: unknown }
             const url = typeof record.url === "string" ? record.url : "";
             const title = typeof record.title === "string" ? record.title : "";
             const text = typeof record.text === "string" ? record.text : "";
-            const domain = typeof record.domain === "string" ? record.domain : domainFromUrl(url) || url;
+            const domain =
+              typeof record.domain === "string" ? record.domain : domainFromUrl(url) || url;
             const icon = typeof record.icon === "string" && record.icon ? record.icon : undefined;
 
             if (!url) return null;
@@ -306,7 +345,9 @@ function SearchWebPreview({ args, content }: { args: unknown; content: unknown }
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center gap-2">
                     <span className="line-clamp-1 font-medium text-sm">{title || url}</span>
-                    <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">{domain}</span>
+                    <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
+                      {domain}
+                    </span>
                   </span>
                   {text && (
                     <span className="mt-1 line-clamp-3 text-muted-foreground text-xs">{text}</span>
@@ -381,13 +422,7 @@ function parseAskUserQuestions(args: unknown): AskUserQuestion[] {
   }
 }
 
-function AskUserToolStep({
-  tool,
-  loading,
-  onToolApproval,
-  isFirst,
-  isLast,
-}: ToolPartProps) {
+function AskUserToolStep({ tool, loading, onToolApproval, isFirst, isLast }: ToolPartProps) {
   const { t } = useTranslation("message");
   const [expanded, setExpanded] = React.useState(true);
 
@@ -454,9 +489,7 @@ function AskUserToolStep({
               </span>
               <span className="size-1.5 animate-pulse rounded-full bg-primary" aria-hidden />
             </div>
-            <p className="text-xs text-muted-foreground">
-              {t("tool_part.ask_user_waiting_desc")}
-            </p>
+            <p className="text-xs text-muted-foreground">{t("tool_part.ask_user_waiting_desc")}</p>
           </div>
         </div>
 
@@ -487,9 +520,7 @@ function AskUserToolStep({
                 value={answers[q.id] ?? ""}
                 onChange={(e) => setAnswer(q.id, e.target.value)}
                 placeholder={
-                  q.options.length > 0
-                    ? t("tool_part.ask_user_custom_placeholder")
-                    : q.question
+                  q.options.length > 0 ? t("tool_part.ask_user_custom_placeholder") : q.question
                 }
                 className="text-sm"
                 onKeyDown={(e) => {
@@ -534,12 +565,12 @@ function AskUserToolStep({
       <div className="space-y-3 w-full">
         {questions.map((q) => (
           <div key={q.id} className="space-y-1.5">
-            {questions.length > 1 && (
-              <div className="text-sm text-foreground">{q.question}</div>
-            )}
+            {questions.length > 1 && <div className="text-sm text-foreground">{q.question}</div>}
             {isAnswered ? (
               <div className="text-sm text-primary">
-                {answeredValues[q.id] ?? tool.approvalState.type === "answered" ? answeredValues[q.id] || "" : ""}
+                {(answeredValues[q.id] ?? tool.approvalState.type === "answered")
+                  ? answeredValues[q.id] || ""
+                  : ""}
               </div>
             ) : null}
           </div>
@@ -785,9 +816,12 @@ export function ToolPart({
                         }
                         return <JsonBlock key={i} value={parsed} />;
                       }
-                      if (part.type === "image") return <ImagePartRenderer key={i} url={part.url} />;
-                      if (part.type === "video") return <VideoPartRenderer key={i} url={part.url} />;
-                      if (part.type === "audio") return <AudioPartRenderer key={i} url={part.url} />;
+                      if (part.type === "image")
+                        return <ImagePartRenderer key={i} url={part.url} />;
+                      if (part.type === "video")
+                        return <VideoPartRenderer key={i} url={part.url} />;
+                      if (part.type === "audio")
+                        return <AudioPartRenderer key={i} url={part.url} />;
                       return null;
                     })}
                   </div>
@@ -831,9 +865,7 @@ export function PendingToolAttentionCard({
   // ask_user 已经有自己的专属醒目卡片（AskUserToolStep 内部的 pending 分支），
   // 不需要再多套一层 banner。
   if (tool.toolName === TOOL_NAMES.ASK_USER) {
-    return (
-      <AskUserToolStep tool={tool} loading={loading} onToolApproval={onToolApproval} />
-    );
+    return <AskUserToolStep tool={tool} loading={loading} onToolApproval={onToolApproval} />;
   }
 
   const args = (() => {

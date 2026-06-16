@@ -57,13 +57,21 @@ const MODALITY_OPTIONS: { value: ModelModality; label: string }[] = [
 
 const ABILITY_OPTIONS: { value: ModelAbility; label: string; hint: string }[] = [
   { value: "TOOL", label: "工具调用", hint: "启用后请求才会带 tools 字段（server.ts:6187 门控）" },
-  { value: "REASONING", label: "推理输出", hint: "启用后请求才会带 thinking/reasoning 字段（server.ts:6192 门控）" },
+  {
+    value: "REASONING",
+    label: "推理输出",
+    hint: "启用后请求才会带 thinking/reasoning 字段（server.ts:6192 门控）",
+  },
 ];
 
 // `url_context` is declared in Android but the PC server has no code path that maps it
 // to a provider-specific tool — surfacing it would be a UI shell. Skipping for now.
 const BUILTIN_TOOL_OPTIONS: { value: BuiltInToolType; label: string; hint: string }[] = [
-  { value: "search", label: "联网搜索", hint: "Google: googleSearch；OpenAI Responses: web_search" },
+  {
+    value: "search",
+    label: "联网搜索",
+    hint: "Google: googleSearch；OpenAI Responses: web_search",
+  },
   {
     value: "image_generation",
     label: "图像生成",
@@ -413,10 +421,7 @@ function BasicTab({
 
       {isChat ? (
         <>
-          <Field
-            label="输入模态"
-            hint="文本以外的模态今天仅作为元数据保存，不参与上游请求过滤。"
-          >
+          <Field label="输入模态" hint="文本以外的模态今天仅作为元数据保存，不参与上游请求过滤。">
             <SegmentedRow
               options={MODALITY_OPTIONS}
               value={inputModalities}
@@ -475,7 +480,14 @@ interface AdvancedTabProps {
   onProviderOverwriteChange: (overwrite: ProviderOverwrite | null) => void;
 }
 
-function AdvancedTab({ headers, bodies, providerOverwrite, onHeadersChange, onBodiesChange, onProviderOverwriteChange }: AdvancedTabProps) {
+function AdvancedTab({
+  headers,
+  bodies,
+  providerOverwrite,
+  onHeadersChange,
+  onBodiesChange,
+  onProviderOverwriteChange,
+}: AdvancedTabProps) {
   const updateHeader = (index: number, patch: Partial<CustomHeader>) => {
     onHeadersChange(headers.map((header, i) => (i === index ? { ...header, ...patch } : header)));
   };
@@ -555,7 +567,8 @@ function AdvancedTab({ headers, bodies, providerOverwrite, onHeadersChange, onBo
           <div>
             <div className="text-sm font-medium">自定义请求体</div>
             <div className="text-xs text-muted-foreground">
-              会和上游请求 JSON 深合并（server.ts:5484）。值用 JSON 语法：字符串要带引号，数字直接写，对象/数组也支持。
+              会和上游请求 JSON 深合并（server.ts:5484）。值用 JSON
+              语法：字符串要带引号，数字直接写，对象/数组也支持。
             </div>
           </div>
           <Button type="button" variant="outline" size="sm" onClick={addBody}>
@@ -634,7 +647,9 @@ function ProviderOverwriteSection({
         <div>
           <div className="text-sm font-medium">供应商覆盖</div>
           <div className="text-xs text-muted-foreground">
-            为这一个模型单独指定 baseUrl 与 API Key。设置后该模型的请求会走这里的配置，不走当前供应商的默认配置——典型用途是把某个模型走自建 OpenAI 兼容网关。
+            为这一个模型单独指定 baseUrl 与 API
+            Key。设置后该模型的请求会走这里的配置，不走当前供应商的默认配置——典型用途是把某个模型走自建
+            OpenAI 兼容网关。
           </div>
         </div>
         {overwrite ? (
@@ -660,13 +675,23 @@ function ProviderOverwriteSection({
                   // Switching type also resets baseUrl to that protocol's default — saves
                   // the user from having to hand-clear an OpenAI URL when switching to Claude.
                   const defaultUrl = DEFAULT_BASE_URLS[value] ?? overwrite.baseUrl;
-                  update({ type: value, baseUrl: overwrite.baseUrl === DEFAULT_BASE_URLS[overwrite.type] ? defaultUrl : overwrite.baseUrl });
+                  update({
+                    type: value,
+                    baseUrl:
+                      overwrite.baseUrl === DEFAULT_BASE_URLS[overwrite.type]
+                        ? defaultUrl
+                        : overwrite.baseUrl,
+                  });
                 }}
               >
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   {PROVIDER_OVERWRITE_TYPES.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -752,13 +777,7 @@ function CustomBodyRow({
           value={body.key}
           onChange={(event) => onChange({ key: event.target.value })}
         />
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          onClick={onRemove}
-          aria-label="删除"
-        >
+        <Button type="button" variant="ghost" size="icon" onClick={onRemove} aria-label="删除">
           <Trash2 className="size-4" />
         </Button>
       </div>

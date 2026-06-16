@@ -53,8 +53,16 @@ type ImageModelOption = ProviderModel & {
 
 const ASPECT_RATIOS = [
   { value: "square", labelKey: "common:image_page.ratio_square", description: "1024x1024" },
-  { value: "landscape", labelKey: "common:image_page.ratio_landscape", description: "1536x1024 / 16:9" },
-  { value: "portrait", labelKey: "common:image_page.ratio_portrait", description: "1024x1536 / 9:16" },
+  {
+    value: "landscape",
+    labelKey: "common:image_page.ratio_landscape",
+    description: "1536x1024 / 16:9",
+  },
+  {
+    value: "portrait",
+    labelKey: "common:image_page.ratio_portrait",
+    description: "1024x1536 / 9:16",
+  },
 ];
 
 export function meta() {
@@ -83,10 +91,13 @@ export default function ImagesPage() {
       .filter((provider) => provider.enabled !== false)
       .flatMap((provider) =>
         provider.models
-          .filter((model) =>
-            model.type === "IMAGE" ||
-            model.outputModalities?.includes("IMAGE") ||
-            model.tools?.some((tool) => String(tool.type ?? "").toLowerCase() === "image_generation"),
+          .filter(
+            (model) =>
+              model.type === "IMAGE" ||
+              model.outputModalities?.includes("IMAGE") ||
+              model.tools?.some(
+                (tool) => String(tool.type ?? "").toLowerCase() === "image_generation",
+              ),
           )
           .map((model) => ({
             ...model,
@@ -110,36 +121,44 @@ export default function ImagesPage() {
     void refreshImages().catch((error: Error) => toast.error(error.message));
   }, [refreshImages]);
 
-  const selectModel = React.useCallback(async (modelId: string) => {
-    if (!settings) return;
-    const next = { ...settings, imageGenerationModelId: modelId };
-    setSettings(next);
-    await api.post("settings/default-models", {
-      chatModelId: settings.chatModelId,
-      titleModelId: settings.titleModelId,
-      translateModeId: settings.translateModeId,
-      suggestionModelId: settings.suggestionModelId,
-      imageGenerationModelId: modelId,
-      ocrModelId: settings.ocrModelId,
-      compressModelId: settings.compressModelId,
-      titlePrompt: settings.titlePrompt,
-      translatePrompt: settings.translatePrompt,
-      suggestionPrompt: settings.suggestionPrompt,
-      ocrPrompt: settings.ocrPrompt,
-      compressPrompt: settings.compressPrompt,
-    });
-  }, [setSettings, settings]);
+  const selectModel = React.useCallback(
+    async (modelId: string) => {
+      if (!settings) return;
+      const next = { ...settings, imageGenerationModelId: modelId };
+      setSettings(next);
+      await api.post("settings/default-models", {
+        chatModelId: settings.chatModelId,
+        titleModelId: settings.titleModelId,
+        translateModeId: settings.translateModeId,
+        suggestionModelId: settings.suggestionModelId,
+        imageGenerationModelId: modelId,
+        ocrModelId: settings.ocrModelId,
+        compressModelId: settings.compressModelId,
+        titlePrompt: settings.titlePrompt,
+        translatePrompt: settings.translatePrompt,
+        suggestionPrompt: settings.suggestionPrompt,
+        ocrPrompt: settings.ocrPrompt,
+        compressPrompt: settings.compressPrompt,
+      });
+    },
+    [setSettings, settings],
+  );
 
-  const uploadReferenceImages = React.useCallback(async (files: FileList | null) => {
-    if (!files?.length) return;
-    const form = new FormData();
-    for (const file of Array.from(files).slice(0, 16 - referenceImages.length)) {
-      const normalized = await normalizeImageForModelUpload(file);
-      form.append("files", normalized, normalized.name);
-    }
-    const response = await api.postMultipart<{ files: UploadedFile[] }>("files/upload", form, { timeout: false });
-    setReferenceImages((current) => [...current, ...response.files].slice(0, 16));
-  }, [referenceImages.length]);
+  const uploadReferenceImages = React.useCallback(
+    async (files: FileList | null) => {
+      if (!files?.length) return;
+      const form = new FormData();
+      for (const file of Array.from(files).slice(0, 16 - referenceImages.length)) {
+        const normalized = await normalizeImageForModelUpload(file);
+        form.append("files", normalized, normalized.name);
+      }
+      const response = await api.postMultipart<{ files: UploadedFile[] }>("files/upload", form, {
+        timeout: false,
+      });
+      setReferenceImages((current) => [...current, ...response.files].slice(0, 16));
+    },
+    [referenceImages.length],
+  );
 
   const generate = React.useCallback(async () => {
     if (!prompt.trim()) {
@@ -156,20 +175,34 @@ export default function ImagesPage() {
     }
     setGenerating(true);
     try {
-      const response = await api.post<{ images: GeneratedImage[] }>("images/generate", {
-        prompt: prompt.trim(),
-        numberOfImages: Number(numberOfImages),
-        aspectRatio,
-        referenceFileIds: referenceImages.map((image) => image.id),
-      }, { timeout: false });
+      const response = await api.post<{ images: GeneratedImage[] }>(
+        "images/generate",
+        {
+          prompt: prompt.trim(),
+          numberOfImages: Number(numberOfImages),
+          aspectRatio,
+          referenceFileIds: referenceImages.map((image) => image.id),
+        },
+        { timeout: false },
+      );
       setImages((current) => [...response.images, ...current]);
-      toast.success(referenceImages.length ? t("image_page.edit_done") : t("image_page.generate_done"));
+      toast.success(
+        referenceImages.length ? t("image_page.edit_done") : t("image_page.generate_done"),
+      );
     } catch (error) {
       toast.error(error instanceof Error ? error.message : t("image_page.generate_failed"));
     } finally {
       setGenerating(false);
     }
-  }, [aspectRatio, editBlocked, numberOfImages, prompt, referenceImages, settings?.imageGenerationModelId, t]);
+  }, [
+    aspectRatio,
+    editBlocked,
+    numberOfImages,
+    prompt,
+    referenceImages,
+    settings?.imageGenerationModelId,
+    t,
+  ]);
 
   return (
     <div className="flex h-screen bg-background text-foreground">
@@ -177,7 +210,11 @@ export default function ImagesPage() {
       <aside className="hidden w-[340px] shrink-0 border-r bg-sidebar/80 px-4 pb-4 pt-9 md:block">
         <div className="flex items-center justify-between">
           <Button asChild size="icon-sm" variant="ghost">
-            <Link to="/" aria-label={t("image_page.back_to_chat")} title={t("image_page.back_to_chat")}>
+            <Link
+              to="/"
+              aria-label={t("image_page.back_to_chat")}
+              title={t("image_page.back_to_chat")}
+            >
               <ArrowLeft className="size-4" />
             </Link>
           </Button>
@@ -195,7 +232,10 @@ export default function ImagesPage() {
         <div className="mt-6 space-y-4">
           <div className="space-y-2">
             <div className="text-sm font-medium">{t("image_page.model")}</div>
-            <Select value={settings?.imageGenerationModelId || ""} onValueChange={(value) => void selectModel(value)}>
+            <Select
+              value={settings?.imageGenerationModelId || ""}
+              onValueChange={(value) => void selectModel(value)}
+            >
               <SelectTrigger className="w-full">
                 <SelectValue placeholder={t("image_page.select_image_model")} />
               </SelectTrigger>
@@ -204,33 +244,52 @@ export default function ImagesPage() {
                   <SelectItem key={model.id} value={model.id}>
                     <span className="flex items-center gap-2">
                       <AIIcon name={model.providerName || model.displayName} className="size-4" />
-                      {model.providerName ? `${model.providerName} / ` : ""}{modelLabel(model, t("image_page.not_selected"))}
+                      {model.providerName ? `${model.providerName} / ` : ""}
+                      {modelLabel(model, t("image_page.not_selected"))}
                     </span>
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            {imageModels.length === 0 ? <div className="text-xs text-muted-foreground">{t("image_page.model_empty_hint")}</div> : null}
+            {imageModels.length === 0 ? (
+              <div className="text-xs text-muted-foreground">
+                {t("image_page.model_empty_hint")}
+              </div>
+            ) : null}
             {selectedModel && !selectedModelCanEdit ? (
-              <div className="text-xs text-muted-foreground">{t("image_page.model_edit_only_hint")}</div>
+              <div className="text-xs text-muted-foreground">
+                {t("image_page.model_edit_only_hint")}
+              </div>
             ) : null}
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
               <div className="text-sm font-medium">{t("image_page.count")}</div>
               <Select value={numberOfImages} onValueChange={setNumberOfImages}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
-                  {[1, 2, 3, 4].map((value) => <SelectItem key={value} value={String(value)}>{value}</SelectItem>)}
+                  {[1, 2, 3, 4].map((value) => (
+                    <SelectItem key={value} value={String(value)}>
+                      {value}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
               <div className="text-sm font-medium">{t("image_page.ratio")}</div>
               <Select value={aspectRatio} onValueChange={setAspectRatio}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
-                  {ASPECT_RATIOS.map((item) => <SelectItem key={item.value} value={item.value}>{t(item.labelKey)}</SelectItem>)}
+                  {ASPECT_RATIOS.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>
+                      {t(item.labelKey)}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -240,8 +299,12 @@ export default function ImagesPage() {
       <main className="flex min-w-0 flex-1 flex-col">
         <div className="border-b px-4 py-3 md:hidden">
           <div className="flex items-center justify-between">
-            <Link className="text-sm text-muted-foreground" to="/">{t("image_page.back_to_chat")}</Link>
-            <Link className="text-sm text-muted-foreground" to="/settings?section=models">{t("image_page.model_settings")}</Link>
+            <Link className="text-sm text-muted-foreground" to="/">
+              {t("image_page.back_to_chat")}
+            </Link>
+            <Link className="text-sm text-muted-foreground" to="/settings?section=models">
+              {t("image_page.model_settings")}
+            </Link>
           </div>
         </div>
         <ScrollArea className="flex-1">
@@ -256,12 +319,23 @@ export default function ImagesPage() {
               {referenceImages.length > 0 ? (
                 <div className="mt-4 flex flex-wrap gap-3">
                   {referenceImages.map((image) => (
-                    <div key={image.id} className="group relative size-24 overflow-hidden rounded-md border bg-muted">
-                      <img src={image.url} alt={image.fileName} className="size-full object-cover" />
+                    <div
+                      key={image.id}
+                      className="group relative size-24 overflow-hidden rounded-md border bg-muted"
+                    >
+                      <img
+                        src={image.url}
+                        alt={image.fileName}
+                        className="size-full object-cover"
+                      />
                       <button
                         type="button"
                         className="absolute top-1 right-1 rounded-full bg-background/90 p-1 opacity-0 shadow transition group-hover:opacity-100"
-                        onClick={() => setReferenceImages((current) => current.filter((item) => item.id !== image.id))}
+                        onClick={() =>
+                          setReferenceImages((current) =>
+                            current.filter((item) => item.id !== image.id),
+                          )
+                        }
                         aria-label={t("image_page.remove_image")}
                       >
                         <X className="size-3.5" />
@@ -272,16 +346,49 @@ export default function ImagesPage() {
               ) : null}
               <div className="mt-4 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
-                  <input ref={inputRef} className="sr-only" type="file" accept="image/png,image/jpeg,image/webp" multiple onChange={(event) => void uploadReferenceImages(event.target.files)} />
-                  <Button type="button" variant="outline" size="sm" onClick={() => inputRef.current?.click()} disabled={referenceImages.length >= 16 || generating || Boolean(selectedModel && !selectedModelCanEdit)}>
+                  <input
+                    ref={inputRef}
+                    className="sr-only"
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    multiple
+                    onChange={(event) => void uploadReferenceImages(event.target.files)}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => inputRef.current?.click()}
+                    disabled={
+                      referenceImages.length >= 16 ||
+                      generating ||
+                      Boolean(selectedModel && !selectedModelCanEdit)
+                    }
+                  >
                     <ImagePlus className="size-4" />
                     {t("image_page.reference_image")}
                   </Button>
-                  {referenceImages.length > 0 ? <span className="text-xs text-muted-foreground">{t("image_page.reference_kept", { count: referenceImages.length })}</span> : null}
-                  {editBlocked ? <span className="text-xs text-destructive">{t("image_page.reference_edit_blocked")}</span> : null}
+                  {referenceImages.length > 0 ? (
+                    <span className="text-xs text-muted-foreground">
+                      {t("image_page.reference_kept", { count: referenceImages.length })}
+                    </span>
+                  ) : null}
+                  {editBlocked ? (
+                    <span className="text-xs text-destructive">
+                      {t("image_page.reference_edit_blocked")}
+                    </span>
+                  ) : null}
                 </div>
-                <Button type="button" onClick={() => void generate()} disabled={generating || !settings?.imageGenerationModelId || editBlocked}>
-                  {generating ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+                <Button
+                  type="button"
+                  onClick={() => void generate()}
+                  disabled={generating || !settings?.imageGenerationModelId || editBlocked}
+                >
+                  {generating ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <Plus className="size-4" />
+                  )}
                   {referenceImages.length ? t("image_page.edit") : t("image_page.generate")}
                 </Button>
               </div>
@@ -291,13 +398,21 @@ export default function ImagesPage() {
               {images.map((image) => (
                 <article key={image.id} className="overflow-hidden rounded-lg border bg-card">
                   <a href={image.url} target="_blank" rel="noreferrer" className="block bg-muted">
-                    <img src={image.url} alt={image.prompt} className="aspect-square w-full object-contain" />
+                    <img
+                      src={image.url}
+                      alt={image.prompt}
+                      className="aspect-square w-full object-contain"
+                    />
                   </a>
                   <div className="space-y-3 p-3">
                     <div className="line-clamp-2 text-sm">{image.prompt}</div>
                     <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
                       <span className="truncate">{image.model}</span>
-                      <span>{image.type === "image_edit" ? t("image_page.badge_edit") : t("image_page.badge_generate")}</span>
+                      <span>
+                        {image.type === "image_edit"
+                          ? t("image_page.badge_edit")
+                          : t("image_page.badge_generate")}
+                      </span>
                     </div>
                     <div className="flex justify-end">
                       <Button
@@ -318,7 +433,9 @@ export default function ImagesPage() {
               ))}
             </section>
             {images.length === 0 ? (
-              <div className="rounded-lg border border-dashed p-10 text-center text-sm text-muted-foreground">{t("image_page.empty")}</div>
+              <div className="rounded-lg border border-dashed p-10 text-center text-sm text-muted-foreground">
+                {t("image_page.empty")}
+              </div>
             ) : null}
           </div>
         </ScrollArea>

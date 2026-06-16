@@ -71,13 +71,37 @@ import { openExternal } from "~/lib/external-link";
 import { getSystemInfo } from "~/lib/system-info";
 import api, { appendWebAuthQuery } from "~/services/api";
 import { useSettingsStore } from "~/stores/app-store";
-import type { AsrProviderProfile, AsrProviderType, AssistantAvatar, AssistantProfile, ProviderModel, ProviderProfile, SearchServiceOption, Settings, TtsProviderProfile, TtsProviderType } from "~/types";
+import type {
+  AsrProviderProfile,
+  AsrProviderType,
+  AssistantAvatar,
+  AssistantProfile,
+  ProviderModel,
+  ProviderProfile,
+  SearchServiceOption,
+  Settings,
+  TtsProviderProfile,
+  TtsProviderType,
+} from "~/types";
 import { ModelEditDialog } from "~/components/model-edit-dialog";
 import Markdown from "~/components/markdown/markdown";
 import { playAudio, stopAudio, useAudioPlaybackKey } from "~/lib/global-audio";
 import { UpdateDialog, type UpdateInfo } from "~/components/update-dialog";
 
-type Section = "general" | "providers" | "models" | "assistants" | "search" | "mcp" | "speech" | "data" | "stats" | "logs" | "proxy" | "about" | "plan";
+type Section =
+  | "general"
+  | "providers"
+  | "models"
+  | "assistants"
+  | "search"
+  | "mcp"
+  | "speech"
+  | "data"
+  | "stats"
+  | "logs"
+  | "proxy"
+  | "about"
+  | "plan";
 type ProviderKind = "openai" | "claude" | "google";
 
 type ProviderTestMode = "non_stream" | "stream" | "tools";
@@ -190,7 +214,11 @@ interface AssistantMemoryInfo {
   updatedAt: number;
 }
 
-const navItems: Array<{ id: Section; labelKey: string; icon: React.ComponentType<{ className?: string }> }> = [
+const navItems: Array<{
+  id: Section;
+  labelKey: string;
+  icon: React.ComponentType<{ className?: string }>;
+}> = [
   { id: "general", labelKey: "settings:nav.general", icon: UserRound },
   { id: "assistants", labelKey: "settings:nav.assistants", icon: Bot },
   { id: "providers", labelKey: "settings:nav.providers", icon: KeyRound },
@@ -223,8 +251,18 @@ function isPlainRecord(value: unknown): value is Record<string, unknown> {
 function inferModelType(modelId: string): "CHAT" | "IMAGE" | "EMBEDDING" {
   const id = String(modelId ?? "").toLowerCase();
   if (!id) return "CHAT";
-  if (/(text-embedding|^embedding|-embed(ding)?|bge|e5|gte|m3-embedding|nomic-embed|jina-embed)/.test(id)) return "EMBEDDING";
-  if (/(gpt-image|dall-e|dalle|imagen|stable-diffusion|sd[\d-]|flux|midjourney|kolors|qwen-image|wanx|hunyuan-dit|seedream|cogview|recraft)/.test(id)) return "IMAGE";
+  if (
+    /(text-embedding|^embedding|-embed(ding)?|bge|e5|gte|m3-embedding|nomic-embed|jina-embed)/.test(
+      id,
+    )
+  )
+    return "EMBEDDING";
+  if (
+    /(gpt-image|dall-e|dalle|imagen|stable-diffusion|sd[\d-]|flux|midjourney|kolors|qwen-image|wanx|hunyuan-dit|seedream|cogview|recraft)/.test(
+      id,
+    )
+  )
+    return "IMAGE";
   return "CHAT";
 }
 
@@ -251,7 +289,9 @@ const SEARCH_SERVICE_TYPE_LABELS: Record<string, string> = {
 };
 
 function searchServiceLabelForType(type: string | null | undefined): string {
-  const key = String(type ?? "").trim().toLowerCase();
+  const key = String(type ?? "")
+    .trim()
+    .toLowerCase();
   if (!key) return "Search";
   return SEARCH_SERVICE_TYPE_LABELS[key] ?? key;
 }
@@ -288,7 +328,13 @@ function formatTemplatePreviewTime(date = new Date()) {
   return new Intl.DateTimeFormat(undefined, { timeStyle: "medium" }).format(date);
 }
 
-function renderMessageTemplatePreview(template: string, message: string, role: string, assistant: AssistantProfile, model?: ProviderModel | null) {
+function renderMessageTemplatePreview(
+  template: string,
+  message: string,
+  role: string,
+  assistant: AssistantProfile,
+  model?: ProviderModel | null,
+) {
   const now = new Date();
   const values: Record<string, string> = {
     message,
@@ -297,7 +343,10 @@ function renderMessageTemplatePreview(template: string, message: string, role: s
     date: formatTemplatePreviewDate(now),
     cur_time: formatTemplatePreviewTime(now),
     cur_date: formatTemplatePreviewDate(now),
-    cur_datetime: new Intl.DateTimeFormat(undefined, { dateStyle: "full", timeStyle: "medium" }).format(now),
+    cur_datetime: new Intl.DateTimeFormat(undefined, {
+      dateStyle: "full",
+      timeStyle: "medium",
+    }).format(now),
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     locale: Intl.DateTimeFormat().resolvedOptions().locale,
     user: "User",
@@ -305,12 +354,30 @@ function renderMessageTemplatePreview(template: string, message: string, role: s
     char: assistant.name?.trim() || "Assistant",
     model_id: model?.modelId || "gpt-4o",
     model_name: model?.displayName || model?.modelId || "GPT-4o",
-    system_version: `${(() => { const p = navigator.platform || "web"; const n = /Win/i.test(p) ? "Windows" : /Linux/i.test(p) ? "Linux" : /Mac/i.test(p) ? "macOS" : ""; return n ? `${n} PC` : "PC"; })()} (${navigator.platform || "web"})`,
+    system_version: `${(() => {
+      const p = navigator.platform || "web";
+      const n = /Win/i.test(p)
+        ? "Windows"
+        : /Linux/i.test(p)
+          ? "Linux"
+          : /Mac/i.test(p)
+            ? "macOS"
+            : "";
+      return n ? `${n} PC` : "PC";
+    })()} (${navigator.platform || "web"})`,
   };
   return template.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (match, key) => values[key] ?? match);
 }
 
-function PasswordInput({ value, onChange, placeholder }: { value: string; onChange: (value: string) => void; placeholder?: string }) {
+function PasswordInput({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+}) {
   const [visible, setVisible] = React.useState(false);
   return (
     <div className="relative">
@@ -451,7 +518,8 @@ function endpointPreview(provider: ProviderProfile): string {
   const kind = providerKind(provider) as ProviderKind;
   const base = textValue(provider.baseUrl).replace(/\/+$/, "");
   if (!base) return defaultPathForKind(kind, provider.useResponseApi === true);
-  if (kind === "openai") return `${base}${provider.useResponseApi === true ? "/responses" : textValue(provider.chatCompletionsPath) || "/chat/completions"}`;
+  if (kind === "openai")
+    return `${base}${provider.useResponseApi === true ? "/responses" : textValue(provider.chatCompletionsPath) || "/chat/completions"}`;
   if (kind === "claude") return `${base}/messages`;
   return `${base}/models/{model}:generateContent?key=${textValue(provider.apiKey) ? "***" : "<API_KEY>"}`;
 }
@@ -460,7 +528,8 @@ function modelListEndpointPreview(provider: ProviderProfile): string {
   const kind = providerKind(provider) as ProviderKind;
   const base = textValue(provider.baseUrl).replace(/\/+$/, "");
   if (!base) return kind === "google" ? "/models?pageSize=100&key=<API_KEY>" : "/models";
-  if (kind === "google") return `${base}/models?pageSize=100&key=${textValue(provider.apiKey) ? "***" : "<API_KEY>"}`;
+  if (kind === "google")
+    return `${base}/models?pageSize=100&key=${textValue(provider.apiKey) ? "***" : "<API_KEY>"}`;
   return `${base}/models`;
 }
 
@@ -520,17 +589,21 @@ function toSearchService(value: Record<string, unknown>): SearchServiceOption {
 }
 
 function normalizeKindPatch(provider: ProviderProfile, kind: ProviderKind): ProviderProfile {
-  const nextBaseUrl = kind === "claude"
-    ? "https://api.anthropic.com/v1"
-    : kind === "google"
-      ? "https://generativelanguage.googleapis.com/v1beta"
-      : textValue(provider.baseUrl) || "https://api.openai.com/v1";
+  const nextBaseUrl =
+    kind === "claude"
+      ? "https://api.anthropic.com/v1"
+      : kind === "google"
+        ? "https://generativelanguage.googleapis.com/v1beta"
+        : textValue(provider.baseUrl) || "https://api.openai.com/v1";
   return {
     ...provider,
     type: kind,
     baseUrl: nextBaseUrl,
     useResponseApi: kind === "openai" ? provider.useResponseApi === true : false,
-    chatCompletionsPath: defaultPathForKind(kind, kind === "openai" && provider.useResponseApi === true),
+    chatCompletionsPath: defaultPathForKind(
+      kind,
+      kind === "openai" && provider.useResponseApi === true,
+    ),
   };
 }
 
@@ -562,17 +635,26 @@ export default function SettingsPage() {
 
   React.useEffect(() => {
     if (settings) return;
-    api.get<Settings>("settings").then(setSettings).catch((error: Error) => toast.error(error.message));
+    api
+      .get<Settings>("settings")
+      .then(setSettings)
+      .catch((error: Error) => toast.error(error.message));
   }, [settings]);
 
   React.useEffect(() => {
     if (section !== "logs") return;
-    api.get<RequestLog[]>("logs").then(setLogs).catch((error: Error) => toast.error(error.message));
+    api
+      .get<RequestLog[]>("logs")
+      .then(setLogs)
+      .catch((error: Error) => toast.error(error.message));
   }, [section]);
 
   React.useEffect(() => {
     if (section !== "stats") return;
-    api.get<StatsPayload>("stats").then(setStats).catch((error: Error) => toast.error(error.message));
+    api
+      .get<StatsPayload>("stats")
+      .then(setStats)
+      .catch((error: Error) => toast.error(error.message));
   }, [section]);
 
   if (!settings) {
@@ -615,7 +697,9 @@ export default function SettingsPage() {
                 type="button"
                 className={[
                   "flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm transition",
-                  active ? "bg-sidebar-accent text-sidebar-accent-foreground" : "hover:bg-sidebar-accent/70",
+                  active
+                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                    : "hover:bg-sidebar-accent/70",
                 ].join(" ")}
                 onClick={() => setSection(item.id)}
               >
@@ -630,12 +714,22 @@ export default function SettingsPage() {
         <ScrollArea className="h-svh">
           <div className="mx-auto w-full max-w-5xl px-6 pb-6 pt-9">
             {/* pt-9 与左侧 aside 顶部对齐,让出沉浸式透明标题栏高度,避免各板块内容贴顶。 */}
-            {section === "general" && <GeneralSection settings={settings} onSettings={updateLocal} />}
-            {section === "providers" && <ProvidersSection settings={settings} onSettings={updateLocal} />}
-            {section === "models" && <DefaultModelsSection settings={settings} onSettings={updateLocal} />}
-            {section === "assistants" && <AssistantsSection settings={settings} onSettings={updateLocal} />}
+            {section === "general" && (
+              <GeneralSection settings={settings} onSettings={updateLocal} />
+            )}
+            {section === "providers" && (
+              <ProvidersSection settings={settings} onSettings={updateLocal} />
+            )}
+            {section === "models" && (
+              <DefaultModelsSection settings={settings} onSettings={updateLocal} />
+            )}
+            {section === "assistants" && (
+              <AssistantsSection settings={settings} onSettings={updateLocal} />
+            )}
             {section === "search" && <SearchSection settings={settings} onSettings={updateLocal} />}
-            {section === "mcp" && <McpExtensionsSection settings={settings} onSettings={updateLocal} />}
+            {section === "mcp" && (
+              <McpExtensionsSection settings={settings} onSettings={updateLocal} />
+            )}
             {section === "speech" && <SpeechSection settings={settings} onSettings={updateLocal} />}
             {section === "data" && <DataSection settings={settings} onSettings={updateLocal} />}
             {section === "stats" && <StatsSection stats={stats} />}
@@ -649,7 +743,15 @@ export default function SettingsPage() {
   );
 }
 
-function SectionHeader({ icon: Icon, title, subtitle }: { icon: React.ComponentType<{ className?: string }>; title: string; subtitle: string }) {
+function SectionHeader({
+  icon: Icon,
+  title,
+  subtitle,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  subtitle: string;
+}) {
   return (
     <div className="mb-6 flex items-start gap-3">
       <div className="rounded-md border bg-card p-2">
@@ -710,7 +812,9 @@ function SortableRow({
       ].join(" ")}
       data-sort-id={id}
     >
-      {canMove ? <GripVertical className="size-4 shrink-0 cursor-grab text-muted-foreground" /> : null}
+      {canMove ? (
+        <GripVertical className="size-4 shrink-0 cursor-grab text-muted-foreground" />
+      ) : null}
       <button type="button" className="min-w-0 flex-1" onClick={onSelect}>
         {children}
       </button>
@@ -718,11 +822,19 @@ function SortableRow({
   );
 }
 
-function GeneralSection({ settings, onSettings }: { settings: Settings; onSettings: (settings: Settings) => void }) {
+function GeneralSection({
+  settings,
+  onSettings,
+}: {
+  settings: Settings;
+  onSettings: (settings: Settings) => void;
+}) {
   const { t } = useTranslation();
   const display = settings.displaySetting;
   const [name, setName] = React.useState(textValue(display.userNickname));
-  const [avatar, setAvatar] = React.useState<AssistantAvatar>(display.userAvatar ?? { type: "dummy" });
+  const [avatar, setAvatar] = React.useState<AssistantAvatar>(
+    display.userAvatar ?? { type: "dummy" },
+  );
   const [saving, setSaving] = React.useState(false);
   const profileDirtyRef = React.useRef(false);
 
@@ -746,7 +858,8 @@ function GeneralSection({ settings, onSettings }: { settings: Settings; onSettin
       profileDirtyRef.current = false;
       if (announce) toast.success(t("settings:general.profile_saved"));
     } catch (error) {
-      if (announce) toast.error(error instanceof Error ? error.message : t("settings:common.save_failed"));
+      if (announce)
+        toast.error(error instanceof Error ? error.message : t("settings:common.save_failed"));
       else console.warn("Profile auto-save failed", error);
     } finally {
       setSaving(false);
@@ -763,7 +876,11 @@ function GeneralSection({ settings, onSettings }: { settings: Settings; onSettin
 
   return (
     <>
-      <SectionHeader icon={UserRound} title={t("settings:general.title")} subtitle={t("settings:general.subtitle")} />
+      <SectionHeader
+        icon={UserRound}
+        title={t("settings:general.title")}
+        subtitle={t("settings:general.subtitle")}
+      />
       <div className="grid gap-6">
         <div className="space-y-4 rounded-lg border bg-card p-5">
           <AvatarCropper
@@ -771,7 +888,11 @@ function GeneralSection({ settings, onSettings }: { settings: Settings; onSettin
             fallbackName={name || "User"}
             onChange={async (nextAvatar) => {
               setAvatar(nextAvatar);
-              const nextDisplay = { ...settings.displaySetting, userNickname: name.trim(), userAvatar: nextAvatar };
+              const nextDisplay = {
+                ...settings.displaySetting,
+                userNickname: name.trim(),
+                userAvatar: nextAvatar,
+              };
               await api.post("settings/display", nextDisplay);
               onSettings({ ...settings, displaySetting: nextDisplay });
             }}
@@ -792,17 +913,30 @@ function GeneralSection({ settings, onSettings }: { settings: Settings; onSettin
               label={t("settings:general.ui_font")}
               enValue={textValue(display.uiFontFamily)}
               cjkValue={textValue(display.uiFontFamilyCjk)}
-              fallbackFamily={"\"Noto Sans SC\", \"Microsoft YaHei\", ui-sans-serif, system-ui, sans-serif"}
-              onChangeEn={(value, family) => void patchDisplay({ uiFontFamily: value, uiFontFamilyCss: family })}
-              onChangeCjk={(value, family) => void patchDisplay({ uiFontFamilyCjk: value, uiFontFamilyCjkCss: family })}
+              fallbackFamily={
+                '"Noto Sans SC", "Microsoft YaHei", ui-sans-serif, system-ui, sans-serif'
+              }
+              onChangeEn={(value, family) =>
+                void patchDisplay({ uiFontFamily: value, uiFontFamilyCss: family })
+              }
+              onChangeCjk={(value, family) =>
+                void patchDisplay({ uiFontFamilyCjk: value, uiFontFamilyCjkCss: family })
+              }
             />
             <FontPickerPair
               label={t("settings:general.chat_font")}
               enValue={textValue(display.chatFontFamily)}
               cjkValue={textValue(display.chatFontFamilyCjk)}
-              fallbackFamily={textValue(display.uiFontFamilyCss) || "\"Noto Sans SC\", \"Microsoft YaHei\", ui-sans-serif, system-ui, sans-serif"}
-              onChangeEn={(value, family) => void patchDisplay({ chatFontFamily: value, chatFontFamilyCss: family })}
-              onChangeCjk={(value, family) => void patchDisplay({ chatFontFamilyCjk: value, chatFontFamilyCjkCss: family })}
+              fallbackFamily={
+                textValue(display.uiFontFamilyCss) ||
+                '"Noto Sans SC", "Microsoft YaHei", ui-sans-serif, system-ui, sans-serif'
+              }
+              onChangeEn={(value, family) =>
+                void patchDisplay({ chatFontFamily: value, chatFontFamilyCss: family })
+              }
+              onChangeCjk={(value, family) =>
+                void patchDisplay({ chatFontFamilyCjk: value, chatFontFamilyCjkCss: family })
+              }
             />
           </div>
           <div className="grid gap-3 md:grid-cols-2">
@@ -816,7 +950,10 @@ function GeneralSection({ settings, onSettings }: { settings: Settings; onSettin
               ["sendOnEnter", "settings:general.opt.send_on_enter"],
               ["enableAutoScroll", "settings:general.opt.auto_scroll"],
             ].map(([key, labelKey]) => (
-              <label key={key} className="flex items-center justify-between rounded-md border px-3 py-2">
+              <label
+                key={key}
+                className="flex items-center justify-between rounded-md border px-3 py-2"
+              >
                 <span className="text-sm">{t(labelKey)}</span>
                 <Switch
                   checked={display[key] !== false}
@@ -834,13 +971,20 @@ function GeneralSection({ settings, onSettings }: { settings: Settings; onSettin
   );
 }
 
-function ProvidersSection({ settings, onSettings }: { settings: Settings; onSettings: (settings: Settings) => void }) {
+function ProvidersSection({
+  settings,
+  onSettings,
+}: {
+  settings: Settings;
+  onSettings: (settings: Settings) => void;
+}) {
   // URL ?providerId= deep-link is only honored on first mount, so subsequent settings updates
   // (autosave, SSE) don't snap the selection back to the URL value or the default first provider.
   const initialProviderId = React.useMemo(() => {
     if (typeof window === "undefined") return settings.providers[0]?.id ?? "";
     const providerId = new URLSearchParams(window.location.search).get("providerId");
-    if (providerId && settings.providers.some((provider) => provider.id === providerId)) return providerId;
+    if (providerId && settings.providers.some((provider) => provider.id === providerId))
+      return providerId;
     return settings.providers[0]?.id ?? "";
     // Intentionally empty deps: capture only the initial value. We don't want to re-derive on
     // every settings update because that pulls selectedId back to the default.
@@ -855,8 +999,11 @@ function ProvidersSection({ settings, onSettings }: { settings: Settings; onSett
     return new URLSearchParams(window.location.search).get("modelId") ?? "";
   }, []);
   const [selectedId, setSelectedId] = React.useState(initialProviderId);
-  const selected = settings.providers.find((provider) => provider.id === selectedId) ?? settings.providers[0];
-  const [draft, setDraft] = React.useState<ProviderProfile | null>(selected ? clone(selected) : null);
+  const selected =
+    settings.providers.find((provider) => provider.id === selectedId) ?? settings.providers[0];
+  const [draft, setDraft] = React.useState<ProviderProfile | null>(
+    selected ? clone(selected) : null,
+  );
   const [testing, setTesting] = React.useState(false);
   const [fetchingModels, setFetchingModels] = React.useState(false);
   const [testResult, setTestResult] = React.useState("");
@@ -866,7 +1013,12 @@ function ProvidersSection({ settings, onSettings }: { settings: Settings; onSett
   const [balanceResult, setBalanceResult] = React.useState("");
   const [fetchedModels, setFetchedModels] = React.useState<ProviderModel[]>([]);
   const [testModelId, setTestModelId] = React.useState("");
-  const [imageTestResult, setImageTestResult] = React.useState<{ url: string; durationMs: number; modelId: string; prompt: string } | null>(null);
+  const [imageTestResult, setImageTestResult] = React.useState<{
+    url: string;
+    durationMs: number;
+    modelId: string;
+    prompt: string;
+  } | null>(null);
   const dirtyRef = React.useRef(false);
   const lastSelectedRef = React.useRef(selectedId);
 
@@ -881,7 +1033,8 @@ function ProvidersSection({ settings, onSettings }: { settings: Settings; onSett
   }, [urlProviderId, selectedId, settings.providers]);
 
   React.useEffect(() => {
-    const next = settings.providers.find((provider) => provider.id === selectedId) ?? settings.providers[0];
+    const next =
+      settings.providers.find((provider) => provider.id === selectedId) ?? settings.providers[0];
     const selectedChanged = lastSelectedRef.current !== selectedId;
     lastSelectedRef.current = selectedId;
     setDraft(next ? clone(next) : null);
@@ -904,15 +1057,20 @@ function ProvidersSection({ settings, onSettings }: { settings: Settings; onSett
   const fetchedModelIds = new Set(fetchedModels.map((model) => model.modelId));
   const mergedTestModels = [
     ...fetchedModels,
-    ...(draft.models ?? []).filter((model) => model.modelId !== "auto" && !fetchedModelIds.has(model.modelId)),
+    ...(draft.models ?? []).filter(
+      (model) => model.modelId !== "auto" && !fetchedModelIds.has(model.modelId),
+    ),
   ].filter((model) => model.modelId !== "auto");
-  const effectiveTestModelId = (testModelId && mergedTestModels.some((model) => model.modelId === testModelId) ? testModelId : mergedTestModels[0]?.modelId) || "";
+  const effectiveTestModelId =
+    (testModelId && mergedTestModels.some((model) => model.modelId === testModelId)
+      ? testModelId
+      : mergedTestModels[0]?.modelId) || "";
   // The selected test model's persisted record drives whether we run the image-gen test path
   // (and hide the 3-mode chat panel) vs the chat test path.
   const effectiveTestModelType = (() => {
     const persisted = (draft.models ?? []).find((item) => item.modelId === effectiveTestModelId);
     const merged = mergedTestModels.find((item) => item.modelId === effectiveTestModelId);
-    return String((persisted?.type ?? merged?.type ?? "CHAT")).toUpperCase();
+    return String(persisted?.type ?? merged?.type ?? "CHAT").toUpperCase();
   })();
   const isImageTestMode = effectiveTestModelType === "IMAGE";
 
@@ -925,19 +1083,24 @@ function ProvidersSection({ settings, onSettings }: { settings: Settings; onSett
     await api.post("settings/provider", nextProvider);
     onSettings({
       ...settings,
-      providers: settings.providers.map((provider) => (provider.id === nextProvider.id ? nextProvider : provider)),
+      providers: settings.providers.map((provider) =>
+        provider.id === nextProvider.id ? nextProvider : provider,
+      ),
     });
     dirtyRef.current = false;
   };
   React.useEffect(() => {
     if (!draft || !dirtyRef.current) return;
     const timer = window.setTimeout(() => {
-      void api.post("settings/provider", draft)
+      void api
+        .post("settings/provider", draft)
         .then(() => {
           dirtyRef.current = false;
           onSettings({
             ...settings,
-            providers: settings.providers.map((provider) => (provider.id === draft.id ? draft : provider)),
+            providers: settings.providers.map((provider) =>
+              provider.id === draft.id ? draft : provider,
+            ),
           });
         })
         .catch((error: Error) => toast.error(error.message || "自动保存供应商失败"));
@@ -952,23 +1115,34 @@ function ProvidersSection({ settings, onSettings }: { settings: Settings; onSett
     // If user picked an IMAGE-type model, run a dedicated image-generation test instead of
     // the 3-mode chat test. Matches Android, which never tries chat completions for IMAGE models.
     const requestedModelId = effectiveTestModelId;
-    const selectedTestModel = (draft.models ?? []).find((item) => item.modelId === requestedModelId)
-      ?? mergedTestModels.find((item) => item.modelId === requestedModelId)
-      ?? null;
+    const selectedTestModel =
+      (draft.models ?? []).find((item) => item.modelId === requestedModelId) ??
+      mergedTestModels.find((item) => item.modelId === requestedModelId) ??
+      null;
     if (selectedTestModel && (selectedTestModel.type as string) === "IMAGE") {
       setTestResult("正在保存配置...\n正在执行图像生成测试...");
       try {
         await save();
         const started = Date.now();
-        const response = await api.post<{ status: string; image: { url: string; mime: string; fileName: string } }>(
+        const response = await api.post<{
+          status: string;
+          image: { url: string; mime: string; fileName: string };
+        }>(
           "settings/provider/test/image",
           { providerId: draft.id, modelId: requestedModelId },
           { timeout: false },
         );
         const durationMs = Date.now() - started;
         const url = response.image?.url ?? "";
-        setImageTestResult({ url, durationMs, modelId: requestedModelId, prompt: "A red apple on a white background" });
-        setTestResult(`图像生成测试完成\n\n模型: ${requestedModelId}\n用时: ${(durationMs / 1000).toFixed(2)}s\n输出文件: ${response.image?.fileName ?? "-"}`);
+        setImageTestResult({
+          url,
+          durationMs,
+          modelId: requestedModelId,
+          prompt: "A red apple on a white background",
+        });
+        setTestResult(
+          `图像生成测试完成\n\n模型: ${requestedModelId}\n用时: ${(durationMs / 1000).toFixed(2)}s\n输出文件: ${response.image?.fileName ?? "-"}`,
+        );
         onSettings(await api.get<Settings>("settings"));
         toast.success("图像生成测试成功");
       } catch (error) {
@@ -993,14 +1167,23 @@ function ProvidersSection({ settings, onSettings }: { settings: Settings; onSett
           const text = await response.text();
           throw new Error(text || `HTTP ${response.status}`);
         }
-        const fallback = await api.post<ProviderTestInfo>("settings/provider/test", { providerId: draft.id, modelId: requestedModelId || undefined }, { timeout: false });
+        const fallback = await api.post<ProviderTestInfo>(
+          "settings/provider/test",
+          { providerId: draft.id, modelId: requestedModelId || undefined },
+          { timeout: false },
+        );
         const checks = (fallback.checks ?? [])
-          .map((item) => `${item.ok ? "✓" : "×"} ${item.mode}: ${item.status || "failed"}\n${item.preview}`)
+          .map(
+            (item) =>
+              `${item.ok ? "✓" : "×"} ${item.mode}: ${item.status || "failed"}\n${item.preview}`,
+          )
           .join("\n\n");
         setTestInfo(fallback);
         setTestChecks(fallback.checks ?? []);
         setTestModelId(fallback.testModelId);
-        setTestResult(`测试完成\n\n测试模型: ${fallback.testModelId}\n模型列表端点: ${fallback.endpoint}\n当前聊天端点: ${fallback.responseApiEndpoint}\n模型数量: ${fallback.modelCount}\n\n${checks}\n\n模型列表预览:\n${fallback.preview}`);
+        setTestResult(
+          `测试完成\n\n测试模型: ${fallback.testModelId}\n模型列表端点: ${fallback.endpoint}\n当前聊天端点: ${fallback.responseApiEndpoint}\n模型数量: ${fallback.modelCount}\n\n${checks}\n\n模型列表预览:\n${fallback.preview}`,
+        );
         onSettings(await api.get<Settings>("settings"));
         toast.success("连接测试完成");
         return;
@@ -1014,7 +1197,10 @@ function ProvidersSection({ settings, onSettings }: { settings: Settings; onSett
           ? `测试模型: ${info.testModelId || effectiveTestModelId}\n模型列表端点: ${info.endpoint}\n当前聊天端点: ${info.responseApiEndpoint}\n模型数量: ${info.modelCount}`
           : `测试模型: ${effectiveTestModelId || "正在自动选择..."}`;
         const checkText = checks
-          .map((item) => `${item.ok ? "✓" : "×"} ${item.mode}: ${item.status || "failed"}\n${item.preview}`)
+          .map(
+            (item) =>
+              `${item.ok ? "✓" : "×"} ${item.mode}: ${item.status || "failed"}\n${item.preview}`,
+          )
           .join("\n\n");
         const preview = info?.preview ? `\n\n模型列表预览:\n${info.preview}` : "";
         setTestResult([prefix, header, checkText, preview].filter(Boolean).join("\n\n"));
@@ -1029,7 +1215,12 @@ function ProvidersSection({ settings, onSettings }: { settings: Settings; onSett
         const blocks = buffer.split(/\n\n+/);
         buffer = blocks.pop() ?? "";
         for (const block of blocks) {
-          const event = block.split(/\r?\n/).find((line) => line.startsWith("event:"))?.slice(6).trim() ?? "message";
+          const event =
+            block
+              .split(/\r?\n/)
+              .find((line) => line.startsWith("event:"))
+              ?.slice(6)
+              .trim() ?? "message";
           const dataText = block
             .split(/\r?\n/)
             .filter((line) => line.startsWith("data:"))
@@ -1076,7 +1267,10 @@ function ProvidersSection({ settings, onSettings }: { settings: Settings; onSett
     setFetchingModels(true);
     try {
       await api.post("settings/provider", draft);
-      const result = await api.post<{ endpoint: string; models: ProviderModel[] }>("settings/provider/models", { providerId: draft.id });
+      const result = await api.post<{ endpoint: string; models: ProviderModel[] }>(
+        "settings/provider/models",
+        { providerId: draft.id },
+      );
       setFetchedModels(result.models);
       setTestModelId(result.models.find((model) => model.modelId !== "auto")?.modelId ?? "");
       toast.success(`获取到 ${result.models.length} 个模型`);
@@ -1105,7 +1299,10 @@ function ProvidersSection({ settings, onSettings }: { settings: Settings; onSett
     setFetchingModels(true);
     try {
       await api.post("settings/provider", draft);
-      const result = await api.post<{ endpoint: string; models: ProviderModel[] }>("settings/provider/models", { providerId: draft.id });
+      const result = await api.post<{ endpoint: string; models: ProviderModel[] }>(
+        "settings/provider/models",
+        { providerId: draft.id },
+      );
       if (!result.models.length) {
         toast.error("未获取到任何模型，无法启用，请检查供应商配置");
         return;
@@ -1127,7 +1324,11 @@ function ProvidersSection({ settings, onSettings }: { settings: Settings; onSett
     setBalanceResult("正在查询余额...");
     try {
       await save();
-      const result = await api.post<{ value: string; endpoint: string; preview: string }>("settings/provider/balance", { providerId: draft.id }, { timeout: false });
+      const result = await api.post<{ value: string; endpoint: string; preview: string }>(
+        "settings/provider/balance",
+        { providerId: draft.id },
+        { timeout: false },
+      );
       setBalanceResult(`余额：${result.value}\n端点：${result.endpoint}\n\n${result.preview}`);
       toast.success(`余额：${result.value}`);
     } catch (error) {
@@ -1140,8 +1341,10 @@ function ProvidersSection({ settings, onSettings }: { settings: Settings; onSett
   };
   const toggleModel = (model: ProviderModel, checked: boolean) => {
     const models = checked
-      // Auto-fill type for newly enabled models (CHAT/IMAGE/EMBEDDING) — user can override per-row.
-      ? [...(draft.models ?? []), applyAutoModelType(model)].filter((item, index, arr) => arr.findIndex((x) => x.modelId === item.modelId) === index)
+      ? // Auto-fill type for newly enabled models (CHAT/IMAGE/EMBEDDING) — user can override per-row.
+        [...(draft.models ?? []), applyAutoModelType(model)].filter(
+          (item, index, arr) => arr.findIndex((x) => x.modelId === item.modelId) === index,
+        )
       : (draft.models ?? []).filter((item) => item.modelId !== model.modelId);
     patchDraft({ models });
   };
@@ -1169,9 +1372,10 @@ function ProvidersSection({ settings, onSettings }: { settings: Settings; onSett
 
   const openAddModelDialog = () => {
     if (!draft) return;
-    const uuid = typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
-      ? crypto.randomUUID()
-      : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const uuid =
+      typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
     setModelDialog({
       mode: "add",
       modelIdLocked: false,
@@ -1256,7 +1460,9 @@ function ProvidersSection({ settings, onSettings }: { settings: Settings; onSett
   const moveProvider = async (from: number, to: number) => {
     const nextProviders = moveItem(settings.providers, from, to);
     onSettings({ ...settings, providers: nextProviders });
-    await api.post("settings/provider/reorder", { ids: nextProviders.map((provider) => provider.id) });
+    await api.post("settings/provider/reorder", {
+      ids: nextProviders.map((provider) => provider.id),
+    });
   };
   const testModeLabels: Record<ProviderTestMode, string> = {
     non_stream: "非流式",
@@ -1266,7 +1472,11 @@ function ProvidersSection({ settings, onSettings }: { settings: Settings; onSett
 
   return (
     <>
-      <SectionHeader icon={KeyRound} title="供应商" subtitle="内置模板、启用状态、Base URL、API 路径、Response API、余额路径和模型配置。" />
+      <SectionHeader
+        icon={KeyRound}
+        title="供应商"
+        subtitle="内置模板、启用状态、Base URL、API 路径、Response API、余额路径和模型配置。"
+      />
       <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
         <div className="rounded-lg border bg-card p-2">
           <Button className="mb-2 w-full justify-start" variant="outline" onClick={addProvider}>
@@ -1284,7 +1494,9 @@ function ProvidersSection({ settings, onSettings }: { settings: Settings; onSett
             >
               <span className="grid min-w-0 grid-cols-[28px_10px_minmax(0,1fr)_16px] items-center gap-2 text-left">
                 <AIIcon name={provider.name} size={24} className="justify-self-start" />
-                <span className={`size-2 rounded-full ${provider.enabled ? "bg-emerald-500" : "bg-muted-foreground/40"}`} />
+                <span
+                  className={`size-2 rounded-full ${provider.enabled ? "bg-emerald-500" : "bg-muted-foreground/40"}`}
+                />
                 <span className="min-w-0 flex-1 truncate">{provider.name}</span>
                 {provider.builtIn ? <Check className="size-3 text-primary" /> : null}
               </span>
@@ -1295,21 +1507,35 @@ function ProvidersSection({ settings, onSettings }: { settings: Settings; onSett
           <div className="flex items-center justify-between">
             <div>
               <div className="text-lg font-medium">{draft.name}</div>
-              <div className="text-xs text-muted-foreground">{textValue(draft.shortDescription) || providerKind(draft)}</div>
+              <div className="text-xs text-muted-foreground">
+                {textValue(draft.shortDescription) || providerKind(draft)}
+              </div>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-sm text-muted-foreground">启用</span>
-              <Switch checked={draft.enabled} disabled={fetchingModels} onCheckedChange={(enabled) => void handleToggleEnabled(enabled)} />
+              <Switch
+                checked={draft.enabled}
+                disabled={fetchingModels}
+                onCheckedChange={(enabled) => void handleToggleEnabled(enabled)}
+              />
             </div>
           </div>
           <div className="grid gap-4 md:grid-cols-2">
             <label className="space-y-2">
               <span className="text-sm font-medium">名称</span>
-              <Input value={draft.name} onChange={(event) => patchDraft({ name: event.target.value })} />
+              <Input
+                value={draft.name}
+                onChange={(event) => patchDraft({ name: event.target.value })}
+              />
             </label>
             <label className="space-y-2">
               <span className="text-sm font-medium">类型</span>
-              <Select value={kind} onValueChange={(value) => setDraft(normalizeKindPatch(draft, value as ProviderKind))}>
+              <Select
+                value={kind}
+                onValueChange={(value) =>
+                  setDraft(normalizeKindPatch(draft, value as ProviderKind))
+                }
+              >
                 <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
@@ -1335,35 +1561,54 @@ function ProvidersSection({ settings, onSettings }: { settings: Settings; onSett
                   </button>
                 ) : null}
               </div>
-              <PasswordInput value={textValue(draft.apiKey)} onChange={(apiKey) => patchDraft({ apiKey })} />
+              <PasswordInput
+                value={textValue(draft.apiKey)}
+                onChange={(apiKey) => patchDraft({ apiKey })}
+              />
             </label>
             <label className="space-y-2 md:col-span-2">
               <span className="text-sm font-medium">Base URL</span>
               <Input
                 value={textValue(draft.baseUrl)}
                 onChange={(event) => patchDraft({ baseUrl: event.target.value })}
-                placeholder={kind === "claude" ? "https://api.anthropic.com/v1" : "https://api.openai.com/v1"}
+                placeholder={
+                  kind === "claude" ? "https://api.anthropic.com/v1" : "https://api.openai.com/v1"
+                }
               />
-              <span className="block break-all text-xs text-muted-foreground">聊天完整 URL：{endpointPreview(draft)}</span>
-              <span className="block break-all text-xs text-muted-foreground">模型列表 URL：{modelListEndpointPreview(draft)}</span>
+              <span className="block break-all text-xs text-muted-foreground">
+                聊天完整 URL：{endpointPreview(draft)}
+              </span>
+              <span className="block break-all text-xs text-muted-foreground">
+                模型列表 URL：{modelListEndpointPreview(draft)}
+              </span>
             </label>
             <label className="space-y-2">
               <span className="text-sm font-medium">Chat Completions Path</span>
               <Input
                 disabled={kind !== "openai" || draft.useResponseApi === true}
-                value={textValue(draft.chatCompletionsPath) || defaultPathForKind(kind, draft.useResponseApi === true)}
+                value={
+                  textValue(draft.chatCompletionsPath) ||
+                  defaultPathForKind(kind, draft.useResponseApi === true)
+                }
                 onChange={(event) => patchDraft({ chatCompletionsPath: event.target.value })}
               />
             </label>
             <div className="flex items-end justify-between gap-3 rounded-md border px-3 py-2">
               <div>
                 <div className="text-sm font-medium">Response API</div>
-                <div className="text-xs text-muted-foreground">开启后聊天端点自动切换为 /responses</div>
+                <div className="text-xs text-muted-foreground">
+                  开启后聊天端点自动切换为 /responses
+                </div>
               </div>
               <Switch
                 disabled={kind !== "openai"}
                 checked={draft.useResponseApi === true}
-                onCheckedChange={(useResponseApi) => patchDraft({ useResponseApi, chatCompletionsPath: defaultPathForKind("openai", useResponseApi) })}
+                onCheckedChange={(useResponseApi) =>
+                  patchDraft({
+                    useResponseApi,
+                    chatCompletionsPath: defaultPathForKind("openai", useResponseApi),
+                  })
+                }
               />
             </div>
             {kind === "openai" ? (
@@ -1371,13 +1616,17 @@ function ProvidersSection({ settings, onSettings }: { settings: Settings; onSett
                 <div className="min-w-0 flex-1 space-y-1">
                   <div className="text-sm font-medium">回传历史思考过程</div>
                   <div className="text-xs leading-relaxed text-muted-foreground">
-                    新一代模型（例如 DeepSeek V4）要求回传 reasoning_content。开启后，历史 assistant 消息的 reasoning_content 字段将会随请求回传，不要求回传的模型会静默忽略该字段。若部分供应商不识别该字段而拒绝请求时，可手动关闭。
+                    新一代模型（例如 DeepSeek V4）要求回传 reasoning_content。开启后，历史 assistant
+                    消息的 reasoning_content
+                    字段将会随请求回传，不要求回传的模型会静默忽略该字段。若部分供应商不识别该字段而拒绝请求时，可手动关闭。
                   </div>
                 </div>
                 <Switch
                   className="mt-1 shrink-0"
                   checked={draft.includeHistoryReasoning !== false}
-                  onCheckedChange={(includeHistoryReasoning) => patchDraft({ includeHistoryReasoning })}
+                  onCheckedChange={(includeHistoryReasoning) =>
+                    patchDraft({ includeHistoryReasoning })
+                  }
                 />
               </div>
             ) : null}
@@ -1387,7 +1636,8 @@ function ProvidersSection({ settings, onSettings }: { settings: Settings; onSett
                   <div>
                     <div className="text-sm font-medium">Claude 提示缓存</div>
                     <div className="text-xs text-muted-foreground">
-                      开启后会给系统提示词和倒数第二条用户消息添加 cache_control，复用 Anthropic 的提示缓存。
+                      开启后会给系统提示词和倒数第二条用户消息添加 cache_control，复用 Anthropic
+                      的提示缓存。
                     </div>
                   </div>
                   <Switch
@@ -1399,7 +1649,9 @@ function ProvidersSection({ settings, onSettings }: { settings: Settings; onSett
                   <span className="text-sm font-medium">缓存时长</span>
                   <Select
                     value={textValue(draft.promptCacheTtl) || "5m"}
-                    onValueChange={(promptCacheTtl) => patchDraft({ promptCacheTtl: promptCacheTtl as "5m" | "1h" })}
+                    onValueChange={(promptCacheTtl) =>
+                      patchDraft({ promptCacheTtl: promptCacheTtl as "5m" | "1h" })
+                    }
                     disabled={draft.promptCaching !== true}
                   >
                     <SelectTrigger className="w-full">
@@ -1418,15 +1670,25 @@ function ProvidersSection({ settings, onSettings }: { settings: Settings; onSett
             <div className="flex items-center justify-between gap-3">
               <div>
                 <div className="text-sm font-medium">模型列表</div>
-                <div className="text-xs text-muted-foreground">先获取供应商模型，再勾选要启用的模型。当前已启用 {draft.models?.length ?? 0} 个。</div>
+                <div className="text-xs text-muted-foreground">
+                  先获取供应商模型，再勾选要启用的模型。当前已启用 {draft.models?.length ?? 0} 个。
+                </div>
               </div>
               <div className="flex gap-2">
-                <Button variant="outline" onClick={openAddModelDialog} title="手动添加模型（用于上游列表里没有的自定义模型）">
+                <Button
+                  variant="outline"
+                  onClick={openAddModelDialog}
+                  title="手动添加模型（用于上游列表里没有的自定义模型）"
+                >
                   <Plus className="size-4" />
                   添加模型
                 </Button>
                 <Button variant="outline" onClick={fetchModels} disabled={fetchingModels}>
-                  {fetchingModels ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
+                  {fetchingModels ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="size-4" />
+                  )}
                   获取模型列表
                 </Button>
               </div>
@@ -1446,75 +1708,99 @@ function ProvidersSection({ settings, onSettings }: { settings: Settings; onSett
                 const extras = drafts.filter((m) => !fetchedIds.has(m.modelId));
                 return [...fetched, ...extras];
               })().map((model) => {
-                const focused = focusedModelId && (model.modelId === focusedModelId || model.id === focusedModelId);
+                const focused =
+                  focusedModelId &&
+                  (model.modelId === focusedModelId || model.id === focusedModelId);
                 const enabled = selectedModelIds.has(model.modelId);
-                const persisted = (draft.models ?? []).find((item) => item.modelId === model.modelId);
-                const currentType = (persisted?.type as "CHAT" | "IMAGE" | "EMBEDDING" | undefined) ?? "CHAT";
-                const currentAbilities = Array.isArray(persisted?.abilities) ? persisted!.abilities : [];
+                const persisted = (draft.models ?? []).find(
+                  (item) => item.modelId === model.modelId,
+                );
+                const currentType =
+                  (persisted?.type as "CHAT" | "IMAGE" | "EMBEDDING" | undefined) ?? "CHAT";
+                const currentAbilities = Array.isArray(persisted?.abilities)
+                  ? persisted!.abilities
+                  : [];
                 const hasTool = currentAbilities.includes("TOOL");
                 const hasReasoning = currentAbilities.includes("REASONING");
                 return (
-                <div
-                  key={model.id ?? model.modelId}
-                  // The row itself is the click target for the edit dialog. The checkbox and
-                  // ability buttons inside stop propagation so they keep their own semantics.
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => openEditModelDialog(model)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" || event.key === " ") {
-                      event.preventDefault();
-                      openEditModelDialog(model);
-                    }
-                  }}
-                  className={cn(
-                    "flex cursor-pointer items-center gap-3 rounded-md border px-3 py-2 transition hover:border-primary/40 hover:bg-muted/40",
-                    focused && "border-primary bg-primary/5 shadow-sm",
-                  )}
-                >
-                  <span onClick={(event) => event.stopPropagation()}>
-                    <Checkbox checked={enabled} onCheckedChange={(checked) => toggleModel(model, checked === true)} />
-                  </span>
-                  <AIIcon name={model.modelId} size={28} />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-medium">{model.displayName || model.modelId}</span>
-                    <span className="block truncate text-xs text-muted-foreground">{model.modelId}</span>
-                  </span>
-                  {enabled && currentType === "CHAT" ? (
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        type="button"
-                        onClick={(event) => { event.stopPropagation(); event.preventDefault(); toggleModelAbility(model.modelId, "TOOL", !hasTool); }}
-                        className={cn(
-                          "h-7 rounded-md border px-2 text-xs transition",
-                          hasTool
-                            ? "border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-300"
-                            : "border-border text-muted-foreground hover:bg-muted",
-                        )}
-                        title={hasTool ? "工具调用已启用，点击关闭" : "点击启用工具调用能力"}
-                      >
-                        工具
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(event) => { event.stopPropagation(); event.preventDefault(); toggleModelAbility(model.modelId, "REASONING", !hasReasoning); }}
-                        className={cn(
-                          "h-7 rounded-md border px-2 text-xs transition",
-                          hasReasoning
-                            ? "border-sky-500/50 bg-sky-500/10 text-sky-700 dark:text-sky-300"
-                            : "border-border text-muted-foreground hover:bg-muted",
-                        )}
-                        title={hasReasoning ? "推理已启用，点击关闭" : "点击启用推理能力"}
-                      >
-                        推理
-                      </button>
-                    </div>
-                  ) : null}
-                </div>
+                  <div
+                    key={model.id ?? model.modelId}
+                    // The row itself is the click target for the edit dialog. The checkbox and
+                    // ability buttons inside stop propagation so they keep their own semantics.
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => openEditModelDialog(model)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        openEditModelDialog(model);
+                      }
+                    }}
+                    className={cn(
+                      "flex cursor-pointer items-center gap-3 rounded-md border px-3 py-2 transition hover:border-primary/40 hover:bg-muted/40",
+                      focused && "border-primary bg-primary/5 shadow-sm",
+                    )}
+                  >
+                    <span onClick={(event) => event.stopPropagation()}>
+                      <Checkbox
+                        checked={enabled}
+                        onCheckedChange={(checked) => toggleModel(model, checked === true)}
+                      />
+                    </span>
+                    <AIIcon name={model.modelId} size={28} />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-medium">
+                        {model.displayName || model.modelId}
+                      </span>
+                      <span className="block truncate text-xs text-muted-foreground">
+                        {model.modelId}
+                      </span>
+                    </span>
+                    {enabled && currentType === "CHAT" ? (
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            event.preventDefault();
+                            toggleModelAbility(model.modelId, "TOOL", !hasTool);
+                          }}
+                          className={cn(
+                            "h-7 rounded-md border px-2 text-xs transition",
+                            hasTool
+                              ? "border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-300"
+                              : "border-border text-muted-foreground hover:bg-muted",
+                          )}
+                          title={hasTool ? "工具调用已启用，点击关闭" : "点击启用工具调用能力"}
+                        >
+                          工具
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            event.preventDefault();
+                            toggleModelAbility(model.modelId, "REASONING", !hasReasoning);
+                          }}
+                          className={cn(
+                            "h-7 rounded-md border px-2 text-xs transition",
+                            hasReasoning
+                              ? "border-sky-500/50 bg-sky-500/10 text-sky-700 dark:text-sky-300"
+                              : "border-border text-muted-foreground hover:bg-muted",
+                          )}
+                          title={hasReasoning ? "推理已启用，点击关闭" : "点击启用推理能力"}
+                        >
+                          推理
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
                 );
               })}
               {!fetchedModels.length && !(draft.models ?? []).length ? (
-                <div className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">还没有模型。点击「添加模型」手动添加，或点击「获取模型列表」从上游同步。</div>
+                <div className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
+                  还没有模型。点击「添加模型」手动添加，或点击「获取模型列表」从上游同步。
+                </div>
               ) : null}
             </div>
           </div>
@@ -1535,7 +1821,11 @@ function ProvidersSection({ settings, onSettings }: { settings: Settings; onSett
               </Select>
             </div>
             <Button variant="outline" onClick={test} disabled={testing}>
-              {testing ? <Loader2 className="size-4 animate-spin" /> : <Database className="size-4" />}
+              {testing ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Database className="size-4" />
+              )}
               测试
             </Button>
             <Button
@@ -1559,15 +1849,29 @@ function ProvidersSection({ settings, onSettings }: { settings: Settings; onSett
             <div className="flex items-end justify-between gap-3">
               <div>
                 <div className="text-sm font-medium">余额查询</div>
-                <div className="text-xs text-muted-foreground">按下方接口路径 GET 余额，并按指定 JSON 字段读取数值。</div>
+                <div className="text-xs text-muted-foreground">
+                  按下方接口路径 GET 余额，并按指定 JSON 字段读取数值。
+                </div>
               </div>
               <div className="flex items-center gap-2">
                 <Switch
                   checked={balanceOption.enabled === true}
-                  onCheckedChange={(enabled) => patchDraft({ balanceOption: { ...balanceOptionOf(draft), enabled } })}
+                  onCheckedChange={(enabled) =>
+                    patchDraft({ balanceOption: { ...balanceOptionOf(draft), enabled } })
+                  }
                 />
-                <Button type="button" variant="outline" size="sm" onClick={() => void checkBalance()} disabled={checkingBalance || balanceOption.enabled !== true}>
-                  {checkingBalance ? <Loader2 className="size-4 animate-spin" /> : <Database className="size-4" />}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void checkBalance()}
+                  disabled={checkingBalance || balanceOption.enabled !== true}
+                >
+                  {checkingBalance ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <Database className="size-4" />
+                  )}
                   查询
                 </Button>
               </div>
@@ -1577,24 +1881,38 @@ function ProvidersSection({ settings, onSettings }: { settings: Settings; onSett
                 <span className="text-sm font-medium">余额 API Path</span>
                 <Input
                   value={textValue(balanceOption.apiPath) || "/credits"}
-                  onChange={(event) => patchDraft({ balanceOption: { ...balanceOptionOf(draft), apiPath: event.target.value } })}
+                  onChange={(event) =>
+                    patchDraft({
+                      balanceOption: { ...balanceOptionOf(draft), apiPath: event.target.value },
+                    })
+                  }
                 />
               </label>
               <label className="space-y-2">
                 <span className="text-sm font-medium">余额结果路径</span>
                 <Input
                   value={textValue(balanceOption.resultPath)}
-                  onChange={(event) => patchDraft({ balanceOption: { ...balanceOptionOf(draft), resultPath: event.target.value } })}
+                  onChange={(event) =>
+                    patchDraft({
+                      balanceOption: { ...balanceOptionOf(draft), resultPath: event.target.value },
+                    })
+                  }
                 />
               </label>
             </div>
           </div>
-          {(testing || testChecks.length > 0 || testInfo) && !isImageTestMode && !imageTestResult ? (
+          {(testing || testChecks.length > 0 || testInfo) &&
+          !isImageTestMode &&
+          !imageTestResult ? (
             <div className="rounded-md border bg-muted/40 p-3">
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                 <div className="text-sm font-medium">测试摘要</div>
                 <div className="text-xs text-muted-foreground">
-                  {testInfo?.testModelId ? `模型：${testInfo.testModelId}` : (testing ? "正在测试..." : "等待结果")}
+                  {testInfo?.testModelId
+                    ? `模型：${testInfo.testModelId}`
+                    : testing
+                      ? "正在测试..."
+                      : "等待结果"}
                 </div>
               </div>
               <div className="grid gap-2 md:grid-cols-3">
@@ -1623,7 +1941,13 @@ function ProvidersSection({ settings, onSettings }: { settings: Settings; onSett
                         <span>{testModeLabels[mode]}</span>
                       </div>
                       <div className="mt-1 text-xs text-muted-foreground">
-                        {check ? (check.ok ? `成功 · HTTP ${check.status}` : `失败 · ${check.status || "未连接"}`) : (pending ? "进行中" : "未测试")}
+                        {check
+                          ? check.ok
+                            ? `成功 · HTTP ${check.status}`
+                            : `失败 · ${check.status || "未连接"}`
+                          : pending
+                            ? "进行中"
+                            : "未测试"}
                       </div>
                     </div>
                   );
@@ -1634,7 +1958,10 @@ function ProvidersSection({ settings, onSettings }: { settings: Settings; onSett
           {isImageTestMode && testing && !imageTestResult ? (
             <div className="rounded-md border bg-muted/40 p-3 text-xs text-muted-foreground">
               <Loader2 className="mr-2 inline size-4 animate-spin align-middle" />
-              正在用 <span className="font-medium text-foreground">{effectiveTestModelId}</span> 生成测试图像…
+              正在用 <span className="font-medium text-foreground">
+                {effectiveTestModelId}
+              </span>{" "}
+              生成测试图像…
             </div>
           ) : null}
           {imageTestResult ? (
@@ -1642,7 +1969,8 @@ function ProvidersSection({ settings, onSettings }: { settings: Settings; onSett
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                 <div className="text-sm font-medium">图像生成测试结果</div>
                 <div className="text-xs text-muted-foreground">
-                  模型：{imageTestResult.modelId} · 用时 {(imageTestResult.durationMs / 1000).toFixed(2)}s
+                  模型：{imageTestResult.modelId} · 用时{" "}
+                  {(imageTestResult.durationMs / 1000).toFixed(2)}s
                 </div>
               </div>
               <div className="flex flex-wrap items-start gap-3">
@@ -1660,14 +1988,24 @@ function ProvidersSection({ settings, onSettings }: { settings: Settings; onSett
               </div>
             </div>
           ) : null}
-          {testResult ? <pre className="max-h-56 overflow-auto rounded-md border bg-muted p-3 text-xs whitespace-pre-wrap">{testResult}</pre> : null}
-          {balanceResult ? <pre className="max-h-56 overflow-auto rounded-md border bg-muted p-3 text-xs whitespace-pre-wrap">{balanceResult}</pre> : null}
+          {testResult ? (
+            <pre className="max-h-56 overflow-auto rounded-md border bg-muted p-3 text-xs whitespace-pre-wrap">
+              {testResult}
+            </pre>
+          ) : null}
+          {balanceResult ? (
+            <pre className="max-h-56 overflow-auto rounded-md border bg-muted p-3 text-xs whitespace-pre-wrap">
+              {balanceResult}
+            </pre>
+          ) : null}
         </div>
       </div>
       {modelDialog ? (
         <ModelEditDialog
           open={Boolean(modelDialog)}
-          onOpenChange={(open) => { if (!open) setModelDialog(null); }}
+          onOpenChange={(open) => {
+            if (!open) setModelDialog(null);
+          }}
           mode={modelDialog.mode}
           modelIdLocked={modelDialog.modelIdLocked}
           initialModel={modelDialog.model}
@@ -1679,18 +2017,28 @@ function ProvidersSection({ settings, onSettings }: { settings: Settings; onSett
   );
 }
 
-function AssistantsSection({ settings, onSettings }: { settings: Settings; onSettings: (settings: Settings) => void }) {
+function AssistantsSection({
+  settings,
+  onSettings,
+}: {
+  settings: Settings;
+  onSettings: (settings: Settings) => void;
+}) {
   const { t } = useTranslation();
   const [assistantId, setAssistantId] = React.useState(settings.assistantId);
-  const assistant = (settings.assistants.find((item) => item.id === assistantId) ?? settings.assistants[0]) as AssistantProfile | undefined;
-  const [draft, setDraft] = React.useState<AssistantProfile | null>(assistant ? clone(assistant) : null);
+  const assistant = (settings.assistants.find((item) => item.id === assistantId) ??
+    settings.assistants[0]) as AssistantProfile | undefined;
+  const [draft, setDraft] = React.useState<AssistantProfile | null>(
+    assistant ? clone(assistant) : null,
+  );
   const [memories, setMemories] = React.useState<AssistantMemoryInfo[]>([]);
   const [memoryContent, setMemoryContent] = React.useState("");
   const [editingMemoryId, setEditingMemoryId] = React.useState<number | null>(null);
   const dirtyRef = React.useRef(false);
 
   React.useEffect(() => {
-    const next = settings.assistants.find((item) => item.id === assistantId) ?? settings.assistants[0];
+    const next =
+      settings.assistants.find((item) => item.id === assistantId) ?? settings.assistants[0];
     dirtyRef.current = false;
     setDraft(next ? clone(next) : null);
   }, [assistantId, settings.assistants]);
@@ -1707,7 +2055,9 @@ function AssistantsSection({ settings, onSettings }: { settings: Settings; onSet
   React.useEffect(() => {
     if (!draft || !dirtyRef.current) return;
     const timer = window.setTimeout(() => {
-      void save().catch((error: Error) => toast.error(error.message || t("settings:assistants.autosave_failed")));
+      void save().catch((error: Error) =>
+        toast.error(error.message || t("settings:assistants.autosave_failed")),
+      );
     }, 700);
     return () => window.clearTimeout(timer);
   }, [draft, settings.assistants]);
@@ -1717,12 +2067,16 @@ function AssistantsSection({ settings, onSettings }: { settings: Settings; onSet
       setMemories([]);
       return;
     }
-    const result = await api.get<{ memories: AssistantMemoryInfo[] }>(`settings/memories?assistantId=${encodeURIComponent(draft.id)}`);
+    const result = await api.get<{ memories: AssistantMemoryInfo[] }>(
+      `settings/memories?assistantId=${encodeURIComponent(draft.id)}`,
+    );
     setMemories(result.memories);
   }, [draft?.id]);
 
   React.useEffect(() => {
-    void loadMemories().catch((error: Error) => toast.error(error.message || t("settings:assistants.load_memories_failed")));
+    void loadMemories().catch((error: Error) =>
+      toast.error(error.message || t("settings:assistants.load_memories_failed")),
+    );
   }, [loadMemories, draft?.useGlobalMemory]);
 
   if (!draft) return null;
@@ -1758,14 +2112,31 @@ function AssistantsSection({ settings, onSettings }: { settings: Settings; onSet
     await api.post("settings/assistants/reorder", { ids: assistants.map((item) => item.id) });
   };
   const removeAssistant = async () => {
-    if (!window.confirm(t("settings:assistants.delete_confirm", { name: draft.name || t("settings:assistants.default_name") }))) return;
+    if (
+      !window.confirm(
+        t("settings:assistants.delete_confirm", {
+          name: draft.name || t("settings:assistants.default_name"),
+        }),
+      )
+    )
+      return;
     await api.delete(`settings/assistant/${encodeURIComponent(draft.id)}`);
     const assistants = settings.assistants.filter((item) => item.id !== draft.id);
-    onSettings({ ...settings, assistants, assistantId: settings.assistantId === draft.id ? assistants[0]?.id ?? "" : settings.assistantId });
+    onSettings({
+      ...settings,
+      assistants,
+      assistantId:
+        settings.assistantId === draft.id ? (assistants[0]?.id ?? "") : settings.assistantId,
+    });
     setAssistantId(assistants[0]?.id ?? "");
     toast.success(t("settings:assistants.deleted"));
   };
-  const parameterControl = (key: "temperature" | "topP", label: string, max: number, step: number) => {
+  const parameterControl = (
+    key: "temperature" | "topP",
+    label: string,
+    max: number,
+    step: number,
+  ) => {
     const value = typeof draft[key] === "number" ? draft[key] : key === "temperature" ? 1 : 1;
     const commit = (raw: string) => {
       if (raw.trim() === "") return;
@@ -1777,7 +2148,15 @@ function AssistantsSection({ settings, onSettings }: { settings: Settings; onSet
       <label className="space-y-2">
         <span className="text-sm font-medium">{label}</span>
         <div className="flex items-center gap-3">
-          <Slider min={0} max={max} step={step} value={[value]} onValueChange={([next]) => patchDraft({ [key]: next ?? null } as Partial<AssistantProfile>)} />
+          <Slider
+            min={0}
+            max={max}
+            step={step}
+            value={[value]}
+            onValueChange={([next]) =>
+              patchDraft({ [key]: next ?? null } as Partial<AssistantProfile>)
+            }
+          />
           <Input
             key={`${key}-${value}`}
             className="w-24"
@@ -1796,13 +2175,23 @@ function AssistantsSection({ settings, onSettings }: { settings: Settings; onSet
   const messageTemplateMissingMessage = !messageTemplateValue.includes("{{ message }}");
   const previewModel = React.useMemo(() => {
     const wanted = draft.chatModelId ?? settings.chatModelId;
-    return settings.providers.flatMap((provider) => provider.models).find((modelItem) => modelItem.id === wanted || modelItem.modelId === wanted) ?? null;
+    return (
+      settings.providers
+        .flatMap((provider) => provider.models)
+        .find((modelItem) => modelItem.id === wanted || modelItem.modelId === wanted) ?? null
+    );
   }, [draft.chatModelId, settings.chatModelId, settings.providers]);
   const messageTemplatePreview = React.useMemo(
     () => [
       {
         role: "user",
-        text: renderMessageTemplatePreview(messageTemplateValue, t("settings:assistants.preview_user_input"), "user", draft, previewModel),
+        text: renderMessageTemplatePreview(
+          messageTemplateValue,
+          t("settings:assistants.preview_user_input"),
+          "user",
+          draft,
+          previewModel,
+        ),
       },
       {
         role: "assistant",
@@ -1811,30 +2200,62 @@ function AssistantsSection({ settings, onSettings }: { settings: Settings; onSet
     ],
     [draft, messageTemplateValue, previewModel],
   );
-  const presetMessages = Array.isArray(draft.presetMessages) ? (draft.presetMessages as Array<Record<string, unknown>>) : [];
-  const assistantRegexes = Array.isArray(draft.regexes) ? (draft.regexes as Array<Record<string, unknown>>) : [];
-  const customHeaders = Array.isArray(draft.customHeaders) ? (draft.customHeaders as Array<Record<string, unknown>>) : [];
-  const customBodies = Array.isArray(draft.customBodies) ? (draft.customBodies as Array<Record<string, unknown>>) : [];
+  const presetMessages = Array.isArray(draft.presetMessages)
+    ? (draft.presetMessages as Array<Record<string, unknown>>)
+    : [];
+  const assistantRegexes = Array.isArray(draft.regexes)
+    ? (draft.regexes as Array<Record<string, unknown>>)
+    : [];
+  const customHeaders = Array.isArray(draft.customHeaders)
+    ? (draft.customHeaders as Array<Record<string, unknown>>)
+    : [];
+  const customBodies = Array.isArray(draft.customBodies)
+    ? (draft.customBodies as Array<Record<string, unknown>>)
+    : [];
   const updatePresetMessage = (index: number, patch: Record<string, unknown>) => {
-    patchDraft({ presetMessages: presetMessages.map((message, itemIndex) => (itemIndex === index ? { ...message, ...patch } : message)) });
+    patchDraft({
+      presetMessages: presetMessages.map((message, itemIndex) =>
+        itemIndex === index ? { ...message, ...patch } : message,
+      ),
+    });
   };
   const updateRegex = (index: number, patch: Record<string, unknown>) => {
-    patchDraft({ regexes: assistantRegexes.map((regex, itemIndex) => (itemIndex === index ? { ...regex, ...patch } : regex)) });
+    patchDraft({
+      regexes: assistantRegexes.map((regex, itemIndex) =>
+        itemIndex === index ? { ...regex, ...patch } : regex,
+      ),
+    });
   };
   const updateCustomHeader = (index: number, patch: Record<string, unknown>) => {
-    patchDraft({ customHeaders: customHeaders.map((header, itemIndex) => (itemIndex === index ? { ...header, ...patch } : header)) });
+    patchDraft({
+      customHeaders: customHeaders.map((header, itemIndex) =>
+        itemIndex === index ? { ...header, ...patch } : header,
+      ),
+    });
   };
   const updateCustomBody = (index: number, patch: Record<string, unknown>) => {
-    patchDraft({ customBodies: customBodies.map((body, itemIndex) => (itemIndex === index ? { ...body, ...patch } : body)) });
+    patchDraft({
+      customBodies: customBodies.map((body, itemIndex) =>
+        itemIndex === index ? { ...body, ...patch } : body,
+      ),
+    });
   };
   const saveMemory = async () => {
     const content = memoryContent.trim();
     if (!content) return;
-    await api.post("settings/memory/detail", { assistantId: draft.id, id: editingMemoryId ?? undefined, content });
+    await api.post("settings/memory/detail", {
+      assistantId: draft.id,
+      id: editingMemoryId ?? undefined,
+      content,
+    });
     setMemoryContent("");
     setEditingMemoryId(null);
     await loadMemories();
-    toast.success(editingMemoryId ? t("settings:assistants.memory_updated") : t("settings:assistants.memory_added"));
+    toast.success(
+      editingMemoryId
+        ? t("settings:assistants.memory_updated")
+        : t("settings:assistants.memory_added"),
+    );
   };
   const removeMemory = async (memoryId: number) => {
     if (!window.confirm(t("settings:assistants.delete_memory_confirm", { id: memoryId }))) return;
@@ -1849,7 +2270,11 @@ function AssistantsSection({ settings, onSettings }: { settings: Settings; onSet
 
   return (
     <>
-      <SectionHeader icon={Bot} title={t("settings:assistants.title")} subtitle={t("settings:assistants.subtitle")} />
+      <SectionHeader
+        icon={Bot}
+        title={t("settings:assistants.title")}
+        subtitle={t("settings:assistants.subtitle")}
+      />
       <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
         <div className="rounded-lg border bg-card p-2">
           <Button className="mb-2 w-full justify-start" variant="outline" onClick={addAssistant}>
@@ -1867,7 +2292,9 @@ function AssistantsSection({ settings, onSettings }: { settings: Settings; onSet
             >
               <span className="flex items-center gap-2">
                 <UIAvatar size="sm" name={item.name || "Assistant"} avatar={item.avatar} />
-                <span className="truncate">{item.name || t("settings:assistants.default_name")}</span>
+                <span className="truncate">
+                  {item.name || t("settings:assistants.default_name")}
+                </span>
               </span>
             </SortableRow>
           ))}
@@ -1883,24 +2310,37 @@ function AssistantsSection({ settings, onSettings }: { settings: Settings; onSet
               onSettings({
                 ...settings,
                 assistantId: nextDraft.id,
-                assistants: settings.assistants.map((item) => (item.id === nextDraft.id ? nextDraft : item)),
+                assistants: settings.assistants.map((item) =>
+                  item.id === nextDraft.id ? nextDraft : item,
+                ),
               });
             }}
           />
           <Separator />
           <label className="block space-y-2">
             <span className="text-sm font-medium">{t("settings:assistants.name")}</span>
-            <Input value={draft.name} onChange={(event) => patchDraft({ name: event.target.value })} />
+            <Input
+              value={draft.name}
+              onChange={(event) => patchDraft({ name: event.target.value })}
+            />
           </label>
           <label className="block space-y-2">
             <span className="text-sm font-medium">{t("settings:assistants.system_prompt")}</span>
-            <Textarea className="min-h-52 font-mono text-xs" value={textValue(draft.systemPrompt)} onChange={(event) => patchDraft({ systemPrompt: event.target.value })} />
+            <Textarea
+              className="min-h-52 font-mono text-xs"
+              value={textValue(draft.systemPrompt)}
+              onChange={(event) => patchDraft({ systemPrompt: event.target.value })}
+            />
           </label>
           <div className="space-y-2">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <div className="text-sm font-medium">{t("settings:assistants.message_template_title")}</div>
-                <div className="mt-0.5 text-xs text-muted-foreground">{t("settings:assistants.message_template_desc")}</div>
+                <div className="text-sm font-medium">
+                  {t("settings:assistants.message_template_title")}
+                </div>
+                <div className="mt-0.5 text-xs text-muted-foreground">
+                  {t("settings:assistants.message_template_desc")}
+                </div>
               </div>
               <Button
                 type="button"
@@ -1924,7 +2364,9 @@ function AssistantsSection({ settings, onSettings }: { settings: Settings; onSet
               </div>
             ) : null}
             <div className="rounded-md border bg-muted/30 p-3">
-              <div className="mb-2 text-sm font-medium">{t("settings:assistants.template_preview")}</div>
+              <div className="mb-2 text-sm font-medium">
+                {t("settings:assistants.template_preview")}
+              </div>
               <div className="space-y-2">
                 {messageTemplatePreview.map((item) => (
                   <div key={item.role} className="rounded-md bg-background p-3 text-xs">
@@ -1935,7 +2377,16 @@ function AssistantsSection({ settings, onSettings }: { settings: Settings; onSet
               </div>
               <div className="mt-2 flex flex-wrap gap-1.5 text-xs text-muted-foreground">
                 <span>{t("settings:assistants.available_vars")}</span>
-                {["role", "message", "time", "date", "cur_datetime", "user", "char", "model_name"].map((variable) => (
+                {[
+                  "role",
+                  "message",
+                  "time",
+                  "date",
+                  "cur_datetime",
+                  "user",
+                  "char",
+                  "model_name",
+                ].map((variable) => (
                   <code key={variable} className="rounded bg-muted px-1.5 py-0.5 font-mono">
                     {`{{ ${variable} }}`}
                   </code>
@@ -1946,26 +2397,46 @@ function AssistantsSection({ settings, onSettings }: { settings: Settings; onSet
           <div className="rounded-md border p-3">
             <div className="mb-3 flex items-center justify-between gap-3">
               <div>
-                <div className="text-sm font-medium">{t("settings:assistants.preset_messages_title")}</div>
-                <div className="mt-0.5 text-xs text-muted-foreground">{t("settings:assistants.preset_messages_desc")}</div>
+                <div className="text-sm font-medium">
+                  {t("settings:assistants.preset_messages_title")}
+                </div>
+                <div className="mt-0.5 text-xs text-muted-foreground">
+                  {t("settings:assistants.preset_messages_desc")}
+                </div>
               </div>
               <Button
                 type="button"
                 size="sm"
                 variant="outline"
-                onClick={() => patchDraft({ presetMessages: [...presetMessages, { role: "ASSISTANT", content: "" }] })}
+                onClick={() =>
+                  patchDraft({
+                    presetMessages: [...presetMessages, { role: "ASSISTANT", content: "" }],
+                  })
+                }
               >
                 <Plus className="size-4" />
                 {t("settings:assistants.add_button")}
               </Button>
             </div>
             <div className="space-y-3">
-              {presetMessages.length === 0 ? <div className="rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground">{t("settings:assistants.no_preset")}</div> : null}
+              {presetMessages.length === 0 ? (
+                <div className="rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground">
+                  {t("settings:assistants.no_preset")}
+                </div>
+              ) : null}
               {presetMessages.map((message, index) => (
-                <div key={String(message.id ?? index)} className="rounded-md border bg-muted/20 p-3">
+                <div
+                  key={String(message.id ?? index)}
+                  className="rounded-md border bg-muted/20 p-3"
+                >
                   <div className="mb-2 flex items-center gap-2">
-                    <Select value={textValue(message.role).toUpperCase() || "ASSISTANT"} onValueChange={(role) => updatePresetMessage(index, { role })}>
-                      <SelectTrigger className="h-8 w-36"><SelectValue /></SelectTrigger>
+                    <Select
+                      value={textValue(message.role).toUpperCase() || "ASSISTANT"}
+                      onValueChange={(role) => updatePresetMessage(index, { role })}
+                    >
+                      <SelectTrigger className="h-8 w-36">
+                        <SelectValue />
+                      </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="SYSTEM">System</SelectItem>
                         <SelectItem value="USER">User</SelectItem>
@@ -1977,7 +2448,13 @@ function AssistantsSection({ settings, onSettings }: { settings: Settings; onSet
                       size="icon-sm"
                       variant="ghost"
                       className="ml-auto"
-                      onClick={() => patchDraft({ presetMessages: presetMessages.filter((_, itemIndex) => itemIndex !== index) })}
+                      onClick={() =>
+                        patchDraft({
+                          presetMessages: presetMessages.filter(
+                            (_, itemIndex) => itemIndex !== index,
+                          ),
+                        })
+                      }
                       title={t("settings:assistants.delete_preset")}
                     >
                       <Trash2 className="size-4" />
@@ -1986,7 +2463,9 @@ function AssistantsSection({ settings, onSettings }: { settings: Settings; onSet
                   <Textarea
                     className="min-h-24"
                     value={textValue(message.content)}
-                    onChange={(event) => updatePresetMessage(index, { content: event.target.value })}
+                    onChange={(event) =>
+                      updatePresetMessage(index, { content: event.target.value })
+                    }
                   />
                 </div>
               ))}
@@ -1996,7 +2475,9 @@ function AssistantsSection({ settings, onSettings }: { settings: Settings; onSet
             <div className="mb-3 flex items-center justify-between gap-3">
               <div>
                 <div className="text-sm font-medium">{t("settings:assistants.regex_title")}</div>
-                <div className="mt-0.5 text-xs text-muted-foreground">{t("settings:assistants.regex_desc")}</div>
+                <div className="mt-0.5 text-xs text-muted-foreground">
+                  {t("settings:assistants.regex_desc")}
+                </div>
               </div>
               <Button
                 type="button"
@@ -2006,7 +2487,15 @@ function AssistantsSection({ settings, onSettings }: { settings: Settings; onSet
                   patchDraft({
                     regexes: [
                       ...assistantRegexes,
-                      { id: crypto.randomUUID(), name: "", enabled: true, findRegex: "", replaceString: "", affectingScope: ["ASSISTANT"], visualOnly: false },
+                      {
+                        id: crypto.randomUUID(),
+                        name: "",
+                        enabled: true,
+                        findRegex: "",
+                        replaceString: "",
+                        affectingScope: ["ASSISTANT"],
+                        visualOnly: false,
+                      },
                     ],
                   })
                 }
@@ -2016,9 +2505,15 @@ function AssistantsSection({ settings, onSettings }: { settings: Settings; onSet
               </Button>
             </div>
             <div className="space-y-3">
-              {assistantRegexes.length === 0 ? <div className="rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground">{t("settings:assistants.no_regex")}</div> : null}
+              {assistantRegexes.length === 0 ? (
+                <div className="rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground">
+                  {t("settings:assistants.no_regex")}
+                </div>
+              ) : null}
               {assistantRegexes.map((regex, index) => {
-                const scopes = Array.isArray(regex.affectingScope) ? regex.affectingScope.map(String) : [];
+                const scopes = Array.isArray(regex.affectingScope)
+                  ? regex.affectingScope.map(String)
+                  : [];
                 const toggleScope = (scope: "USER" | "ASSISTANT", checked: boolean) => {
                   const nextScopes = new Set(scopes);
                   if (checked) nextScopes.add(scope);
@@ -2026,15 +2521,30 @@ function AssistantsSection({ settings, onSettings }: { settings: Settings; onSet
                   updateRegex(index, { affectingScope: [...nextScopes] });
                 };
                 return (
-                  <div key={String(regex.id ?? index)} className="rounded-md border bg-muted/20 p-3">
+                  <div
+                    key={String(regex.id ?? index)}
+                    className="rounded-md border bg-muted/20 p-3"
+                  >
                     <div className="mb-3 flex items-center gap-2">
-                      <Switch checked={regex.enabled !== false} onCheckedChange={(checked) => updateRegex(index, { enabled: checked })} />
-                      <Input className="h-8" value={textValue(regex.name)} onChange={(event) => updateRegex(index, { name: event.target.value })} placeholder={t("settings:assistants.regex_name_ph")} />
+                      <Switch
+                        checked={regex.enabled !== false}
+                        onCheckedChange={(checked) => updateRegex(index, { enabled: checked })}
+                      />
+                      <Input
+                        className="h-8"
+                        value={textValue(regex.name)}
+                        onChange={(event) => updateRegex(index, { name: event.target.value })}
+                        placeholder={t("settings:assistants.regex_name_ph")}
+                      />
                       <Button
                         type="button"
                         size="icon-sm"
                         variant="ghost"
-                        onClick={() => patchDraft({ regexes: assistantRegexes.filter((_, itemIndex) => itemIndex !== index) })}
+                        onClick={() =>
+                          patchDraft({
+                            regexes: assistantRegexes.filter((_, itemIndex) => itemIndex !== index),
+                          })
+                        }
                         title={t("settings:assistants.delete_regex")}
                       >
                         <Trash2 className="size-4" />
@@ -2043,24 +2553,45 @@ function AssistantsSection({ settings, onSettings }: { settings: Settings; onSet
                     <div className="grid gap-3 md:grid-cols-2">
                       <label className="space-y-1">
                         <span className="text-xs text-muted-foreground">Find Regex</span>
-                        <Input value={textValue(regex.findRegex)} onChange={(event) => updateRegex(index, { findRegex: event.target.value })} />
+                        <Input
+                          value={textValue(regex.findRegex)}
+                          onChange={(event) =>
+                            updateRegex(index, { findRegex: event.target.value })
+                          }
+                        />
                       </label>
                       <label className="space-y-1">
                         <span className="text-xs text-muted-foreground">Replace String</span>
-                        <Input value={textValue(regex.replaceString)} onChange={(event) => updateRegex(index, { replaceString: event.target.value })} />
+                        <Input
+                          value={textValue(regex.replaceString)}
+                          onChange={(event) =>
+                            updateRegex(index, { replaceString: event.target.value })
+                          }
+                        />
                       </label>
                     </div>
                     <div className="mt-3 flex flex-wrap items-center gap-4 text-sm">
                       <label className="flex items-center gap-2">
-                        <Checkbox checked={scopes.includes("USER")} onCheckedChange={(checked) => toggleScope("USER", checked === true)} />
+                        <Checkbox
+                          checked={scopes.includes("USER")}
+                          onCheckedChange={(checked) => toggleScope("USER", checked === true)}
+                        />
                         User
                       </label>
                       <label className="flex items-center gap-2">
-                        <Checkbox checked={scopes.includes("ASSISTANT")} onCheckedChange={(checked) => toggleScope("ASSISTANT", checked === true)} />
+                        <Checkbox
+                          checked={scopes.includes("ASSISTANT")}
+                          onCheckedChange={(checked) => toggleScope("ASSISTANT", checked === true)}
+                        />
                         Assistant
                       </label>
                       <label className="flex items-center gap-2">
-                        <Checkbox checked={regex.visualOnly === true} onCheckedChange={(checked) => updateRegex(index, { visualOnly: checked === true })} />
+                        <Checkbox
+                          checked={regex.visualOnly === true}
+                          onCheckedChange={(checked) =>
+                            updateRegex(index, { visualOnly: checked === true })
+                          }
+                        />
                         {t("settings:assistants.visual_only")}
                       </label>
                     </div>
@@ -2079,10 +2610,15 @@ function AssistantsSection({ settings, onSettings }: { settings: Settings; onSet
                 placeholder={t("settings:assistants.max_tokens_ph")}
                 onChange={(event) => {
                   const raw = event.target.value.trim();
-                  setDraft({ ...draft, maxTokens: raw === "" ? null : Math.max(1, Number(raw) || 1) });
+                  setDraft({
+                    ...draft,
+                    maxTokens: raw === "" ? null : Math.max(1, Number(raw) || 1),
+                  });
                 }}
               />
-              <div className="text-xs text-muted-foreground">{t("settings:assistants.max_tokens_desc")}</div>
+              <div className="text-xs text-muted-foreground">
+                {t("settings:assistants.max_tokens_desc")}
+              </div>
             </label>
           </div>
           <div className="grid gap-3 md:grid-cols-2">
@@ -2095,9 +2631,17 @@ function AssistantsSection({ settings, onSettings }: { settings: Settings; onSet
               ["useAssistantAvatar", t("settings:assistants.opt.use_avatar")],
               ["allowConversationSystemPrompt", t("settings:assistants.opt.allow_conv_prompt")],
             ].map(([key, label]) => (
-              <label key={key} className="flex items-center justify-between rounded-md border px-3 py-2">
+              <label
+                key={key}
+                className="flex items-center justify-between rounded-md border px-3 py-2"
+              >
                 <span className="text-sm">{label}</span>
-                <Switch checked={draft[key] === true} onCheckedChange={(checked) => patchDraft({ [key]: checked } as Partial<AssistantProfile>)} />
+                <Switch
+                  checked={draft[key] === true}
+                  onCheckedChange={(checked) =>
+                    patchDraft({ [key]: checked } as Partial<AssistantProfile>)
+                  }
+                />
               </label>
             ))}
           </div>
@@ -2106,7 +2650,9 @@ function AssistantsSection({ settings, onSettings }: { settings: Settings; onSet
               <div>
                 <div className="text-sm font-medium">{t("settings:assistants.memory_title")}</div>
                 <div className="mt-0.5 text-xs text-muted-foreground">
-                  {t("settings:assistants.memory_desc_pre")}<code className="rounded bg-muted px-1">memory_tool</code>{t("settings:assistants.memory_desc_post")}
+                  {t("settings:assistants.memory_desc_pre")}
+                  <code className="rounded bg-muted px-1">memory_tool</code>
+                  {t("settings:assistants.memory_desc_post")}
                 </div>
               </div>
               <Button type="button" size="sm" variant="outline" onClick={() => void loadMemories()}>
@@ -2122,30 +2668,74 @@ function AssistantsSection({ settings, onSettings }: { settings: Settings; onSet
                 placeholder={t("settings:assistants.memory_ph")}
               />
               <div className="flex flex-col gap-2">
-                <Button type="button" onClick={() => void saveMemory()} disabled={!memoryContent.trim()}>
+                <Button
+                  type="button"
+                  onClick={() => void saveMemory()}
+                  disabled={!memoryContent.trim()}
+                >
                   <Save className="size-4" />
-                  {editingMemoryId ? t("settings:assistants.update_memory", { id: editingMemoryId }) : t("settings:assistants.add_memory")}
+                  {editingMemoryId
+                    ? t("settings:assistants.update_memory", { id: editingMemoryId })
+                    : t("settings:assistants.add_memory")}
                 </Button>
                 {editingMemoryId ? (
-                  <Button type="button" variant="outline" onClick={() => { setEditingMemoryId(null); setMemoryContent(""); }}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setEditingMemoryId(null);
+                      setMemoryContent("");
+                    }}
+                  >
                     {t("settings:assistants.cancel_edit")}
                   </Button>
                 ) : null}
                 <div className="text-xs text-muted-foreground">
-                  {t("settings:assistants.memory_source", { source: draft.useGlobalMemory ? t("settings:assistants.source_global") : t("settings:assistants.source_current"), n: memories.length })}
+                  {t("settings:assistants.memory_source", {
+                    source: draft.useGlobalMemory
+                      ? t("settings:assistants.source_global")
+                      : t("settings:assistants.source_current"),
+                    n: memories.length,
+                  })}
                 </div>
               </div>
             </div>
             <div className="mt-3 max-h-64 space-y-2 overflow-auto">
-              {memories.length === 0 ? <div className="rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground">{t("settings:assistants.no_memory")}</div> : null}
+              {memories.length === 0 ? (
+                <div className="rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground">
+                  {t("settings:assistants.no_memory")}
+                </div>
+              ) : null}
               {memories.map((memory) => (
-                <div key={memory.id} className="flex items-start gap-3 rounded-md border bg-muted/20 p-3">
-                  <div className="mt-0.5 shrink-0 rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground">#{memory.id}</div>
-                  <div className="min-w-0 flex-1 whitespace-pre-wrap text-sm leading-relaxed">{memory.content}</div>
-                  <Button type="button" size="icon-sm" variant="ghost" title={t("settings:assistants.edit_memory")} onClick={() => { setEditingMemoryId(memory.id); setMemoryContent(memory.content); }}>
+                <div
+                  key={memory.id}
+                  className="flex items-start gap-3 rounded-md border bg-muted/20 p-3"
+                >
+                  <div className="mt-0.5 shrink-0 rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground">
+                    #{memory.id}
+                  </div>
+                  <div className="min-w-0 flex-1 whitespace-pre-wrap text-sm leading-relaxed">
+                    {memory.content}
+                  </div>
+                  <Button
+                    type="button"
+                    size="icon-sm"
+                    variant="ghost"
+                    title={t("settings:assistants.edit_memory")}
+                    onClick={() => {
+                      setEditingMemoryId(memory.id);
+                      setMemoryContent(memory.content);
+                    }}
+                  >
                     <NotebookText className="size-4" />
                   </Button>
-                  <Button type="button" size="icon-sm" variant="ghost" title={t("settings:assistants.delete_memory_title")} onClick={() => void removeMemory(memory.id)}>
+                  <Button
+                    type="button"
+                    size="icon-sm"
+                    variant="ghost"
+                    title={t("settings:assistants.delete_memory_title")}
+                    onClick={() => void removeMemory(memory.id)}
+                  >
                     <Trash2 className="size-4" />
                   </Button>
                 </div>
@@ -2154,18 +2744,31 @@ function AssistantsSection({ settings, onSettings }: { settings: Settings; onSet
           </div>
           <div className="rounded-md border p-3">
             <div className="text-sm font-medium">本地工具</div>
-            <div className="mt-1 text-xs text-muted-foreground">本地工具列表。启用后，仅在当前模型支持工具调用时才会注入给模型。</div>
+            <div className="mt-1 text-xs text-muted-foreground">
+              本地工具列表。启用后，仅在当前模型支持工具调用时才会注入给模型。
+            </div>
             <div className="mt-3 grid gap-3 md:grid-cols-2">
               {[
                 ["time_info", "时间信息", "读取 PC 本地时间、时区、星期和时间戳。"],
-                ["javascript_engine", "JavaScript 引擎", "用于计算和纯文本数据转换，不提供 DOM/Node API。"],
+                [
+                  "javascript_engine",
+                  "JavaScript 引擎",
+                  "用于计算和纯文本数据转换，不提供 DOM/Node API。",
+                ],
                 ["clipboard", "剪贴板", "读写系统剪贴板；除非用户明确要求，否则模型不应写入。"],
                 ["tts", "语音播报", "调用系统语音朗读文本。"],
                 ["ask_user", "询问用户", "需要澄清时在对话中展示问题，由用户回答后继续。"],
               ].map(([type, label, desc]) => {
-                const enabled = Array.isArray(draft.localTools) && draft.localTools.some((tool) => isPlainRecord(tool) ? tool.type === type : tool === type);
+                const enabled =
+                  Array.isArray(draft.localTools) &&
+                  draft.localTools.some((tool) =>
+                    isPlainRecord(tool) ? tool.type === type : tool === type,
+                  );
                 return (
-                  <label key={type} className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
+                  <label
+                    key={type}
+                    className="flex items-center justify-between gap-3 rounded-md border px-3 py-2"
+                  >
                     <span>
                       <span className="block text-sm">{label}</span>
                       <span className="block text-xs text-muted-foreground">{desc}</span>
@@ -2175,8 +2778,16 @@ function AssistantsSection({ settings, onSettings }: { settings: Settings; onSet
                       onCheckedChange={(checked) => {
                         const current = Array.isArray(draft.localTools) ? draft.localTools : [];
                         const next = checked
-                          ? [...current.filter((tool) => !(isPlainRecord(tool) ? tool.type === type : tool === type)), { type }]
-                          : current.filter((tool) => !(isPlainRecord(tool) ? tool.type === type : tool === type));
+                          ? [
+                              ...current.filter(
+                                (tool) =>
+                                  !(isPlainRecord(tool) ? tool.type === type : tool === type),
+                              ),
+                              { type },
+                            ]
+                          : current.filter(
+                              (tool) => !(isPlainRecord(tool) ? tool.type === type : tool === type),
+                            );
                         patchDraft({ localTools: next });
                       }}
                     />
@@ -2192,19 +2803,54 @@ function AssistantsSection({ settings, onSettings }: { settings: Settings; onSet
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <div className="text-sm">Headers</div>
-                    <div className="text-xs text-muted-foreground">发送模型请求时会追加到请求头。</div>
+                    <div className="text-xs text-muted-foreground">
+                      发送模型请求时会追加到请求头。
+                    </div>
                   </div>
-                  <Button type="button" size="sm" variant="outline" onClick={() => patchDraft({ customHeaders: [...customHeaders, { name: "", value: "" }] })}>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() =>
+                      patchDraft({ customHeaders: [...customHeaders, { name: "", value: "" }] })
+                    }
+                  >
                     <Plus className="size-4" />
                     添加
                   </Button>
                 </div>
-                {customHeaders.length === 0 ? <div className="rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground">没有自定义 Header</div> : null}
+                {customHeaders.length === 0 ? (
+                  <div className="rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground">
+                    没有自定义 Header
+                  </div>
+                ) : null}
                 {customHeaders.map((header, index) => (
-                  <div key={index} className="grid gap-2 rounded-md border bg-muted/20 p-3 md:grid-cols-[1fr_1fr_auto]">
-                    <Input value={textValue(header.name ?? header.key)} onChange={(event) => updateCustomHeader(index, { name: event.target.value })} placeholder="Header name" />
-                    <Input value={textValue(header.value)} onChange={(event) => updateCustomHeader(index, { value: event.target.value })} placeholder="Header value" />
-                    <Button type="button" size="icon-sm" variant="ghost" onClick={() => patchDraft({ customHeaders: customHeaders.filter((_, itemIndex) => itemIndex !== index) })}>
+                  <div
+                    key={index}
+                    className="grid gap-2 rounded-md border bg-muted/20 p-3 md:grid-cols-[1fr_1fr_auto]"
+                  >
+                    <Input
+                      value={textValue(header.name ?? header.key)}
+                      onChange={(event) => updateCustomHeader(index, { name: event.target.value })}
+                      placeholder="Header name"
+                    />
+                    <Input
+                      value={textValue(header.value)}
+                      onChange={(event) => updateCustomHeader(index, { value: event.target.value })}
+                      placeholder="Header value"
+                    />
+                    <Button
+                      type="button"
+                      size="icon-sm"
+                      variant="ghost"
+                      onClick={() =>
+                        patchDraft({
+                          customHeaders: customHeaders.filter(
+                            (_, itemIndex) => itemIndex !== index,
+                          ),
+                        })
+                      }
+                    >
                       <Trash2 className="size-4" />
                     </Button>
                   </div>
@@ -2214,25 +2860,57 @@ function AssistantsSection({ settings, onSettings }: { settings: Settings; onSet
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <div className="text-sm">Bodies</div>
-                    <div className="text-xs text-muted-foreground">按 key 合并进请求体；value 可填写 JSON 或普通字符串。</div>
+                    <div className="text-xs text-muted-foreground">
+                      按 key 合并进请求体；value 可填写 JSON 或普通字符串。
+                    </div>
                   </div>
-                  <Button type="button" size="sm" variant="outline" onClick={() => patchDraft({ customBodies: [...customBodies, { key: "", value: "\"\"" }] })}>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() =>
+                      patchDraft({ customBodies: [...customBodies, { key: "", value: '""' }] })
+                    }
+                  >
                     <Plus className="size-4" />
                     添加
                   </Button>
                 </div>
-                {customBodies.length === 0 ? <div className="rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground">没有自定义 Body</div> : null}
+                {customBodies.length === 0 ? (
+                  <div className="rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground">
+                    没有自定义 Body
+                  </div>
+                ) : null}
                 {customBodies.map((body, index) => (
                   <div key={index} className="rounded-md border bg-muted/20 p-3">
                     <div className="mb-2 flex items-center gap-2">
-                      <Input value={textValue(body.key ?? body.name)} onChange={(event) => updateCustomBody(index, { key: event.target.value })} placeholder="Body key" />
-                      <Button type="button" size="icon-sm" variant="ghost" onClick={() => patchDraft({ customBodies: customBodies.filter((_, itemIndex) => itemIndex !== index) })}>
+                      <Input
+                        value={textValue(body.key ?? body.name)}
+                        onChange={(event) => updateCustomBody(index, { key: event.target.value })}
+                        placeholder="Body key"
+                      />
+                      <Button
+                        type="button"
+                        size="icon-sm"
+                        variant="ghost"
+                        onClick={() =>
+                          patchDraft({
+                            customBodies: customBodies.filter(
+                              (_, itemIndex) => itemIndex !== index,
+                            ),
+                          })
+                        }
+                      >
                         <Trash2 className="size-4" />
                       </Button>
                     </div>
                     <Textarea
                       className="min-h-24 font-mono text-xs"
-                      value={typeof body.value === "string" ? body.value : JSON.stringify(body.value ?? "", null, 2)}
+                      value={
+                        typeof body.value === "string"
+                          ? body.value
+                          : JSON.stringify(body.value ?? "", null, 2)
+                      }
                       onChange={(event) => updateCustomBody(index, { value: event.target.value })}
                       placeholder='"value" 或 {"extra": true}'
                     />
@@ -2247,11 +2925,17 @@ function AssistantsSection({ settings, onSettings }: { settings: Settings; onSet
               <div>提示词注入: {(draft.modeInjectionIds ?? []).length}</div>
               <div>世界书: {(draft.lorebookIds ?? []).length}</div>
               <div>MCP: {(draft.mcpServers ?? []).length}</div>
-              <div>Local tools: {Array.isArray(draft.localTools) ? draft.localTools.length : 0}</div>
+              <div>
+                Local tools: {Array.isArray(draft.localTools) ? draft.localTools.length : 0}
+              </div>
             </div>
           </div>
           <div className="flex justify-end">
-            <Button variant="outline" onClick={removeAssistant} disabled={settings.assistants.length <= 1}>
+            <Button
+              variant="outline"
+              onClick={removeAssistant}
+              disabled={settings.assistants.length <= 1}
+            >
               <Trash2 className="size-4" />
               删除
             </Button>
@@ -2263,17 +2947,33 @@ function AssistantsSection({ settings, onSettings }: { settings: Settings; onSet
   );
 }
 
-function SearchSection({ settings, onSettings }: { settings: Settings; onSettings: (settings: Settings) => void }) {
-  const [selectedId, setSelectedId] = React.useState(String(settings.searchServices[settings.searchServiceSelected]?.id ?? settings.searchServices[0]?.id ?? ""));
-  const selected = (settings.searchServices.find((item) => String(item.id) === selectedId) ?? settings.searchServices[0]) as Record<string, unknown> | undefined;
-  const [draft, setDraft] = React.useState<Record<string, unknown>>(selected ? clone(selected) : createSearchService());
+function SearchSection({
+  settings,
+  onSettings,
+}: {
+  settings: Settings;
+  onSettings: (settings: Settings) => void;
+}) {
+  const [selectedId, setSelectedId] = React.useState(
+    String(
+      settings.searchServices[settings.searchServiceSelected]?.id ??
+        settings.searchServices[0]?.id ??
+        "",
+    ),
+  );
+  const selected = (settings.searchServices.find((item) => String(item.id) === selectedId) ??
+    settings.searchServices[0]) as Record<string, unknown> | undefined;
+  const [draft, setDraft] = React.useState<Record<string, unknown>>(
+    selected ? clone(selected) : createSearchService(),
+  );
   const [testing, setTesting] = React.useState(false);
   const [testResult, setTestResult] = React.useState("");
   const dirtyRef = React.useRef(false);
   const { t } = useTranslation();
 
   React.useEffect(() => {
-    const next = (settings.searchServices.find((item) => String(item.id) === selectedId) ?? settings.searchServices[0]) as Record<string, unknown> | undefined;
+    const next = (settings.searchServices.find((item) => String(item.id) === selectedId) ??
+      settings.searchServices[0]) as Record<string, unknown> | undefined;
     if (next) setDraft(clone(next));
     dirtyRef.current = false;
     setTestResult("");
@@ -2287,10 +2987,16 @@ function SearchSection({ settings, onSettings }: { settings: Settings; onSetting
   const moveSearchService = async (from: number, to: number) => {
     const searchServices = moveItem(settings.searchServices, from, to);
     const selectedId = settings.searchServices[settings.searchServiceSelected]?.id;
-    const searchServiceSelected = Math.max(0, searchServices.findIndex((item) => item.id === selectedId));
+    const searchServiceSelected = Math.max(
+      0,
+      searchServices.findIndex((item) => item.id === selectedId),
+    );
     const next = { ...settings, searchServices, searchServiceSelected };
     onSettings(next);
-    await api.post("settings/search/reorder", { ids: searchServices.map((item) => item.id), selectedId });
+    await api.post("settings/search/reorder", {
+      ids: searchServices.map((item) => item.id),
+      selectedId,
+    });
   };
   const selectService = async (index: number) => {
     setSelectedId(String(settings.searchServices[index]?.id ?? ""));
@@ -2298,40 +3004,65 @@ function SearchSection({ settings, onSettings }: { settings: Settings; onSetting
     await api.post("settings/search/service", { index });
   };
   const save = async () => {
-    const result = await api.post<{ service: Record<string, unknown> }>("settings/search/service/detail", draft);
+    const result = await api.post<{ service: Record<string, unknown> }>(
+      "settings/search/service/detail",
+      draft,
+    );
     const savedService = toSearchService(result.service);
-    const exists = settings.searchServices.some((item) => String(item.id) === String(result.service.id));
+    const exists = settings.searchServices.some(
+      (item) => String(item.id) === String(result.service.id),
+    );
     const searchServices = exists
-      ? settings.searchServices.map((item) => (String(item.id) === String(savedService.id) ? savedService : item))
+      ? settings.searchServices.map((item) =>
+          String(item.id) === String(savedService.id) ? savedService : item,
+        )
       : [...settings.searchServices, savedService];
-    onSettings({ ...settings, searchServices, searchServiceSelected: searchServices.findIndex((item) => String(item.id) === String(savedService.id)) });
+    onSettings({
+      ...settings,
+      searchServices,
+      searchServiceSelected: searchServices.findIndex(
+        (item) => String(item.id) === String(savedService.id),
+      ),
+    });
     setSelectedId(String(savedService.id));
     toast.success(t("settings:search.saved"));
   };
   React.useEffect(() => {
     if (!dirtyRef.current) return;
     const timer = window.setTimeout(() => {
-      void api.post<{ service: Record<string, unknown> }>("settings/search/service/detail", draft)
+      void api
+        .post<{ service: Record<string, unknown> }>("settings/search/service/detail", draft)
         .then((result) => {
           dirtyRef.current = false;
           const savedService = toSearchService(result.service);
-          const exists = settings.searchServices.some((item) => String(item.id) === String(savedService.id));
+          const exists = settings.searchServices.some(
+            (item) => String(item.id) === String(savedService.id),
+          );
           const searchServices = exists
-            ? settings.searchServices.map((item) => (String(item.id) === String(savedService.id) ? savedService : item))
+            ? settings.searchServices.map((item) =>
+                String(item.id) === String(savedService.id) ? savedService : item,
+              )
             : [...settings.searchServices, savedService];
           onSettings({ ...settings, searchServices });
         })
-        .catch((error: Error) => toast.error(error.message || t("settings:search.autosave_failed")));
+        .catch((error: Error) =>
+          toast.error(error.message || t("settings:search.autosave_failed")),
+        );
     }, 700);
     return () => window.clearTimeout(timer);
   }, [draft, onSettings, settings]);
   const addService = () => {
     const service = createSearchService();
-    void api.post<{ service: Record<string, unknown> }>("settings/search/service/detail", service)
+    void api
+      .post<{ service: Record<string, unknown> }>("settings/search/service/detail", service)
       .then((result) => {
         const savedService = toSearchService(result.service);
         const searchServices = [...settings.searchServices, savedService];
-        onSettings({ ...settings, searchServices, searchServiceSelected: searchServices.length - 1 });
+        onSettings({
+          ...settings,
+          searchServices,
+          searchServiceSelected: searchServices.length - 1,
+        });
         setDraft(savedService as unknown as Record<string, unknown>);
         setSelectedId(String(savedService.id));
         setTestResult("");
@@ -2344,8 +3075,13 @@ function SearchSection({ settings, onSettings }: { settings: Settings; onSetting
     setTestResult(t("settings:search.testing_start"));
     try {
       await save();
-      const result = await api.post<{ endpoint: string; preview: string }>("settings/search/service/test", draft);
-      setTestResult(t("settings:search.test_success", { endpoint: result.endpoint, preview: result.preview }));
+      const result = await api.post<{ endpoint: string; preview: string }>(
+        "settings/search/service/test",
+        draft,
+      );
+      setTestResult(
+        t("settings:search.test_success", { endpoint: result.endpoint, preview: result.preview }),
+      );
       toast.success(t("settings:search.test_ok"));
       // Refresh settings so the "已通过测试" badge updates (server marks testPassed on success).
       onSettings(await api.get<Settings>("settings"));
@@ -2358,9 +3094,18 @@ function SearchSection({ settings, onSettings }: { settings: Settings; onSetting
     }
   };
   const remove = async () => {
-    if (!window.confirm(t("settings:search.delete_confirm", { name: textValue(draft.name) || textValue(draft.type) }))) return;
+    if (
+      !window.confirm(
+        t("settings:search.delete_confirm", {
+          name: textValue(draft.name) || textValue(draft.type),
+        }),
+      )
+    )
+      return;
     await api.delete(`settings/search/service/${encodeURIComponent(String(draft.id))}`);
-    const searchServices = settings.searchServices.filter((item) => String(item.id) !== String(draft.id));
+    const searchServices = settings.searchServices.filter(
+      (item) => String(item.id) !== String(draft.id),
+    );
     onSettings({ ...settings, searchServices, searchServiceSelected: 0 });
     setSelectedId(String(searchServices[0]?.id ?? ""));
     toast.success(t("settings:search.deleted"));
@@ -2368,7 +3113,11 @@ function SearchSection({ settings, onSettings }: { settings: Settings; onSetting
 
   return (
     <>
-      <SectionHeader icon={Search} title={t("settings:search.title")} subtitle={t("settings:search.subtitle")} />
+      <SectionHeader
+        icon={Search}
+        title={t("settings:search.title")}
+        subtitle={t("settings:search.subtitle")}
+      />
       <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
         <div className="space-y-2 rounded-lg border bg-card p-2">
           <Button className="w-full justify-start" variant="outline" onClick={addService}>
@@ -2385,26 +3134,49 @@ function SearchSection({ settings, onSettings }: { settings: Settings; onSetting
               onMove={moveSearchService}
             >
               <span className="grid min-w-0 grid-cols-[34px_minmax(0,1fr)_36px] items-center gap-3 text-left">
-                <AIIcon name={searchServiceLabelForType(textValue(service.type))} size={30} className="justify-self-start" />
+                <AIIcon
+                  name={searchServiceLabelForType(textValue(service.type))}
+                  size={30}
+                  className="justify-self-start"
+                />
                 <span className="min-w-0">
                   <span className="flex items-center gap-1.5 truncate font-medium">
                     {(() => {
                       const type = String(service.type ?? "").toLowerCase();
                       const isPreset = type === "bing_local" || type === "rikkahub";
-                      const passed = isPreset || (service as Record<string, unknown>).testPassed === true;
+                      const passed =
+                        isPreset || (service as Record<string, unknown>).testPassed === true;
                       return (
                         <span
                           aria-hidden
-                          className={cn("size-2 shrink-0 rounded-full", passed ? "bg-emerald-500" : "bg-muted-foreground/40")}
-                          title={passed ? (isPreset ? t("settings:search.preset_ok") : t("settings:search.passed")) : t("settings:search.not_passed")}
+                          className={cn(
+                            "size-2 shrink-0 rounded-full",
+                            passed ? "bg-emerald-500" : "bg-muted-foreground/40",
+                          )}
+                          title={
+                            passed
+                              ? isPreset
+                                ? t("settings:search.preset_ok")
+                                : t("settings:search.passed")
+                              : t("settings:search.not_passed")
+                          }
                         />
                       );
                     })()}
-                    <span className="truncate">{textValue(service.name) || searchServiceLabelForType(textValue(service.type))}</span>
+                    <span className="truncate">
+                      {textValue(service.name) ||
+                        searchServiceLabelForType(textValue(service.type))}
+                    </span>
                   </span>
-                  <span className="block truncate text-xs text-muted-foreground">{textValue(service.type) || JSON.stringify(service)}</span>
+                  <span className="block truncate text-xs text-muted-foreground">
+                    {textValue(service.type) || JSON.stringify(service)}
+                  </span>
                 </span>
-                {index === settings.searchServiceSelected ? <span className="shrink-0 text-xs text-primary">{t("settings:search.current")}</span> : null}
+                {index === settings.searchServiceSelected ? (
+                  <span className="shrink-0 text-xs text-primary">
+                    {t("settings:search.current")}
+                  </span>
+                ) : null}
               </span>
             </SortableRow>
           ))}
@@ -2413,14 +3185,23 @@ function SearchSection({ settings, onSettings }: { settings: Settings; onSetting
           <div className="flex items-center gap-3">
             <AIIcon name={searchServiceLabelForType(textValue(draft.type))} size={40} />
             <div>
-              <div className="text-lg font-medium">{textValue(draft.name) || searchServiceLabelForType(textValue(draft.type)) || t("settings:search.service_default")}</div>
-              <div className="text-xs text-muted-foreground">{textValue(draft.type) || "custom"}</div>
+              <div className="text-lg font-medium">
+                {textValue(draft.name) ||
+                  searchServiceLabelForType(textValue(draft.type)) ||
+                  t("settings:search.service_default")}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                {textValue(draft.type) || "custom"}
+              </div>
             </div>
           </div>
           <div className="grid gap-4 md:grid-cols-2">
             <label className="space-y-2">
               <span className="text-sm font-medium">{t("settings:search.name")}</span>
-              <Input value={textValue(draft.name)} onChange={(event) => patchDraft({ name: event.target.value })} />
+              <Input
+                value={textValue(draft.name)}
+                onChange={(event) => patchDraft({ name: event.target.value })}
+              />
             </label>
             <label className="space-y-2">
               <span className="text-sm font-medium">{t("settings:search.type")}</span>
@@ -2433,11 +3214,17 @@ function SearchSection({ settings, onSettings }: { settings: Settings; onSetting
                   const previousType = textValue(draft.type);
                   const previousLabel = searchServiceLabelForType(previousType);
                   const currentName = textValue(draft.name);
-                  const isDefaultName = !currentName || currentName === previousLabel || currentName === previousType;
+                  const isDefaultName =
+                    !currentName || currentName === previousLabel || currentName === previousType;
                   patchDraft({
                     type,
                     name: isDefaultName ? searchServiceLabelForType(type) : currentName,
-                    ...(type === "custom_js" && !textValue(draft.searchScript) ? { searchScript: DEFAULT_CUSTOM_JS_SEARCH_SCRIPT, scrapeScript: DEFAULT_CUSTOM_JS_SCRAPE_SCRIPT } : {}),
+                    ...(type === "custom_js" && !textValue(draft.searchScript)
+                      ? {
+                          searchScript: DEFAULT_CUSTOM_JS_SEARCH_SCRIPT,
+                          scrapeScript: DEFAULT_CUSTOM_JS_SCRAPE_SCRIPT,
+                        }
+                      : {}),
                   });
                 }}
               >
@@ -2445,10 +3232,34 @@ function SearchSection({ settings, onSettings }: { settings: Settings; onSetting
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {(["bing_local", "rikkahub", "tavily", "exa", "zhipu", "tinyfish", "brave", "perplexity", "bocha", "linkup", "metaso", "ollama", "jina", "firecrawl", "grok", "searxng", "custom_js"] as const).map((type) => (
+                  {(
+                    [
+                      "bing_local",
+                      "rikkahub",
+                      "tavily",
+                      "exa",
+                      "zhipu",
+                      "tinyfish",
+                      "brave",
+                      "perplexity",
+                      "bocha",
+                      "linkup",
+                      "metaso",
+                      "ollama",
+                      "jina",
+                      "firecrawl",
+                      "grok",
+                      "searxng",
+                      "custom_js",
+                    ] as const
+                  ).map((type) => (
                     <SelectItem key={type} value={type}>
                       <span className="flex items-center gap-2">
-                        <AIIcon name={searchServiceLabelForType(type)} size={16} className="bg-transparent" />
+                        <AIIcon
+                          name={searchServiceLabelForType(type)}
+                          size={16}
+                          className="bg-transparent"
+                        />
                         {searchServiceLabelForType(type)}
                       </span>
                     </SelectItem>
@@ -2459,30 +3270,51 @@ function SearchSection({ settings, onSettings }: { settings: Settings; onSetting
             {textValue(draft.type) !== "searxng" && textValue(draft.type) !== "custom_js" ? (
               <label className="space-y-2 md:col-span-2">
                 <span className="text-sm font-medium">API Key</span>
-                <PasswordInput value={textValue(draft.apiKey)} onChange={(apiKey) => patchDraft({ apiKey })} />
+                <PasswordInput
+                  value={textValue(draft.apiKey)}
+                  onChange={(apiKey) => patchDraft({ apiKey })}
+                />
               </label>
             ) : null}
             {textValue(draft.type) === "searxng" ? (
               <>
                 <label className="space-y-2 md:col-span-2">
                   <span className="text-sm font-medium">SearXNG URL</span>
-                  <Input value={textValue(draft.url)} onChange={(event) => patchDraft({ url: event.target.value })} placeholder="https://search.example.com" />
+                  <Input
+                    value={textValue(draft.url)}
+                    onChange={(event) => patchDraft({ url: event.target.value })}
+                    placeholder="https://search.example.com"
+                  />
                 </label>
                 <label className="space-y-2">
                   <span className="text-sm font-medium">Engines</span>
-                  <Input value={textValue(draft.engines)} onChange={(event) => patchDraft({ engines: event.target.value })} placeholder="google,bing" />
+                  <Input
+                    value={textValue(draft.engines)}
+                    onChange={(event) => patchDraft({ engines: event.target.value })}
+                    placeholder="google,bing"
+                  />
                 </label>
                 <label className="space-y-2">
                   <span className="text-sm font-medium">Language</span>
-                  <Input value={textValue(draft.language)} onChange={(event) => patchDraft({ language: event.target.value })} placeholder="zh-CN" />
+                  <Input
+                    value={textValue(draft.language)}
+                    onChange={(event) => patchDraft({ language: event.target.value })}
+                    placeholder="zh-CN"
+                  />
                 </label>
                 <label className="space-y-2">
                   <span className="text-sm font-medium">Username</span>
-                  <Input value={textValue(draft.username)} onChange={(event) => patchDraft({ username: event.target.value })} />
+                  <Input
+                    value={textValue(draft.username)}
+                    onChange={(event) => patchDraft({ username: event.target.value })}
+                  />
                 </label>
                 <label className="space-y-2">
                   <span className="text-sm font-medium">Password</span>
-                  <PasswordInput value={textValue(draft.password)} onChange={(password) => patchDraft({ password })} />
+                  <PasswordInput
+                    value={textValue(draft.password)}
+                    onChange={(password) => patchDraft({ password })}
+                  />
                 </label>
               </>
             ) : null}
@@ -2494,7 +3326,9 @@ function SearchSection({ settings, onSettings }: { settings: Settings; onSetting
                     value={textValue(draft.searchScript)}
                     onChange={(event) => patchDraft({ searchScript: event.target.value })}
                     className="min-h-56 font-mono text-xs"
-                    placeholder={"async function search(query, resultSize) {\n  const res = await fetch('https://example.com/search?q=' + encodeURIComponent(query));\n  const data = await res.json();\n  return { items: data.results.map((r) => ({ title: r.title, url: r.url, text: r.snippet })) };\n}"}
+                    placeholder={
+                      "async function search(query, resultSize) {\n  const res = await fetch('https://example.com/search?q=' + encodeURIComponent(query));\n  const data = await res.json();\n  return { items: data.results.map((r) => ({ title: r.title, url: r.url, text: r.snippet })) };\n}"
+                    }
                   />
                 </label>
                 <label className="space-y-2 md:col-span-2">
@@ -2503,14 +3337,19 @@ function SearchSection({ settings, onSettings }: { settings: Settings; onSetting
                     value={textValue(draft.scrapeScript)}
                     onChange={(event) => patchDraft({ scrapeScript: event.target.value })}
                     className="min-h-40 font-mono text-xs"
-                    placeholder={"async function scrape(urls) {\n  return { urls: await Promise.all(urls.map(async (url) => {\n    const res = await fetch(url);\n    return { url, content: await res.text() };\n  })) };\n}"}
+                    placeholder={
+                      "async function scrape(urls) {\n  return { urls: await Promise.all(urls.map(async (url) => {\n    const res = await fetch(url);\n    return { url, content: await res.text() };\n  })) };\n}"
+                    }
                   />
                 </label>
               </>
             ) : null}
             <label className="space-y-2">
               <span className="text-sm font-medium">{t("settings:search.depth")}</span>
-              <Select value={textValue(draft.depth) || "standard"} onValueChange={(depth) => patchDraft({ depth })}>
+              <Select
+                value={textValue(draft.depth) || "standard"}
+                onValueChange={(depth) => patchDraft({ depth })}
+              >
                 <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
@@ -2524,46 +3363,78 @@ function SearchSection({ settings, onSettings }: { settings: Settings; onSetting
             <label className="space-y-2">
               <span className="text-sm font-medium">{t("settings:search.result_count")}</span>
               <Input
-                value={numberText(draft.resultSize ?? ((settings.searchCommonOptions as Record<string, unknown> | undefined)?.resultSize))}
+                value={numberText(
+                  draft.resultSize ??
+                    (settings.searchCommonOptions as Record<string, unknown> | undefined)
+                      ?.resultSize,
+                )}
                 onChange={(event) => patchDraft({ resultSize: Number(event.target.value) || 10 })}
               />
             </label>
           </div>
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={test} disabled={testing}>
-              {testing ? <Loader2 className="size-4 animate-spin" /> : <Database className="size-4" />}
+              {testing ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Database className="size-4" />
+              )}
               {t("settings:search.test")}
             </Button>
-            <Button variant="outline" onClick={remove} disabled={!settings.searchServices.some((item) => String(item.id) === String(draft.id))}>
+            <Button
+              variant="outline"
+              onClick={remove}
+              disabled={
+                !settings.searchServices.some((item) => String(item.id) === String(draft.id))
+              }
+            >
               <Trash2 className="size-4" />
               {t("settings:search.delete")}
             </Button>
-            <div className="flex items-center px-2 text-xs text-muted-foreground">{t("settings:search.autosaved")}</div>
+            <div className="flex items-center px-2 text-xs text-muted-foreground">
+              {t("settings:search.autosaved")}
+            </div>
           </div>
-          {testResult ? <pre className="max-h-56 overflow-auto rounded-md border bg-muted p-3 text-xs whitespace-pre-wrap">{testResult}</pre> : null}
+          {testResult ? (
+            <pre className="max-h-56 overflow-auto rounded-md border bg-muted p-3 text-xs whitespace-pre-wrap">
+              {testResult}
+            </pre>
+          ) : null}
         </div>
       </div>
     </>
   );
 }
 
-function DefaultModelsSection({ settings, onSettings }: { settings: Settings; onSettings: (settings: Settings) => void }) {
+function DefaultModelsSection({
+  settings,
+  onSettings,
+}: {
+  settings: Settings;
+  onSettings: (settings: Settings) => void;
+}) {
   const { t } = useTranslation();
   const allModels = settings.providers.flatMap((provider) =>
-    provider.enabled ? (provider.models ?? []).map((model) => ({ ...model, providerName: provider.name })) : [],
+    provider.enabled
+      ? (provider.models ?? []).map((model) => ({ ...model, providerName: provider.name }))
+      : [],
   );
   // Image generation models live on providers that don't necessarily pass the chat test
   // (image-only providers like findcg gpt-image-2). Source them directly from enabled providers
   // and require an image-related capability marker (parity with images.tsx).
   const imageModels = settings.providers
     .filter((provider) => provider.enabled !== false)
-    .flatMap((provider) => (provider.models ?? [])
-      .filter((model) =>
-        model.type === "IMAGE" ||
-        model.outputModalities?.includes("IMAGE") ||
-        model.tools?.some((tool) => String(tool.type ?? "").toLowerCase() === "image_generation"),
-      )
-      .map((model) => ({ ...model, providerName: provider.name })),
+    .flatMap((provider) =>
+      (provider.models ?? [])
+        .filter(
+          (model) =>
+            model.type === "IMAGE" ||
+            model.outputModalities?.includes("IMAGE") ||
+            model.tools?.some(
+              (tool) => String(tool.type ?? "").toLowerCase() === "image_generation",
+            ),
+        )
+        .map((model) => ({ ...model, providerName: provider.name })),
     );
   type Draft = {
     chatModelId: string;
@@ -2581,8 +3452,22 @@ function DefaultModelsSection({ settings, onSettings }: { settings: Settings; on
     ocrPrompt: string;
     compressPrompt: string;
   };
-  type ModelKey = "chatModelId" | "titleModelId" | "translateModeId" | "suggestionModelId" | "imageGenerationModelId" | "ocrModelId" | "compressModelId" | "promptOptimizeModelId";
-  type PromptKey = "titlePrompt" | "translatePrompt" | "suggestionPrompt" | "ocrPrompt" | "compressPrompt" | "promptOptimizePrompt";
+  type ModelKey =
+    | "chatModelId"
+    | "titleModelId"
+    | "translateModeId"
+    | "suggestionModelId"
+    | "imageGenerationModelId"
+    | "ocrModelId"
+    | "compressModelId"
+    | "promptOptimizeModelId";
+  type PromptKey =
+    | "titlePrompt"
+    | "translatePrompt"
+    | "suggestionPrompt"
+    | "ocrPrompt"
+    | "compressPrompt"
+    | "promptOptimizePrompt";
   const [draft, setDraft] = React.useState({
     chatModelId: textValue(settings.chatModelId),
     titleModelId: textValue(settings.titleModelId),
@@ -2606,14 +3491,19 @@ function DefaultModelsSection({ settings, onSettings }: { settings: Settings; on
   };
   React.useEffect(() => {
     const timer = window.setTimeout(() => {
-      void save().catch((error: Error) => toast.error(error.message || t("settings:models.autosave_failed")));
+      void save().catch((error: Error) =>
+        toast.error(error.message || t("settings:models.autosave_failed")),
+      );
     }, 500);
     return () => window.clearTimeout(timer);
   }, [draft]);
   const modelSelect = (key: ModelKey) => {
     const options = key === "imageGenerationModelId" ? imageModels : allModels;
     return (
-      <Select value={draft[key] || "__none"} onValueChange={(value) => setDraft({ ...draft, [key]: value === "__none" ? "" : value })}>
+      <Select
+        value={draft[key] || "__none"}
+        onValueChange={(value) => setDraft({ ...draft, [key]: value === "__none" ? "" : value })}
+      >
         <SelectTrigger className="w-full">
           <SelectValue />
         </SelectTrigger>
@@ -2628,14 +3518,39 @@ function DefaultModelsSection({ settings, onSettings }: { settings: Settings; on
       </Select>
     );
   };
-  const promptMeta: Record<PromptKey, { title: string; variables: string; defaultValue: string }> = {
-    titlePrompt: { title: t("settings:models.prompt.title"), variables: t("settings:models.vars.title"), defaultValue: DEFAULT_PROMPTS.titlePrompt },
-    translatePrompt: { title: t("settings:models.prompt.translate"), variables: t("settings:models.vars.translate"), defaultValue: DEFAULT_PROMPTS.translatePrompt },
-    suggestionPrompt: { title: t("settings:models.prompt.suggestion"), variables: t("settings:models.vars.suggestion"), defaultValue: DEFAULT_PROMPTS.suggestionPrompt },
-    ocrPrompt: { title: t("settings:models.prompt.ocr"), variables: t("settings:models.vars.ocr"), defaultValue: DEFAULT_PROMPTS.ocrPrompt },
-    compressPrompt: { title: t("settings:models.prompt.compress"), variables: t("settings:models.vars.compress"), defaultValue: DEFAULT_PROMPTS.compressPrompt },
-    promptOptimizePrompt: { title: t("settings:models.prompt.optimize"), variables: t("settings:models.vars.optimize"), defaultValue: DEFAULT_PROMPTS.promptOptimizePrompt },
-  };
+  const promptMeta: Record<PromptKey, { title: string; variables: string; defaultValue: string }> =
+    {
+      titlePrompt: {
+        title: t("settings:models.prompt.title"),
+        variables: t("settings:models.vars.title"),
+        defaultValue: DEFAULT_PROMPTS.titlePrompt,
+      },
+      translatePrompt: {
+        title: t("settings:models.prompt.translate"),
+        variables: t("settings:models.vars.translate"),
+        defaultValue: DEFAULT_PROMPTS.translatePrompt,
+      },
+      suggestionPrompt: {
+        title: t("settings:models.prompt.suggestion"),
+        variables: t("settings:models.vars.suggestion"),
+        defaultValue: DEFAULT_PROMPTS.suggestionPrompt,
+      },
+      ocrPrompt: {
+        title: t("settings:models.prompt.ocr"),
+        variables: t("settings:models.vars.ocr"),
+        defaultValue: DEFAULT_PROMPTS.ocrPrompt,
+      },
+      compressPrompt: {
+        title: t("settings:models.prompt.compress"),
+        variables: t("settings:models.vars.compress"),
+        defaultValue: DEFAULT_PROMPTS.compressPrompt,
+      },
+      promptOptimizePrompt: {
+        title: t("settings:models.prompt.optimize"),
+        variables: t("settings:models.vars.optimize"),
+        defaultValue: DEFAULT_PROMPTS.promptOptimizePrompt,
+      },
+    };
   const features: Array<{
     modelKey: ModelKey;
     promptKey?: PromptKey;
@@ -2643,20 +3558,70 @@ function DefaultModelsSection({ settings, onSettings }: { settings: Settings; on
     title: string;
     description: string;
   }> = [
-    { modelKey: "chatModelId", icon: Bot, title: t("settings:models.feature.chat.title"), description: t("settings:models.feature.chat.desc") },
-    { modelKey: "promptOptimizeModelId", promptKey: "promptOptimizePrompt", icon: Sparkles, title: t("settings:models.feature.optimize.title"), description: t("settings:models.feature.optimize.desc") },
-    { modelKey: "titleModelId", promptKey: "titlePrompt", icon: NotebookText, title: t("settings:models.feature.title.title"), description: t("settings:models.feature.title.desc") },
-    { modelKey: "translateModeId", promptKey: "translatePrompt", icon: Globe, title: t("settings:models.feature.translate.title"), description: t("settings:models.feature.translate.desc") },
-    { modelKey: "suggestionModelId", promptKey: "suggestionPrompt", icon: MessageSquareText, title: t("settings:models.feature.suggestion.title"), description: t("settings:models.feature.suggestion.desc") },
-    { modelKey: "compressModelId", promptKey: "compressPrompt", icon: FileClock, title: t("settings:models.feature.compress.title"), description: t("settings:models.feature.compress.desc") },
-    { modelKey: "ocrModelId", promptKey: "ocrPrompt", icon: FileImage, title: t("settings:models.feature.ocr.title"), description: t("settings:models.feature.ocr.desc") },
-    { modelKey: "imageGenerationModelId", icon: WandSparkles, title: t("settings:models.feature.image.title"), description: t("settings:models.feature.image.desc") },
+    {
+      modelKey: "chatModelId",
+      icon: Bot,
+      title: t("settings:models.feature.chat.title"),
+      description: t("settings:models.feature.chat.desc"),
+    },
+    {
+      modelKey: "promptOptimizeModelId",
+      promptKey: "promptOptimizePrompt",
+      icon: Sparkles,
+      title: t("settings:models.feature.optimize.title"),
+      description: t("settings:models.feature.optimize.desc"),
+    },
+    {
+      modelKey: "titleModelId",
+      promptKey: "titlePrompt",
+      icon: NotebookText,
+      title: t("settings:models.feature.title.title"),
+      description: t("settings:models.feature.title.desc"),
+    },
+    {
+      modelKey: "translateModeId",
+      promptKey: "translatePrompt",
+      icon: Globe,
+      title: t("settings:models.feature.translate.title"),
+      description: t("settings:models.feature.translate.desc"),
+    },
+    {
+      modelKey: "suggestionModelId",
+      promptKey: "suggestionPrompt",
+      icon: MessageSquareText,
+      title: t("settings:models.feature.suggestion.title"),
+      description: t("settings:models.feature.suggestion.desc"),
+    },
+    {
+      modelKey: "compressModelId",
+      promptKey: "compressPrompt",
+      icon: FileClock,
+      title: t("settings:models.feature.compress.title"),
+      description: t("settings:models.feature.compress.desc"),
+    },
+    {
+      modelKey: "ocrModelId",
+      promptKey: "ocrPrompt",
+      icon: FileImage,
+      title: t("settings:models.feature.ocr.title"),
+      description: t("settings:models.feature.ocr.desc"),
+    },
+    {
+      modelKey: "imageGenerationModelId",
+      icon: WandSparkles,
+      title: t("settings:models.feature.image.title"),
+      description: t("settings:models.feature.image.desc"),
+    },
   ];
   const activePrompt = editingPrompt ? promptMeta[editingPrompt] : null;
 
   return (
     <>
-      <SectionHeader icon={Settings2} title={t("settings:models.title")} subtitle={t("settings:models.subtitle")} />
+      <SectionHeader
+        icon={Settings2}
+        title={t("settings:models.title")}
+        subtitle={t("settings:models.subtitle")}
+      />
       <div className="space-y-4">
         <div className="rounded-md border bg-card p-3 text-sm text-muted-foreground">
           {t("settings:models.note")}
@@ -2672,10 +3637,18 @@ function DefaultModelsSection({ settings, onSettings }: { settings: Settings; on
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="font-medium">{feature.title}</div>
-                    <div className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{feature.description}</div>
+                    <div className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
+                      {feature.description}
+                    </div>
                   </div>
                   {feature.promptKey ? (
-                    <Button type="button" variant="ghost" size="icon-sm" onClick={() => setEditingPrompt(feature.promptKey ?? null)} title={t("settings:models.edit_prompt")}>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={() => setEditingPrompt(feature.promptKey ?? null)}
+                      title={t("settings:models.edit_prompt")}
+                    >
                       <Settings2 className="size-4" />
                     </Button>
                   ) : null}
@@ -2685,13 +3658,21 @@ function DefaultModelsSection({ settings, onSettings }: { settings: Settings; on
             );
           })}
         </div>
-        <div className="flex justify-end text-xs text-muted-foreground">{t("settings:models.autosaved")}</div>
+        <div className="flex justify-end text-xs text-muted-foreground">
+          {t("settings:models.autosaved")}
+        </div>
       </div>
-      <Dialog open={Boolean(editingPrompt)} onOpenChange={(open) => !open && setEditingPrompt(null)}>
+      <Dialog
+        open={Boolean(editingPrompt)}
+        onOpenChange={(open) => !open && setEditingPrompt(null)}
+      >
         <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle>{activePrompt?.title ?? "Prompt"}</DialogTitle>
-            <DialogDescription>{t("settings:models.variables_label")}{activePrompt?.variables}</DialogDescription>
+            <DialogDescription>
+              {t("settings:models.variables_label")}
+              {activePrompt?.variables}
+            </DialogDescription>
           </DialogHeader>
           {editingPrompt ? (
             <Textarea
@@ -2702,12 +3683,20 @@ function DefaultModelsSection({ settings, onSettings }: { settings: Settings; on
           ) : null}
           <DialogFooter>
             {editingPrompt ? (
-              <Button type="button" variant="outline" onClick={() => setDraft({ ...draft, [editingPrompt]: promptMeta[editingPrompt].defaultValue })}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() =>
+                  setDraft({ ...draft, [editingPrompt]: promptMeta[editingPrompt].defaultValue })
+                }
+              >
                 <RefreshCw className="size-4" />
                 {t("settings:models.reset_default")}
               </Button>
             ) : null}
-            <Button type="button" onClick={() => setEditingPrompt(null)}>{t("settings:models.done")}</Button>
+            <Button type="button" onClick={() => setEditingPrompt(null)}>
+              {t("settings:models.done")}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -2761,13 +3750,65 @@ function createTtsProvider(type: TtsProviderType = "system"): TtsProviderProfile
     apiKey: "",
     baseUrl: "",
   } as TtsProviderProfile;
-  if (type === "openai") return { ...base, name: "OpenAI TTS", baseUrl: "https://api.openai.com/v1", model: "gpt-4o-mini-tts", voice: "alloy" };
-  if (type === "gemini") return { ...base, name: "Gemini TTS", baseUrl: "https://generativelanguage.googleapis.com/v1beta", model: "gemini-2.5-flash-preview-tts", voiceName: "Kore" };
-  if (type === "minimax") return { ...base, name: "MiniMax TTS", baseUrl: "https://api.minimaxi.com/v1", model: "speech-2.6-turbo", voiceId: "female-shaonv", emotion: "calm", speed: 1 };
-  if (type === "qwen") return { ...base, name: "Qwen TTS", baseUrl: "https://dashscope.aliyuncs.com/api/v1", model: "qwen3-tts-flash", voice: "Cherry", languageType: "Auto" };
-  if (type === "groq") return { ...base, name: "Groq TTS", baseUrl: "https://api.groq.com/openai/v1", model: "canopylabs/orpheus-v1-english", voice: "austin" };
-  if (type === "xai") return { ...base, name: "xAI TTS", baseUrl: "https://api.x.ai/v1", voiceId: "eve", language: "auto" };
-  if (type === "mimo") return { ...base, name: "MiMo TTS", baseUrl: "https://api.xiaomimimo.com/v1", model: "mimo-v2-tts", voice: "mimo_default" };
+  if (type === "openai")
+    return {
+      ...base,
+      name: "OpenAI TTS",
+      baseUrl: "https://api.openai.com/v1",
+      model: "gpt-4o-mini-tts",
+      voice: "alloy",
+    };
+  if (type === "gemini")
+    return {
+      ...base,
+      name: "Gemini TTS",
+      baseUrl: "https://generativelanguage.googleapis.com/v1beta",
+      model: "gemini-2.5-flash-preview-tts",
+      voiceName: "Kore",
+    };
+  if (type === "minimax")
+    return {
+      ...base,
+      name: "MiniMax TTS",
+      baseUrl: "https://api.minimaxi.com/v1",
+      model: "speech-2.6-turbo",
+      voiceId: "female-shaonv",
+      emotion: "calm",
+      speed: 1,
+    };
+  if (type === "qwen")
+    return {
+      ...base,
+      name: "Qwen TTS",
+      baseUrl: "https://dashscope.aliyuncs.com/api/v1",
+      model: "qwen3-tts-flash",
+      voice: "Cherry",
+      languageType: "Auto",
+    };
+  if (type === "groq")
+    return {
+      ...base,
+      name: "Groq TTS",
+      baseUrl: "https://api.groq.com/openai/v1",
+      model: "canopylabs/orpheus-v1-english",
+      voice: "austin",
+    };
+  if (type === "xai")
+    return {
+      ...base,
+      name: "xAI TTS",
+      baseUrl: "https://api.x.ai/v1",
+      voiceId: "eve",
+      language: "auto",
+    };
+  if (type === "mimo")
+    return {
+      ...base,
+      name: "MiMo TTS",
+      baseUrl: "https://api.xiaomimimo.com/v1",
+      model: "mimo-v2-tts",
+      voice: "mimo_default",
+    };
   return {
     ...base,
     id: "026a01a2-c3a0-4fd5-8075-80e03bdef200",
@@ -2784,20 +3825,55 @@ function createTtsProvider(type: TtsProviderType = "system"): TtsProviderProfile
 const TTS_VOICES_OPENAI = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"] as const;
 const TTS_VOICES_GROQ = ["austin", "natalie", "kailin"] as const;
 const TTS_VOICES_QWEN = [
-  "Cherry", "Serene", "Ethan", "Chelsie",
-  "Momo", "Vivian", "Moon", "Maia", "Kai",
-  "Nofish", "Bella", "Jennifer", "Ryan",
-  "Katerina", "Aiden", "Eldric Sage", "Mia",
-  "Mochi", "Bellona", "Vincent", "Bunny",
-  "Neil", "Elias", "Arthur", "Nini",
+  "Cherry",
+  "Serene",
+  "Ethan",
+  "Chelsie",
+  "Momo",
+  "Vivian",
+  "Moon",
+  "Maia",
+  "Kai",
+  "Nofish",
+  "Bella",
+  "Jennifer",
+  "Ryan",
+  "Katerina",
+  "Aiden",
+  "Eldric Sage",
+  "Mia",
+  "Mochi",
+  "Bellona",
+  "Vincent",
+  "Bunny",
+  "Neil",
+  "Elias",
+  "Arthur",
+  "Nini",
 ] as const;
 const TTS_VOICES_XAI = ["eve", "ara", "rex", "sal", "leo"] as const;
 const TTS_VOICES_MINIMAX = [
-  "male-qn-qingse", "male-qn-jingying", "male-qn-badao", "male-qn-daxuesheng",
-  "female-shaonv", "female-yujie", "female-chengshu", "female-tianmei",
-  "audiobook_male_1", "audiobook_female_1", "cartoon_pig",
+  "male-qn-qingse",
+  "male-qn-jingying",
+  "male-qn-badao",
+  "male-qn-daxuesheng",
+  "female-shaonv",
+  "female-yujie",
+  "female-chengshu",
+  "female-tianmei",
+  "audiobook_male_1",
+  "audiobook_female_1",
+  "cartoon_pig",
 ] as const;
-const TTS_EMOTIONS_MINIMAX = ["calm", "happy", "sad", "angry", "fearful", "disgusted", "surprised"] as const;
+const TTS_EMOTIONS_MINIMAX = [
+  "calm",
+  "happy",
+  "sad",
+  "angry",
+  "fearful",
+  "disgusted",
+  "surprised",
+] as const;
 const TTS_LANGUAGE_TYPES_QWEN = ["Auto", "Chinese", "English", "Japanese", "Korean"] as const;
 const TTS_LANGUAGES_XAI: { value: string; label: string }[] = [
   { value: "auto", label: "Auto-detect" },
@@ -2821,58 +3897,102 @@ const TTS_LANGUAGES_XAI: { value: string; label: string }[] = [
   { value: "bn", label: "Bengali" },
 ];
 
-function TtsSettingsPanel({ settings, onSettings }: { settings: Settings; onSettings: (settings: Settings) => void }) {
+function TtsSettingsPanel({
+  settings,
+  onSettings,
+}: {
+  settings: Settings;
+  onSettings: (settings: Settings) => void;
+}) {
   const { t } = useTranslation();
   const providers = settings.ttsProviders ?? [];
-  const [selectedId, setSelectedId] = React.useState(settings.selectedTTSProviderId ?? providers[0]?.id ?? "");
+  const [selectedId, setSelectedId] = React.useState(
+    settings.selectedTTSProviderId ?? providers[0]?.id ?? "",
+  );
   const selected = providers.find((provider) => provider.id === selectedId) ?? providers[0];
-  const [draft, setDraft] = React.useState<TtsProviderProfile | null>(selected ? clone(selected) : null);
+  const [draft, setDraft] = React.useState<TtsProviderProfile | null>(
+    selected ? clone(selected) : null,
+  );
 
   React.useEffect(() => {
     const next = providers.find((provider) => provider.id === selectedId) ?? providers[0];
     setDraft(next ? clone(next) : null);
   }, [providers, selectedId]);
 
-  const saveProvider = React.useCallback(async (provider: TtsProviderProfile) => {
-    const result = await api.post<{ provider: TtsProviderProfile }>("settings/tts-provider/detail", provider);
-    const exists = providers.some((item) => item.id === result.provider.id);
-    const ttsProviders = exists
-      ? providers.map((item) => item.id === result.provider.id ? result.provider : item)
-      : [result.provider, ...providers];
-    onSettings({ ...settings, ttsProviders, selectedTTSProviderId: settings.selectedTTSProviderId ?? result.provider.id });
-    setSelectedId(result.provider.id);
-  }, [onSettings, providers, settings]);
+  const saveProvider = React.useCallback(
+    async (provider: TtsProviderProfile) => {
+      const result = await api.post<{ provider: TtsProviderProfile }>(
+        "settings/tts-provider/detail",
+        provider,
+      );
+      const exists = providers.some((item) => item.id === result.provider.id);
+      const ttsProviders = exists
+        ? providers.map((item) => (item.id === result.provider.id ? result.provider : item))
+        : [result.provider, ...providers];
+      onSettings({
+        ...settings,
+        ttsProviders,
+        selectedTTSProviderId: settings.selectedTTSProviderId ?? result.provider.id,
+      });
+      setSelectedId(result.provider.id);
+    },
+    [onSettings, providers, settings],
+  );
 
-  const patchDraft = React.useCallback((patch: Partial<TtsProviderProfile>) => {
-    setDraft((current) => {
-      if (!current) return current;
-      const next = { ...current, ...patch };
-      window.setTimeout(() => void saveProvider(next).catch((error: Error) => toast.error(error.message)), 0);
-      return next;
-    });
-  }, [saveProvider]);
+  const patchDraft = React.useCallback(
+    (patch: Partial<TtsProviderProfile>) => {
+      setDraft((current) => {
+        if (!current) return current;
+        const next = { ...current, ...patch };
+        window.setTimeout(
+          () => void saveProvider(next).catch((error: Error) => toast.error(error.message)),
+          0,
+        );
+        return next;
+      });
+    },
+    [saveProvider],
+  );
 
-  const addProvider = React.useCallback(async (type: TtsProviderType) => {
-    await saveProvider(createTtsProvider(type));
-  }, [saveProvider]);
+  const addProvider = React.useCallback(
+    async (type: TtsProviderType) => {
+      await saveProvider(createTtsProvider(type));
+    },
+    [saveProvider],
+  );
 
-  const reorderProviders = React.useCallback((from: number, to: number) => {
-    const ttsProviders = moveItem(providers, from, to);
-    onSettings({ ...settings, ttsProviders });
-    void api.post("settings/tts-provider/reorder", { ids: ttsProviders.map((item) => item.id) }).catch((error: Error) => toast.error(error.message));
-  }, [onSettings, providers, settings]);
+  const reorderProviders = React.useCallback(
+    (from: number, to: number) => {
+      const ttsProviders = moveItem(providers, from, to);
+      onSettings({ ...settings, ttsProviders });
+      void api
+        .post("settings/tts-provider/reorder", { ids: ttsProviders.map((item) => item.id) })
+        .catch((error: Error) => toast.error(error.message));
+    },
+    [onSettings, providers, settings],
+  );
 
-  const selectProvider = React.useCallback(async (providerId: string) => {
-    setSelectedId(providerId);
-    await api.post("settings/tts-provider/select", { id: providerId });
-    onSettings({ ...settings, selectedTTSProviderId: providerId });
-  }, [onSettings, settings]);
+  const selectProvider = React.useCallback(
+    async (providerId: string) => {
+      setSelectedId(providerId);
+      await api.post("settings/tts-provider/select", { id: providerId });
+      onSettings({ ...settings, selectedTTSProviderId: providerId });
+    },
+    [onSettings, settings],
+  );
 
   const removeProvider = React.useCallback(async () => {
     if (!draft || draft.type === "system") return;
     await api.delete(`settings/tts-provider/${encodeURIComponent(draft.id)}`);
     const ttsProviders = providers.filter((provider) => provider.id !== draft.id);
-    onSettings({ ...settings, ttsProviders, selectedTTSProviderId: settings.selectedTTSProviderId === draft.id ? ttsProviders[0]?.id ?? null : settings.selectedTTSProviderId });
+    onSettings({
+      ...settings,
+      ttsProviders,
+      selectedTTSProviderId:
+        settings.selectedTTSProviderId === draft.id
+          ? (ttsProviders[0]?.id ?? null)
+          : settings.selectedTTSProviderId,
+    });
     setSelectedId(ttsProviders[0]?.id ?? "");
   }, [draft, onSettings, providers, settings]);
 
@@ -2896,7 +4016,10 @@ function TtsSettingsPanel({ settings, onSettings }: { settings: Settings; onSett
       // selected one (which may be a different provider entirely). The draft must be
       // already saved for this to work; patchDraft auto-saves on every keystroke so
       // by the time the user clicks test the latest config is persisted server-side.
-      const response = await api.postBlob("tts/speech", { text: t("settings:speech.test_text"), providerId: draft.id });
+      const response = await api.postBlob("tts/speech", {
+        text: t("settings:speech.test_text"),
+        providerId: draft.id,
+      });
       const contentType = response.headers.get("Content-Type") ?? "";
       if (contentType.includes("application/json")) {
         // System TTS path — Windows is speaking on-device; nothing for us to play.
@@ -2911,7 +4034,14 @@ function TtsSettingsPanel({ settings, onSettings }: { settings: Settings; onSett
     }
   }, [draft, isTestPlaying, testPlaybackKey, t]);
 
-  const numericInput = (key: keyof TtsProviderProfile, label: string, description: string, min: number, max: number, step = 0.05) => {
+  const numericInput = (
+    key: keyof TtsProviderProfile,
+    label: string,
+    description: string,
+    min: number,
+    max: number,
+    step = 0.05,
+  ) => {
     if (!draft) return null;
     const value = Number(draft[key] ?? 1);
     return (
@@ -2926,11 +4056,22 @@ function TtsSettingsPanel({ settings, onSettings }: { settings: Settings; onSett
             value={Number.isFinite(value) ? String(value) : ""}
             onChange={(event) => {
               const next = Number(event.target.value);
-              if (Number.isFinite(next)) patchDraft({ [key]: Math.min(max, Math.max(min, next)) } as Partial<TtsProviderProfile>);
+              if (Number.isFinite(next))
+                patchDraft({
+                  [key]: Math.min(max, Math.max(min, next)),
+                } as Partial<TtsProviderProfile>);
             }}
           />
         </div>
-        <Slider min={min} max={max} step={step} value={[Number.isFinite(value) ? value : 1]} onValueChange={([next]) => patchDraft({ [key]: next ?? 1 } as Partial<TtsProviderProfile>)} />
+        <Slider
+          min={min}
+          max={max}
+          step={step}
+          value={[Number.isFinite(value) ? value : 1]}
+          onValueChange={([next]) =>
+            patchDraft({ [key]: next ?? 1 } as Partial<TtsProviderProfile>)
+          }
+        />
       </div>
     );
   };
@@ -2941,7 +4082,9 @@ function TtsSettingsPanel({ settings, onSettings }: { settings: Settings; onSett
         <div className="flex items-center justify-between gap-3 border-b p-3">
           <div className="text-sm font-medium">{t("settings:speech.tts_services")}</div>
           <Select onValueChange={(value) => void addProvider(value as TtsProviderType)}>
-            <SelectTrigger className="h-8 w-28"><SelectValue placeholder={t("settings:speech.add")} /></SelectTrigger>
+            <SelectTrigger className="h-8 w-28">
+              <SelectValue placeholder={t("settings:speech.add")} />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="system">System</SelectItem>
               <SelectItem value="openai">OpenAI</SelectItem>
@@ -2967,13 +4110,21 @@ function TtsSettingsPanel({ settings, onSettings }: { settings: Settings; onSett
               <span className="flex min-w-0 items-center justify-between gap-3">
                 <span className="min-w-0">
                   <span className="block truncate font-medium">{provider.name}</span>
-                  <span className="block truncate text-xs text-muted-foreground">{provider.type}</span>
+                  <span className="block truncate text-xs text-muted-foreground">
+                    {provider.type}
+                  </span>
                 </span>
-                {provider.id === settings.selectedTTSProviderId ? <Check className="size-4 shrink-0 text-primary" /> : null}
+                {provider.id === settings.selectedTTSProviderId ? (
+                  <Check className="size-4 shrink-0 text-primary" />
+                ) : null}
               </span>
             </SortableRow>
           ))}
-          {providers.length === 0 ? <div className="p-6 text-center text-sm text-muted-foreground">{t("settings:speech.tts_empty")}</div> : null}
+          {providers.length === 0 ? (
+            <div className="p-6 text-center text-sm text-muted-foreground">
+              {t("settings:speech.tts_empty")}
+            </div>
+          ) : null}
         </div>
       </div>
 
@@ -2982,24 +4133,43 @@ function TtsSettingsPanel({ settings, onSettings }: { settings: Settings; onSett
           <div className="flex items-start justify-between gap-4">
             <div>
               <div className="text-lg font-semibold">{draft.name}</div>
-              <div className="text-sm text-muted-foreground">{t("settings:speech.tts_card_desc")}</div>
+              <div className="text-sm text-muted-foreground">
+                {t("settings:speech.tts_card_desc")}
+              </div>
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="outline" onClick={() => void handleTest()} title={t("settings:speech.test_title")}>
+              <Button
+                variant="outline"
+                onClick={() => void handleTest()}
+                title={t("settings:speech.test_title")}
+              >
                 {isTestPlaying ? <Square className="size-4" /> : <Volume2 className="size-4" />}
                 {isTestPlaying ? t("settings:speech.stop") : t("settings:speech.test")}
               </Button>
-              <Button variant={draft.id === settings.selectedTTSProviderId ? "secondary" : "outline"} onClick={() => void selectProvider(draft.id)}>
-                {draft.id === settings.selectedTTSProviderId ? t("settings:speech.selected") : t("settings:speech.set_current")}
+              <Button
+                variant={draft.id === settings.selectedTTSProviderId ? "secondary" : "outline"}
+                onClick={() => void selectProvider(draft.id)}
+              >
+                {draft.id === settings.selectedTTSProviderId
+                  ? t("settings:speech.selected")
+                  : t("settings:speech.set_current")}
               </Button>
-              {draft.type !== "system" ? <Button variant="outline" onClick={() => void removeProvider()}><Trash2 className="size-4" />{t("settings:common.delete")}</Button> : null}
+              {draft.type !== "system" ? (
+                <Button variant="outline" onClick={() => void removeProvider()}>
+                  <Trash2 className="size-4" />
+                  {t("settings:common.delete")}
+                </Button>
+              ) : null}
             </div>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <div className="text-sm font-medium">{t("settings:speech.name")}</div>
-              <Input value={draft.name} onChange={(event) => patchDraft({ name: event.target.value })} />
+              <Input
+                value={draft.name}
+                onChange={(event) => patchDraft({ name: event.target.value })}
+              />
             </div>
             <div className="space-y-2">
               <div className="text-sm font-medium">{t("settings:speech.type")}</div>
@@ -3009,85 +4179,112 @@ function TtsSettingsPanel({ settings, onSettings }: { settings: Settings; onSett
               <>
                 <div className="space-y-2 md:col-span-2">
                   <div className="text-sm font-medium">{t("settings:speech.api_key")}</div>
-                  <PasswordInput value={draft.apiKey ?? ""} onChange={(apiKey) => patchDraft({ apiKey })} />
+                  <PasswordInput
+                    value={draft.apiKey ?? ""}
+                    onChange={(apiKey) => patchDraft({ apiKey })}
+                  />
                 </div>
                 <div className="space-y-2 md:col-span-2">
                   <div className="text-sm font-medium">{t("settings:speech.base_url")}</div>
-                  <Input value={draft.baseUrl ?? ""} onChange={(event) => patchDraft({ baseUrl: event.target.value })} />
+                  <Input
+                    value={draft.baseUrl ?? ""}
+                    onChange={(event) => patchDraft({ baseUrl: event.target.value })}
+                  />
                 </div>
                 {draft.type !== "xai" ? (
                   <div className="space-y-2">
                     <div className="text-sm font-medium">{t("settings:speech.model")}</div>
-                    <Input value={draft.model ?? ""} onChange={(event) => patchDraft({ model: event.target.value })} />
+                    <Input
+                      value={draft.model ?? ""}
+                      onChange={(event) => patchDraft({ model: event.target.value })}
+                    />
                   </div>
                 ) : null}
                 {draft.type === "gemini" ? (
                   <div className="space-y-2">
                     <div className="text-sm font-medium">Voice Name</div>
-                    <Input value={draft.voiceName ?? ""} onChange={(event) => patchDraft({ voiceName: event.target.value })} />
+                    <Input
+                      value={draft.voiceName ?? ""}
+                      onChange={(event) => patchDraft({ voiceName: event.target.value })}
+                    />
                   </div>
                 ) : null}
-                {draft.type === "minimax" ? (() => {
-                  const voiceId = draft.voiceId ?? "";
-                  const isPreset = (TTS_VOICES_MINIMAX as readonly string[]).includes(voiceId);
-                  // Dropdown value: shows the matched preset, or our `__custom__` sentinel
-                  // when voiceId is empty / a custom-trained value not in the preset list.
-                  // The sentinel is needed because Radix Select reserves "" — we can't use
-                  // the empty string as an option value directly.
-                  const dropdownValue = isPreset ? voiceId : "__custom__";
-                  return (
-                    <div className="space-y-2">
-                      <div className="text-sm font-medium">Voice ID</div>
-                      {/* Preset-first combobox: dropdown is the primary control on the left;
+                {draft.type === "minimax"
+                  ? (() => {
+                      const voiceId = draft.voiceId ?? "";
+                      const isPreset = (TTS_VOICES_MINIMAX as readonly string[]).includes(voiceId);
+                      // Dropdown value: shows the matched preset, or our `__custom__` sentinel
+                      // when voiceId is empty / a custom-trained value not in the preset list.
+                      // The sentinel is needed because Radix Select reserves "" — we can't use
+                      // the empty string as an option value directly.
+                      const dropdownValue = isPreset ? voiceId : "__custom__";
+                      return (
+                        <div className="space-y-2">
+                          <div className="text-sm font-medium">Voice ID</div>
+                          {/* Preset-first combobox: dropdown is the primary control on the left;
                           a free-text Input appears on the right ONLY when the user picks
                           "自定义". MiniMax's voice cloning produces opaque voice IDs that
                           aren't in our preset list, so users need to be able to paste them.
                           Matches Android's `ExposedDropdownMenuBox` UX
                           (`TTSProviderConfigure.kt:382-431`) where the editable text field
                           appears once a custom voice is in use. */}
-                      <div className="flex gap-2">
-                        <Select
-                          value={dropdownValue}
-                          onValueChange={(value) => {
-                            if (value === "__custom__") {
-                              // Switching from a preset to "custom" — wipe the voiceId so
-                              // the input starts empty and the user is prompted to fill it.
-                              // If we're already in custom mode (just re-selected "自定义"),
-                              // leave the existing custom voiceId alone.
-                              if (isPreset) patchDraft({ voiceId: "" });
-                            } else {
-                              patchDraft({ voiceId: value });
-                            }
-                          }}
-                        >
-                          <SelectTrigger className="flex-1"><SelectValue placeholder={t("settings:speech.select_voice")} /></SelectTrigger>
-                          <SelectContent>
-                            {TTS_VOICES_MINIMAX.map((voice) => (
-                              <SelectItem key={voice} value={voice}>{voice}</SelectItem>
-                            ))}
-                            <SelectItem value="__custom__">{t("settings:speech.custom_voice")}</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        {dropdownValue === "__custom__" ? (
-                          <Input
-                            className="flex-1"
-                            value={voiceId}
-                            onChange={(event) => patchDraft({ voiceId: event.target.value })}
-                            placeholder={t("settings:speech.custom_voice_ph")}
-                          />
-                        ) : null}
-                      </div>
-                    </div>
-                  );
-                })() : null}
+                          <div className="flex gap-2">
+                            <Select
+                              value={dropdownValue}
+                              onValueChange={(value) => {
+                                if (value === "__custom__") {
+                                  // Switching from a preset to "custom" — wipe the voiceId so
+                                  // the input starts empty and the user is prompted to fill it.
+                                  // If we're already in custom mode (just re-selected "自定义"),
+                                  // leave the existing custom voiceId alone.
+                                  if (isPreset) patchDraft({ voiceId: "" });
+                                } else {
+                                  patchDraft({ voiceId: value });
+                                }
+                              }}
+                            >
+                              <SelectTrigger className="flex-1">
+                                <SelectValue placeholder={t("settings:speech.select_voice")} />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {TTS_VOICES_MINIMAX.map((voice) => (
+                                  <SelectItem key={voice} value={voice}>
+                                    {voice}
+                                  </SelectItem>
+                                ))}
+                                <SelectItem value="__custom__">
+                                  {t("settings:speech.custom_voice")}
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                            {dropdownValue === "__custom__" ? (
+                              <Input
+                                className="flex-1"
+                                value={voiceId}
+                                onChange={(event) => patchDraft({ voiceId: event.target.value })}
+                                placeholder={t("settings:speech.custom_voice_ph")}
+                              />
+                            ) : null}
+                          </div>
+                        </div>
+                      );
+                    })()
+                  : null}
                 {draft.type === "xai" ? (
                   <div className="space-y-2">
                     <div className="text-sm font-medium">Voice ID</div>
-                    <Select value={draft.voiceId ?? ""} onValueChange={(value) => patchDraft({ voiceId: value })}>
-                      <SelectTrigger><SelectValue placeholder={t("settings:speech.select_voice")} /></SelectTrigger>
+                    <Select
+                      value={draft.voiceId ?? ""}
+                      onValueChange={(value) => patchDraft({ voiceId: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={t("settings:speech.select_voice")} />
+                      </SelectTrigger>
                       <SelectContent>
                         {TTS_VOICES_XAI.map((voice) => (
-                          <SelectItem key={voice} value={voice}>{voice}</SelectItem>
+                          <SelectItem key={voice} value={voice}>
+                            {voice}
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -3096,11 +4293,23 @@ function TtsSettingsPanel({ settings, onSettings }: { settings: Settings; onSett
                 {draft.type === "openai" || draft.type === "qwen" || draft.type === "groq" ? (
                   <div className="space-y-2">
                     <div className="text-sm font-medium">Voice</div>
-                    <Select value={draft.voice ?? ""} onValueChange={(value) => patchDraft({ voice: value })}>
-                      <SelectTrigger><SelectValue placeholder={t("settings:speech.select_voice")} /></SelectTrigger>
+                    <Select
+                      value={draft.voice ?? ""}
+                      onValueChange={(value) => patchDraft({ voice: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={t("settings:speech.select_voice")} />
+                      </SelectTrigger>
                       <SelectContent>
-                        {(draft.type === "openai" ? TTS_VOICES_OPENAI : draft.type === "qwen" ? TTS_VOICES_QWEN : TTS_VOICES_GROQ).map((voice) => (
-                          <SelectItem key={voice} value={voice}>{voice}</SelectItem>
+                        {(draft.type === "openai"
+                          ? TTS_VOICES_OPENAI
+                          : draft.type === "qwen"
+                            ? TTS_VOICES_QWEN
+                            : TTS_VOICES_GROQ
+                        ).map((voice) => (
+                          <SelectItem key={voice} value={voice}>
+                            {voice}
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -3111,17 +4320,27 @@ function TtsSettingsPanel({ settings, onSettings }: { settings: Settings; onSett
                   // an open-ended voice catalog (custom-trained voice IDs), not a fixed list.
                   <div className="space-y-2">
                     <div className="text-sm font-medium">Voice</div>
-                    <Input value={draft.voice ?? ""} onChange={(event) => patchDraft({ voice: event.target.value })} />
+                    <Input
+                      value={draft.voice ?? ""}
+                      onChange={(event) => patchDraft({ voice: event.target.value })}
+                    />
                   </div>
                 ) : null}
                 {draft.type === "qwen" ? (
                   <div className="space-y-2">
                     <div className="text-sm font-medium">Language Type</div>
-                    <Select value={draft.languageType ?? "Auto"} onValueChange={(value) => patchDraft({ languageType: value })}>
-                      <SelectTrigger><SelectValue placeholder={t("settings:speech.select_lang_type")} /></SelectTrigger>
+                    <Select
+                      value={draft.languageType ?? "Auto"}
+                      onValueChange={(value) => patchDraft({ languageType: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={t("settings:speech.select_lang_type")} />
+                      </SelectTrigger>
                       <SelectContent>
                         {TTS_LANGUAGE_TYPES_QWEN.map((lang) => (
-                          <SelectItem key={lang} value={lang}>{lang}</SelectItem>
+                          <SelectItem key={lang} value={lang}>
+                            {lang}
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -3130,11 +4349,18 @@ function TtsSettingsPanel({ settings, onSettings }: { settings: Settings; onSett
                 {draft.type === "xai" ? (
                   <div className="space-y-2">
                     <div className="text-sm font-medium">Language</div>
-                    <Select value={draft.language ?? "auto"} onValueChange={(value) => patchDraft({ language: value })}>
-                      <SelectTrigger><SelectValue placeholder={t("settings:speech.select_language")} /></SelectTrigger>
+                    <Select
+                      value={draft.language ?? "auto"}
+                      onValueChange={(value) => patchDraft({ language: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={t("settings:speech.select_language")} />
+                      </SelectTrigger>
                       <SelectContent>
                         {TTS_LANGUAGES_XAI.map((lang) => (
-                          <SelectItem key={lang.value} value={lang.value}>{lang.label}</SelectItem>
+                          <SelectItem key={lang.value} value={lang.value}>
+                            {lang.label}
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -3153,93 +4379,177 @@ function TtsSettingsPanel({ settings, onSettings }: { settings: Settings; onSett
                           only the UI uses the sentinel. */}
                       <Select
                         value={(draft.emotion ?? "") === "" ? "__auto__" : draft.emotion}
-                        onValueChange={(value) => patchDraft({ emotion: value === "__auto__" ? "" : value })}
+                        onValueChange={(value) =>
+                          patchDraft({ emotion: value === "__auto__" ? "" : value })
+                        }
                       >
-                        <SelectTrigger><SelectValue placeholder={t("settings:speech.select_emotion")} /></SelectTrigger>
+                        <SelectTrigger>
+                          <SelectValue placeholder={t("settings:speech.select_emotion")} />
+                        </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="__auto__">{t("settings:speech.emotion_auto")}</SelectItem>
+                          <SelectItem value="__auto__">
+                            {t("settings:speech.emotion_auto")}
+                          </SelectItem>
                           {TTS_EMOTIONS_MINIMAX.map((emotion) => (
-                            <SelectItem key={emotion} value={emotion}>{emotion}</SelectItem>
+                            <SelectItem key={emotion} value={emotion}>
+                              {emotion}
+                            </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="md:col-span-2">{numericInput("speed", "Speed", t("settings:speech.minimax_speed_desc"), 0.5, 2, 0.05)}</div>
+                    <div className="md:col-span-2">
+                      {numericInput(
+                        "speed",
+                        "Speed",
+                        t("settings:speech.minimax_speed_desc"),
+                        0.5,
+                        2,
+                        0.05,
+                      )}
+                    </div>
                   </>
                 ) : null}
               </>
             ) : (
               <div className="space-y-5 md:col-span-2">
-                {numericInput("speechRate", "Speech Rate", t("settings:speech.system_rate_desc"), 0.2, 3, 0.05)}
-                {numericInput("pitch", "Pitch", t("settings:speech.system_pitch_desc"), 0.2, 3, 0.05)}
+                {numericInput(
+                  "speechRate",
+                  "Speech Rate",
+                  t("settings:speech.system_rate_desc"),
+                  0.2,
+                  3,
+                  0.05,
+                )}
+                {numericInput(
+                  "pitch",
+                  "Pitch",
+                  t("settings:speech.system_pitch_desc"),
+                  0.2,
+                  3,
+                  0.05,
+                )}
               </div>
             )}
           </div>
         </div>
       ) : (
-        <div className="rounded-lg border border-dashed p-10 text-center text-sm text-muted-foreground">{t("settings:speech.select_tts")}</div>
+        <div className="rounded-lg border border-dashed p-10 text-center text-sm text-muted-foreground">
+          {t("settings:speech.select_tts")}
+        </div>
       )}
     </div>
   );
 }
 
-function SpeechSection({ settings, onSettings }: { settings: Settings; onSettings: (settings: Settings) => void }) {
+function SpeechSection({
+  settings,
+  onSettings,
+}: {
+  settings: Settings;
+  onSettings: (settings: Settings) => void;
+}) {
   const { t } = useTranslation();
   const providers = settings.asrProviders ?? [];
-  const [selectedId, setSelectedId] = React.useState(settings.selectedASRProviderId ?? providers[0]?.id ?? "");
+  const [selectedId, setSelectedId] = React.useState(
+    settings.selectedASRProviderId ?? providers[0]?.id ?? "",
+  );
   const selected = providers.find((provider) => provider.id === selectedId) ?? providers[0];
-  const [draft, setDraft] = React.useState<AsrProviderProfile | null>(selected ? clone(selected) : null);
+  const [draft, setDraft] = React.useState<AsrProviderProfile | null>(
+    selected ? clone(selected) : null,
+  );
 
   React.useEffect(() => {
     const next = providers.find((provider) => provider.id === selectedId) ?? providers[0];
     setDraft(next ? clone(next) : null);
   }, [providers, selectedId]);
 
-  const saveProvider = React.useCallback(async (provider: AsrProviderProfile) => {
-    const result = await api.post<{ provider: AsrProviderProfile }>("settings/asr-provider/detail", provider);
-    const exists = providers.some((item) => item.id === result.provider.id);
-    const asrProviders = exists
-      ? providers.map((item) => item.id === result.provider.id ? result.provider : item)
-      : [result.provider, ...providers];
-    onSettings({ ...settings, asrProviders, selectedASRProviderId: settings.selectedASRProviderId ?? result.provider.id });
-    setSelectedId(result.provider.id);
-  }, [onSettings, providers, settings]);
+  const saveProvider = React.useCallback(
+    async (provider: AsrProviderProfile) => {
+      const result = await api.post<{ provider: AsrProviderProfile }>(
+        "settings/asr-provider/detail",
+        provider,
+      );
+      const exists = providers.some((item) => item.id === result.provider.id);
+      const asrProviders = exists
+        ? providers.map((item) => (item.id === result.provider.id ? result.provider : item))
+        : [result.provider, ...providers];
+      onSettings({
+        ...settings,
+        asrProviders,
+        selectedASRProviderId: settings.selectedASRProviderId ?? result.provider.id,
+      });
+      setSelectedId(result.provider.id);
+    },
+    [onSettings, providers, settings],
+  );
 
-  const patchDraft = React.useCallback((patch: Partial<AsrProviderProfile>) => {
-    setDraft((current) => {
-      if (!current) return current;
-      const next = { ...current, ...patch };
-      window.setTimeout(() => void saveProvider(next).catch((error: Error) => toast.error(error.message)), 0);
-      return next;
-    });
-  }, [saveProvider]);
+  const patchDraft = React.useCallback(
+    (patch: Partial<AsrProviderProfile>) => {
+      setDraft((current) => {
+        if (!current) return current;
+        const next = { ...current, ...patch };
+        window.setTimeout(
+          () => void saveProvider(next).catch((error: Error) => toast.error(error.message)),
+          0,
+        );
+        return next;
+      });
+    },
+    [saveProvider],
+  );
 
-  const addProvider = React.useCallback(async (type: AsrProviderType) => {
-    const provider = createAsrProvider(type);
-    await saveProvider(provider);
-  }, [saveProvider]);
+  const addProvider = React.useCallback(
+    async (type: AsrProviderType) => {
+      const provider = createAsrProvider(type);
+      await saveProvider(provider);
+    },
+    [saveProvider],
+  );
 
-  const reorderProviders = React.useCallback((from: number, to: number) => {
-    const asrProviders = moveItem(providers, from, to);
-    onSettings({ ...settings, asrProviders });
-    void api.post("settings/asr-provider/reorder", { ids: asrProviders.map((item) => item.id) }).catch((error: Error) => toast.error(error.message));
-  }, [onSettings, providers, settings]);
+  const reorderProviders = React.useCallback(
+    (from: number, to: number) => {
+      const asrProviders = moveItem(providers, from, to);
+      onSettings({ ...settings, asrProviders });
+      void api
+        .post("settings/asr-provider/reorder", { ids: asrProviders.map((item) => item.id) })
+        .catch((error: Error) => toast.error(error.message));
+    },
+    [onSettings, providers, settings],
+  );
 
-  const selectProvider = React.useCallback(async (providerId: string) => {
-    setSelectedId(providerId);
-    await api.post("settings/asr-provider/select", { id: providerId });
-    onSettings({ ...settings, selectedASRProviderId: providerId });
-  }, [onSettings, settings]);
+  const selectProvider = React.useCallback(
+    async (providerId: string) => {
+      setSelectedId(providerId);
+      await api.post("settings/asr-provider/select", { id: providerId });
+      onSettings({ ...settings, selectedASRProviderId: providerId });
+    },
+    [onSettings, settings],
+  );
 
   const removeProvider = React.useCallback(async () => {
     if (!draft) return;
     await api.delete(`settings/asr-provider/${encodeURIComponent(draft.id)}`);
     const asrProviders = providers.filter((provider) => provider.id !== draft.id);
-    onSettings({ ...settings, asrProviders, selectedASRProviderId: settings.selectedASRProviderId === draft.id ? asrProviders[0]?.id ?? null : settings.selectedASRProviderId });
+    onSettings({
+      ...settings,
+      asrProviders,
+      selectedASRProviderId:
+        settings.selectedASRProviderId === draft.id
+          ? (asrProviders[0]?.id ?? null)
+          : settings.selectedASRProviderId,
+    });
     setSelectedId(asrProviders[0]?.id ?? "");
   }, [draft, onSettings, providers, settings]);
 
-  const numericInput = (key: keyof AsrProviderProfile, label: string, description: string, min: number, max: number, step = 1) => {
+  const numericInput = (
+    key: keyof AsrProviderProfile,
+    label: string,
+    description: string,
+    min: number,
+    max: number,
+    step = 1,
+  ) => {
     if (!draft) return null;
     const value = Number(draft[key] ?? min);
     return (
@@ -3254,27 +4564,48 @@ function SpeechSection({ settings, onSettings }: { settings: Settings; onSetting
             value={Number.isFinite(value) ? String(value) : ""}
             onChange={(event) => {
               const next = Number(event.target.value);
-              if (Number.isFinite(next)) patchDraft({ [key]: Math.min(max, Math.max(min, next)) } as Partial<AsrProviderProfile>);
+              if (Number.isFinite(next))
+                patchDraft({
+                  [key]: Math.min(max, Math.max(min, next)),
+                } as Partial<AsrProviderProfile>);
             }}
           />
         </div>
-        <Slider min={min} max={max} step={step} value={[Number.isFinite(value) ? value : min]} onValueChange={([next]) => patchDraft({ [key]: next ?? min } as Partial<AsrProviderProfile>)} />
+        <Slider
+          min={min}
+          max={max}
+          step={step}
+          value={[Number.isFinite(value) ? value : min]}
+          onValueChange={([next]) =>
+            patchDraft({ [key]: next ?? min } as Partial<AsrProviderProfile>)
+          }
+        />
       </div>
     );
   };
 
   return (
     <>
-      <SectionHeader icon={Mic} title={t("settings:speech.tts_title")} subtitle={t("settings:speech.tts_subtitle")} />
+      <SectionHeader
+        icon={Mic}
+        title={t("settings:speech.tts_title")}
+        subtitle={t("settings:speech.tts_subtitle")}
+      />
       <TtsSettingsPanel settings={settings} onSettings={onSettings} />
       <Separator className="my-8" />
-      <SectionHeader icon={Mic} title={t("settings:speech.asr_title")} subtitle={t("settings:speech.asr_subtitle")} />
+      <SectionHeader
+        icon={Mic}
+        title={t("settings:speech.asr_title")}
+        subtitle={t("settings:speech.asr_subtitle")}
+      />
       <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
         <div className="rounded-lg border bg-card">
           <div className="flex items-center justify-between gap-3 border-b p-3">
             <div className="text-sm font-medium">{t("settings:speech.asr_services")}</div>
             <Select onValueChange={(value) => void addProvider(value as AsrProviderType)}>
-              <SelectTrigger className="h-8 w-28"><SelectValue placeholder={t("settings:speech.add")} /></SelectTrigger>
+              <SelectTrigger className="h-8 w-28">
+                <SelectValue placeholder={t("settings:speech.add")} />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="openai_realtime">OpenAI</SelectItem>
                 <SelectItem value="dashscope">DashScope</SelectItem>
@@ -3295,13 +4626,21 @@ function SpeechSection({ settings, onSettings }: { settings: Settings; onSetting
                 <span className="flex min-w-0 items-center justify-between gap-3">
                   <span className="min-w-0">
                     <span className="block truncate font-medium">{provider.name}</span>
-                    <span className="block truncate text-xs text-muted-foreground">{provider.type}</span>
+                    <span className="block truncate text-xs text-muted-foreground">
+                      {provider.type}
+                    </span>
                   </span>
-                  {provider.id === settings.selectedASRProviderId ? <Check className="size-4 shrink-0 text-primary" /> : null}
+                  {provider.id === settings.selectedASRProviderId ? (
+                    <Check className="size-4 shrink-0 text-primary" />
+                  ) : null}
                 </span>
               </SortableRow>
             ))}
-            {providers.length === 0 ? <div className="p-6 text-center text-sm text-muted-foreground">{t("settings:speech.asr_empty")}</div> : null}
+            {providers.length === 0 ? (
+              <div className="p-6 text-center text-sm text-muted-foreground">
+                {t("settings:speech.asr_empty")}
+              </div>
+            ) : null}
           </div>
         </div>
 
@@ -3310,19 +4649,32 @@ function SpeechSection({ settings, onSettings }: { settings: Settings; onSetting
             <div className="flex items-start justify-between gap-4">
               <div>
                 <div className="text-lg font-semibold">{draft.name}</div>
-                <div className="text-sm text-muted-foreground">{t("settings:speech.asr_card_desc")}</div>
+                <div className="text-sm text-muted-foreground">
+                  {t("settings:speech.asr_card_desc")}
+                </div>
               </div>
               <div className="flex items-center gap-2">
-                <Button variant={draft.id === settings.selectedASRProviderId ? "secondary" : "outline"} onClick={() => void selectProvider(draft.id)}>
-                  {draft.id === settings.selectedASRProviderId ? t("settings:speech.selected") : t("settings:speech.set_current")}
+                <Button
+                  variant={draft.id === settings.selectedASRProviderId ? "secondary" : "outline"}
+                  onClick={() => void selectProvider(draft.id)}
+                >
+                  {draft.id === settings.selectedASRProviderId
+                    ? t("settings:speech.selected")
+                    : t("settings:speech.set_current")}
                 </Button>
-                <Button variant="outline" onClick={() => void removeProvider()}><Trash2 className="size-4" />{t("settings:common.delete")}</Button>
+                <Button variant="outline" onClick={() => void removeProvider()}>
+                  <Trash2 className="size-4" />
+                  {t("settings:common.delete")}
+                </Button>
               </div>
             </div>
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <div className="text-sm font-medium">{t("settings:speech.name")}</div>
-                <Input value={draft.name} onChange={(event) => patchDraft({ name: event.target.value })} />
+                <Input
+                  value={draft.name}
+                  onChange={(event) => patchDraft({ name: event.target.value })}
+                />
               </div>
               <div className="space-y-2">
                 <div className="text-sm font-medium">{t("settings:speech.type")}</div>
@@ -3330,80 +4682,167 @@ function SpeechSection({ settings, onSettings }: { settings: Settings; onSetting
               </div>
               <div className="space-y-2 md:col-span-2">
                 <div className="text-sm font-medium">{t("settings:speech.api_key")}</div>
-                <PasswordInput value={draft.apiKey ?? ""} onChange={(apiKey) => patchDraft({ apiKey })} />
+                <PasswordInput
+                  value={draft.apiKey ?? ""}
+                  onChange={(apiKey) => patchDraft({ apiKey })}
+                />
               </div>
               <div className="space-y-2 md:col-span-2">
                 <div className="text-sm font-medium">{t("settings:speech.ws_url")}</div>
-                <Input value={draft.websocketUrl ?? ""} onChange={(event) => patchDraft({ websocketUrl: event.target.value })} />
+                <Input
+                  value={draft.websocketUrl ?? ""}
+                  onChange={(event) => patchDraft({ websocketUrl: event.target.value })}
+                />
               </div>
               {draft.type !== "volcengine" ? (
                 <div className="space-y-2">
                   <div className="text-sm font-medium">{t("settings:speech.model")}</div>
-                  <Input value={draft.model ?? ""} onChange={(event) => patchDraft({ model: event.target.value })} placeholder={draft.type === "dashscope" ? "qwen3-asr-flash-realtime" : "gpt-4o-transcribe"} />
+                  <Input
+                    value={draft.model ?? ""}
+                    onChange={(event) => patchDraft({ model: event.target.value })}
+                    placeholder={
+                      draft.type === "dashscope" ? "qwen3-asr-flash-realtime" : "gpt-4o-transcribe"
+                    }
+                  />
                 </div>
               ) : null}
               {draft.type === "volcengine" ? (
                 <div className="space-y-2">
                   <div className="text-sm font-medium">Resource ID</div>
-                  <Input value={draft.resourceId ?? ""} onChange={(event) => patchDraft({ resourceId: event.target.value })} placeholder="volc.seedasr.sauc.duration" />
+                  <Input
+                    value={draft.resourceId ?? ""}
+                    onChange={(event) => patchDraft({ resourceId: event.target.value })}
+                    placeholder="volc.seedasr.sauc.duration"
+                  />
                 </div>
               ) : null}
               <div className="space-y-2">
                 <div className="text-sm font-medium">{t("settings:speech.language")}</div>
-                <Input value={draft.language ?? ""} onChange={(event) => patchDraft({ language: event.target.value })} placeholder={draft.type === "dashscope" ? "zh" : "auto"} />
+                <Input
+                  value={draft.language ?? ""}
+                  onChange={(event) => patchDraft({ language: event.target.value })}
+                  placeholder={draft.type === "dashscope" ? "zh" : "auto"}
+                />
               </div>
               {draft.type === "openai_realtime" ? (
                 <div className="space-y-2 md:col-span-2">
                   <div className="text-sm font-medium">{t("settings:speech.prompt")}</div>
-                  <Textarea value={draft.prompt ?? ""} onChange={(event) => patchDraft({ prompt: event.target.value })} placeholder="Optional" />
+                  <Textarea
+                    value={draft.prompt ?? ""}
+                    onChange={(event) => patchDraft({ prompt: event.target.value })}
+                    placeholder="Optional"
+                  />
                 </div>
               ) : null}
             </div>
             <div className="space-y-5">
-              {draft.type !== "volcengine" ? numericInput("sampleRate", t("settings:speech.sample_rate"), t("settings:speech.sample_rate_desc"), 8000, 48000, 1000) : null}
-              {draft.type !== "volcengine" ? numericInput("vadThreshold", t("settings:speech.vad_threshold"), t("settings:speech.vad_threshold_desc"), 0, 1, 0.05) : null}
-              {draft.type === "openai_realtime" ? numericInput("prefixPaddingMs", t("settings:speech.prefix_padding"), t("settings:speech.prefix_padding_desc"), 0, 2000, 50) : null}
-              {draft.type !== "volcengine" ? numericInput("silenceDurationMs", t("settings:speech.silence_duration"), t("settings:speech.silence_duration_desc"), 100, 5000, 100) : null}
+              {draft.type !== "volcengine"
+                ? numericInput(
+                    "sampleRate",
+                    t("settings:speech.sample_rate"),
+                    t("settings:speech.sample_rate_desc"),
+                    8000,
+                    48000,
+                    1000,
+                  )
+                : null}
+              {draft.type !== "volcengine"
+                ? numericInput(
+                    "vadThreshold",
+                    t("settings:speech.vad_threshold"),
+                    t("settings:speech.vad_threshold_desc"),
+                    0,
+                    1,
+                    0.05,
+                  )
+                : null}
+              {draft.type === "openai_realtime"
+                ? numericInput(
+                    "prefixPaddingMs",
+                    t("settings:speech.prefix_padding"),
+                    t("settings:speech.prefix_padding_desc"),
+                    0,
+                    2000,
+                    50,
+                  )
+                : null}
+              {draft.type !== "volcengine"
+                ? numericInput(
+                    "silenceDurationMs",
+                    t("settings:speech.silence_duration"),
+                    t("settings:speech.silence_duration_desc"),
+                    100,
+                    5000,
+                    100,
+                  )
+                : null}
             </div>
           </div>
         ) : (
-          <div className="rounded-lg border border-dashed p-10 text-center text-sm text-muted-foreground">{t("settings:speech.select_asr")}</div>
+          <div className="rounded-lg border border-dashed p-10 text-center text-sm text-muted-foreground">
+            {t("settings:speech.select_asr")}
+          </div>
         )}
       </div>
     </>
   );
 }
 
-function McpExtensionsSection({ settings, onSettings }: { settings: Settings; onSettings: (settings: Settings) => void }) {
+function McpExtensionsSection({
+  settings,
+  onSettings,
+}: {
+  settings: Settings;
+  onSettings: (settings: Settings) => void;
+}) {
   type Tab = "mcp" | "mode" | "lorebook" | "quick" | "skills";
   const tabFromQuery = React.useMemo<Tab>(() => {
     if (typeof window === "undefined") return "mcp";
     const value = new URLSearchParams(window.location.search).get("tab");
-    return value === "mcp" || value === "mode" || value === "lorebook" || value === "quick" || value === "skills"
+    return value === "mcp" ||
+      value === "mode" ||
+      value === "lorebook" ||
+      value === "quick" ||
+      value === "skills"
       ? value
       : "mcp";
   }, []);
   const [tab, setTab] = React.useState<Tab>(tabFromQuery);
   const [selectedAssistantId, setSelectedAssistantId] = React.useState(settings.assistantId);
-  const selectedAssistant = settings.assistants.find((item) => item.id === selectedAssistantId) ?? settings.assistants[0];
+  const selectedAssistant =
+    settings.assistants.find((item) => item.id === selectedAssistantId) ?? settings.assistants[0];
 
   React.useEffect(() => {
-    if (!settings.assistants.some((item) => item.id === selectedAssistantId)) setSelectedAssistantId(settings.assistantId);
+    if (!settings.assistants.some((item) => item.id === selectedAssistantId))
+      setSelectedAssistantId(settings.assistantId);
   }, [selectedAssistantId, settings.assistantId, settings.assistants]);
 
   return (
     <>
-      <SectionHeader icon={CopyPlus} title="MCP 与拓展" subtitle="管理 MCP 服务器、提示词注入、世界书、快捷消息与 Agent Skills。" />
+      <SectionHeader
+        icon={CopyPlus}
+        title="MCP 与拓展"
+        subtitle="管理 MCP 服务器、提示词注入、世界书、快捷消息与 Agent Skills。"
+      />
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        {([
-          ["mcp", "MCP", CopyPlus],
-          ["mode", "提示词注入", WandSparkles],
-          ["lorebook", "世界书", Database],
-          ["quick", "快捷消息", MessageSquareText],
-          ["skills", "Skills", Bot],
-        ] as Array<[Tab, string, React.ComponentType<{ className?: string }>]>).map(([idValue, label, Icon]) => (
-          <Button key={String(idValue)} variant={tab === idValue ? "default" : "outline"} size="sm" onClick={() => setTab(idValue as Tab)}>
-            {React.createElement(Icon as React.ComponentType<{ className?: string }>, { className: "size-4" })}
+        {(
+          [
+            ["mcp", "MCP", CopyPlus],
+            ["mode", "提示词注入", WandSparkles],
+            ["lorebook", "世界书", Database],
+            ["quick", "快捷消息", MessageSquareText],
+            ["skills", "Skills", Bot],
+          ] as Array<[Tab, string, React.ComponentType<{ className?: string }>]>
+        ).map(([idValue, label, Icon]) => (
+          <Button
+            key={String(idValue)}
+            variant={tab === idValue ? "default" : "outline"}
+            size="sm"
+            onClick={() => setTab(idValue as Tab)}
+          >
+            {React.createElement(Icon as React.ComponentType<{ className?: string }>, {
+              className: "size-4",
+            })}
             {label}
           </Button>
         ))}
@@ -3414,17 +4853,41 @@ function McpExtensionsSection({ settings, onSettings }: { settings: Settings; on
             </SelectTrigger>
             <SelectContent>
               {settings.assistants.map((assistant) => (
-                <SelectItem key={assistant.id} value={assistant.id}>{assistant.name || "默认助手"}</SelectItem>
+                <SelectItem key={assistant.id} value={assistant.id}>
+                  {assistant.name || "默认助手"}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
       </div>
-      {tab === "mcp" && <McpServerEditor settings={settings} assistant={selectedAssistant} onSettings={onSettings} />}
-      {tab === "mode" && <ModeInjectionEditor settings={settings} assistant={selectedAssistant} onSettings={onSettings} />}
-      {tab === "lorebook" && <LorebookEditor settings={settings} assistant={selectedAssistant} onSettings={onSettings} />}
-      {tab === "quick" && <QuickMessageEditor settings={settings} assistant={selectedAssistant} onSettings={onSettings} />}
-      {tab === "skills" && <SkillsEditor settings={settings} assistant={selectedAssistant} onSettings={onSettings} />}
+      {tab === "mcp" && (
+        <McpServerEditor
+          settings={settings}
+          assistant={selectedAssistant}
+          onSettings={onSettings}
+        />
+      )}
+      {tab === "mode" && (
+        <ModeInjectionEditor
+          settings={settings}
+          assistant={selectedAssistant}
+          onSettings={onSettings}
+        />
+      )}
+      {tab === "lorebook" && (
+        <LorebookEditor settings={settings} assistant={selectedAssistant} onSettings={onSettings} />
+      )}
+      {tab === "quick" && (
+        <QuickMessageEditor
+          settings={settings}
+          assistant={selectedAssistant}
+          onSettings={onSettings}
+        />
+      )}
+      {tab === "skills" && (
+        <SkillsEditor settings={settings} assistant={selectedAssistant} onSettings={onSettings} />
+      )}
     </>
   );
 }
@@ -3449,24 +4912,44 @@ async function pullSettings(onSettings: (settings: Settings) => void) {
 }
 
 function mcpName(server: Record<string, unknown>) {
-  const common = server.commonOptions && typeof server.commonOptions === "object" ? server.commonOptions as Record<string, unknown> : {};
+  const common =
+    server.commonOptions && typeof server.commonOptions === "object"
+      ? (server.commonOptions as Record<string, unknown>)
+      : {};
   return textValue(common.name) || "MCP Server";
 }
 
 function mcpStatus(server: Record<string, unknown>) {
-  const common = server.commonOptions && typeof server.commonOptions === "object" ? server.commonOptions as Record<string, unknown> : {};
+  const common =
+    server.commonOptions && typeof server.commonOptions === "object"
+      ? (server.commonOptions as Record<string, unknown>)
+      : {};
   if (common.enable === false) return { ok: false, label: "已关闭" };
-  if (common.connected === false || textValue(common.lastSyncError)) return { ok: false, label: "连接异常" };
+  if (common.connected === false || textValue(common.lastSyncError))
+    return { ok: false, label: "连接异常" };
   return { ok: true, label: "已连接" };
 }
 
-function McpServerEditor({ settings, assistant, onSettings }: { settings: Settings; assistant: AssistantProfile; onSettings: (settings: Settings) => void }) {
+function McpServerEditor({
+  settings,
+  assistant,
+  onSettings,
+}: {
+  settings: Settings;
+  assistant: AssistantProfile;
+  onSettings: (settings: Settings) => void;
+}) {
   const servers = (settings.mcpServers ?? []) as Array<Record<string, unknown>>;
   const [selectedId, setSelectedId] = React.useState(textValue(servers[0]?.id));
-  const selected = servers.find((item) => String(item.id) === selectedId) ?? servers[0] ?? createMcpServer();
+  const selected =
+    servers.find((item) => String(item.id) === selectedId) ?? servers[0] ?? createMcpServer();
   const [draft, setDraft] = React.useState<Record<string, unknown>>(clone(selected));
-  const [headersText, setHeadersText] = React.useState(prettyJson((selected.commonOptions as Record<string, unknown> | undefined)?.headers ?? []));
-  const [toolsText, setToolsText] = React.useState(prettyJson((selected.commonOptions as Record<string, unknown> | undefined)?.tools ?? []));
+  const [headersText, setHeadersText] = React.useState(
+    prettyJson((selected.commonOptions as Record<string, unknown> | undefined)?.headers ?? []),
+  );
+  const [toolsText, setToolsText] = React.useState(
+    prettyJson((selected.commonOptions as Record<string, unknown> | undefined)?.tools ?? []),
+  );
   const [busy, setBusy] = React.useState(false);
   const dirtyRef = React.useRef(false);
 
@@ -3483,13 +4966,20 @@ function McpServerEditor({ settings, assistant, onSettings }: { settings: Settin
     if (!next) return;
     setSelectedId(String(next.id));
     setDraft(clone(next));
-    setHeadersText(prettyJson((next.commonOptions as Record<string, unknown> | undefined)?.headers ?? []));
-    setToolsText(prettyJson((next.commonOptions as Record<string, unknown> | undefined)?.tools ?? []));
+    setHeadersText(
+      prettyJson((next.commonOptions as Record<string, unknown> | undefined)?.headers ?? []),
+    );
+    setToolsText(
+      prettyJson((next.commonOptions as Record<string, unknown> | undefined)?.tools ?? []),
+    );
     dirtyRef.current = false;
   }, [selectedId, settings.mcpServers]);
 
-  const common = draft.commonOptions && typeof draft.commonOptions === "object" ? draft.commonOptions as Record<string, unknown> : {};
-  const tools = Array.isArray(common.tools) ? common.tools as Array<Record<string, unknown>> : [];
+  const common =
+    draft.commonOptions && typeof draft.commonOptions === "object"
+      ? (draft.commonOptions as Record<string, unknown>)
+      : {};
+  const tools = Array.isArray(common.tools) ? (common.tools as Array<Record<string, unknown>>) : [];
   // Master switch (commonOptions.enable). When OFF, the per-tool child switches stay
   // visible AND show their last preference, but are read-only & greyed — the user can
   // see what'll come back when they re-enable the master switch.
@@ -3505,7 +4995,7 @@ function McpServerEditor({ settings, assistant, onSettings }: { settings: Settin
   // We mutate both the in-memory tools array (drives the UI) and toolsText (the canonical
   // persistence source consumed by save()) so the debounced auto-save writes the toggle.
   const updateToolAt = (index: number, patch: Partial<Record<string, unknown>>) => {
-    const nextTools = tools.map((tool, i) => i === index ? { ...tool, ...patch } : tool);
+    const nextTools = tools.map((tool, i) => (i === index ? { ...tool, ...patch } : tool));
     const nextCommon = { ...common, tools: nextTools };
     patchDraft({ ...draft, commonOptions: nextCommon });
     setToolsText(prettyJson(nextTools));
@@ -3522,20 +5012,23 @@ function McpServerEditor({ settings, assistant, onSettings }: { settings: Settin
     }
     const nextDraft = { ...draft, commonOptions: { ...common, ...patch } };
     setDraft(nextDraft);
-    void api.post<{ server: Record<string, unknown> }>("settings/mcp-server/detail", {
-      ...nextDraft,
-      commonOptions: {
-        ...(nextDraft.commonOptions as Record<string, unknown>),
-        headers: parsedHeaders,
-        tools: parsedTools,
-      },
-    }).then((result: { server: Record<string, unknown> }) => {
-      setSelectedId(String(result.server.id));
-      dirtyRef.current = false;
-      return pullSettings(onSettings);
-    }).catch((error) => {
-      toast.error(error instanceof Error ? error.message : "保存失败");
-    });
+    void api
+      .post<{ server: Record<string, unknown> }>("settings/mcp-server/detail", {
+        ...nextDraft,
+        commonOptions: {
+          ...(nextDraft.commonOptions as Record<string, unknown>),
+          headers: parsedHeaders,
+          tools: parsedTools,
+        },
+      })
+      .then((result: { server: Record<string, unknown> }) => {
+        setSelectedId(String(result.server.id));
+        dirtyRef.current = false;
+        return pullSettings(onSettings);
+      })
+      .catch((error) => {
+        toast.error(error instanceof Error ? error.message : "保存失败");
+      });
   };
   const save = async (announce = true) => {
     if (!announce && !dirtyRef.current) return;
@@ -3549,7 +5042,10 @@ function McpServerEditor({ settings, assistant, onSettings }: { settings: Settin
           tools: parseJson<unknown[]>(toolsText, []),
         },
       };
-      const result = await api.post<{ server: Record<string, unknown> }>("settings/mcp-server/detail", payload);
+      const result = await api.post<{ server: Record<string, unknown> }>(
+        "settings/mcp-server/detail",
+        payload,
+      );
       setSelectedId(String(result.server.id));
       dirtyRef.current = false;
       await pullSettings(onSettings);
@@ -3594,7 +5090,10 @@ function McpServerEditor({ settings, assistant, onSettings }: { settings: Settin
         const status = mcpStatus(item);
         return (
           <div className="flex min-w-0 items-center gap-2 text-left">
-            <span className={`size-2 shrink-0 rounded-full ${status.ok ? "bg-emerald-500" : "bg-red-500"}`} title={status.label} />
+            <span
+              className={`size-2 shrink-0 rounded-full ${status.ok ? "bg-emerald-500" : "bg-red-500"}`}
+              title={status.label}
+            />
             <span className="truncate">{mcpName(item)}</span>
           </div>
         );
@@ -3625,22 +5124,38 @@ function McpServerEditor({ settings, assistant, onSettings }: { settings: Settin
         <div className="flex items-center justify-between">
           <div>
             <div className="text-sm font-medium">服务器详情</div>
-            <div className="text-xs text-muted-foreground">启用后会自动连接并同步 tools/list；在首页 MCP 选择器里决定当前助手是否使用它。</div>
+            <div className="text-xs text-muted-foreground">
+              启用后会自动连接并同步 tools/list；在首页 MCP 选择器里决定当前助手是否使用它。
+            </div>
           </div>
         </div>
         <div className="grid gap-3 md:grid-cols-[1fr_auto]">
           <label className="space-y-1">
             <span className="text-xs font-medium text-muted-foreground">名称</span>
-              <Input value={textValue(common.name)} onChange={(event) => patchDraft({ ...draft, commonOptions: { ...common, name: event.target.value } })} placeholder="名称" />
+            <Input
+              value={textValue(common.name)}
+              onChange={(event) =>
+                patchDraft({ ...draft, commonOptions: { ...common, name: event.target.value } })
+              }
+              placeholder="名称"
+            />
           </label>
           <label className="flex items-end gap-2 pb-1">
             <span className="pb-2 text-sm text-muted-foreground">启用</span>
-            <Switch checked={common.enable !== false} onCheckedChange={(checked) => patchCommon({ enable: checked })} />
+            <Switch
+              checked={common.enable !== false}
+              onCheckedChange={(checked) => patchCommon({ enable: checked })}
+            />
           </label>
         </div>
         <div className="grid gap-3 md:grid-cols-2">
-          <Select value={textValue(draft.type) || "streamable_http"} onValueChange={(value) => patchDraft({ ...draft, type: value })}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
+          <Select
+            value={textValue(draft.type) || "streamable_http"}
+            onValueChange={(value) => patchDraft({ ...draft, type: value })}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="streamable_http">Streamable HTTP</SelectItem>
               <SelectItem value="sse">SSE</SelectItem>
@@ -3649,25 +5164,52 @@ function McpServerEditor({ settings, assistant, onSettings }: { settings: Settin
         </div>
         <label className="space-y-1">
           <span className="text-xs font-medium text-muted-foreground">服务地址</span>
-          <Input value={textValue(draft.url)} onChange={(event) => patchDraft({ ...draft, url: event.target.value })} placeholder="https://example.com/mcp" />
-          <span className="block text-xs text-muted-foreground">MCP 服务器的 Streamable HTTP / SSE 入口地址。</span>
+          <Input
+            value={textValue(draft.url)}
+            onChange={(event) => patchDraft({ ...draft, url: event.target.value })}
+            placeholder="https://example.com/mcp"
+          />
+          <span className="block text-xs text-muted-foreground">
+            MCP 服务器的 Streamable HTTP / SSE 入口地址。
+          </span>
         </label>
         <label className="space-y-1">
           <span className="text-xs font-medium text-muted-foreground">请求头 JSON</span>
-          <Textarea value={headersText} onChange={(event) => { dirtyRef.current = true; setHeadersText(event.target.value); }} className="min-h-24 font-mono text-xs" placeholder='[["Authorization","Bearer ..."]]' />
-          <span className="block text-xs text-muted-foreground">用于鉴权或自定义 Header，格式为键值数组。</span>
+          <Textarea
+            value={headersText}
+            onChange={(event) => {
+              dirtyRef.current = true;
+              setHeadersText(event.target.value);
+            }}
+            className="min-h-24 font-mono text-xs"
+            placeholder='[["Authorization","Bearer ..."]]'
+          />
+          <span className="block text-xs text-muted-foreground">
+            用于鉴权或自定义 Header，格式为键值数组。
+          </span>
         </label>
         <label className="space-y-1">
           <span className="text-xs font-medium text-muted-foreground">工具列表 JSON</span>
-          <Textarea value={toolsText} onChange={(event) => { dirtyRef.current = true; setToolsText(event.target.value); }} className="h-44 max-h-44 font-mono text-xs" placeholder="启用并保存后自动写入 tools/list 的结果，也可以手动编辑 enable 字段" />
+          <Textarea
+            value={toolsText}
+            onChange={(event) => {
+              dirtyRef.current = true;
+              setToolsText(event.target.value);
+            }}
+            className="h-44 max-h-44 font-mono text-xs"
+            placeholder="启用并保存后自动写入 tools/list 的结果，也可以手动编辑 enable 字段"
+          />
           <span className="block text-xs text-muted-foreground">
-            自动保存启用的 MCP 服务时会同步工具。{textValue(common.lastSyncError) ? `最近错误：${textValue(common.lastSyncError)}` : ""}
+            自动保存启用的 MCP 服务时会同步工具。
+            {textValue(common.lastSyncError) ? `最近错误：${textValue(common.lastSyncError)}` : ""}
           </span>
         </label>
         <div className="rounded-md border">
           <div className="border-b px-3 py-2 text-sm font-medium">工具</div>
           <div className="max-h-[28rem] overflow-auto p-2">
-            {tools.length === 0 ? <div className="p-3 text-sm text-muted-foreground">启用并保存后会自动同步工具。</div> : null}
+            {tools.length === 0 ? (
+              <div className="p-3 text-sm text-muted-foreground">启用并保存后会自动同步工具。</div>
+            ) : null}
             {/* McpToolCard mirror — first row: name + needs-approval switch + enable switch +
                 expand chevron. Expanded body: markdown description + JSON-schema property tags.
                 Matches Android SettingMcpPage.kt:795-902 (no Dialog, all inline).
@@ -3680,24 +5222,38 @@ function McpServerEditor({ settings, assistant, onSettings }: { settings: Settin
               const enabled = tool.enable !== false;
               const needsApproval = tool.needsApproval === true;
               const expanded = expandedToolName === name;
-              const schema = tool.inputSchema && typeof tool.inputSchema === "object"
-                ? tool.inputSchema as Record<string, unknown>
-                : null;
-              const properties = schema && schema.properties && typeof schema.properties === "object"
-                ? schema.properties as Record<string, Record<string, unknown>>
-                : {};
-              const required = Array.isArray(schema?.required) ? (schema!.required as unknown[]).map(String) : [];
+              const schema =
+                tool.inputSchema && typeof tool.inputSchema === "object"
+                  ? (tool.inputSchema as Record<string, unknown>)
+                  : null;
+              const properties =
+                schema && schema.properties && typeof schema.properties === "object"
+                  ? (schema.properties as Record<string, Record<string, unknown>>)
+                  : {};
+              const required = Array.isArray(schema?.required)
+                ? (schema!.required as unknown[]).map(String)
+                : [];
               const propertyEntries = Object.entries(properties);
               return (
-                <div key={`${name}_${index}`} className={cn("rounded-md border bg-muted/20 px-3 py-2 mb-2 last:mb-0", !serverEnabled && "opacity-60")}>
+                <div
+                  key={`${name}_${index}`}
+                  className={cn(
+                    "rounded-md border bg-muted/20 px-3 py-2 mb-2 last:mb-0",
+                    !serverEnabled && "opacity-60",
+                  )}
+                >
                   <div className="flex items-center gap-3">
-                    <span className="flex-1 truncate text-sm font-medium" title={name}>{name}</span>
+                    <span className="flex-1 truncate text-sm font-medium" title={name}>
+                      {name}
+                    </span>
                     <label className="flex items-center gap-1 text-xs text-muted-foreground">
                       <span>需要用户审核</span>
                       <Switch
                         checked={needsApproval}
                         disabled={!serverEnabled}
-                        onCheckedChange={(checked) => updateToolAt(index, { needsApproval: checked })}
+                        onCheckedChange={(checked) =>
+                          updateToolAt(index, { needsApproval: checked })
+                        }
                       />
                     </label>
                     <label className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -3733,7 +5289,9 @@ function McpServerEditor({ settings, assistant, onSettings }: { settings: Settin
                                 key={propName}
                                 className={cn(
                                   "rounded-md px-2 py-0.5 font-mono text-[11px]",
-                                  isRequired ? "bg-blue-500/10 text-blue-700 dark:text-blue-300" : "bg-background text-muted-foreground border",
+                                  isRequired
+                                    ? "bg-blue-500/10 text-blue-700 dark:text-blue-300"
+                                    : "bg-background text-muted-foreground border",
                                 )}
                                 title={isRequired ? `${propName} (required)` : propName}
                               >
@@ -3751,8 +5309,13 @@ function McpServerEditor({ settings, assistant, onSettings }: { settings: Settin
           </div>
         </div>
         <div className="flex justify-end gap-2">
-          <div className="mr-auto flex items-center px-2 text-xs text-muted-foreground">{busy ? "正在自动保存..." : "已自动保存"}</div>
-          <Button variant="destructive" onClick={() => void remove()} disabled={!selected.id}><Trash2 className="size-4" />删除</Button>
+          <div className="mr-auto flex items-center px-2 text-xs text-muted-foreground">
+            {busy ? "正在自动保存..." : "已自动保存"}
+          </div>
+          <Button variant="destructive" onClick={() => void remove()} disabled={!selected.id}>
+            <Trash2 className="size-4" />
+            删除
+          </Button>
         </div>
       </div>
     </EditorShell>
@@ -3760,13 +5323,27 @@ function McpServerEditor({ settings, assistant, onSettings }: { settings: Settin
 }
 
 function createMcpServer(): Record<string, unknown> {
-  return { id: crypto.randomUUID(), type: "streamable_http", url: "", commonOptions: { enable: true, name: "MCP Server", headers: [], tools: [] } };
+  return {
+    id: crypto.randomUUID(),
+    type: "streamable_http",
+    url: "",
+    commonOptions: { enable: true, name: "MCP Server", headers: [], tools: [] },
+  };
 }
 
-function ModeInjectionEditor({ settings, assistant, onSettings }: { settings: Settings; assistant: AssistantProfile; onSettings: (settings: Settings) => void }) {
+function ModeInjectionEditor({
+  settings,
+  assistant,
+  onSettings,
+}: {
+  settings: Settings;
+  assistant: AssistantProfile;
+  onSettings: (settings: Settings) => void;
+}) {
   const items = (settings.modeInjections ?? []) as Array<Record<string, unknown>>;
   const [selectedId, setSelectedId] = React.useState(textValue(items[0]?.id));
-  const selected = items.find((item) => String(item.id) === selectedId) ?? items[0] ?? createModeInjection();
+  const selected =
+    items.find((item) => String(item.id) === selectedId) ?? items[0] ?? createModeInjection();
   const [draft, setDraft] = React.useState<Record<string, unknown>>(clone(selected));
   React.useEffect(() => {
     const next = items.find((item) => String(item.id) === selectedId) ?? items[0];
@@ -3796,7 +5373,17 @@ function ModeInjectionEditor({ settings, assistant, onSettings }: { settings: Se
 }
 
 function createModeInjection(): Record<string, unknown> {
-  return { id: crypto.randomUUID(), type: "mode", name: "提示词注入", enabled: true, priority: 0, position: "after_system_prompt", role: "USER", injectDepth: 4, content: "" };
+  return {
+    id: crypto.randomUUID(),
+    type: "mode",
+    name: "提示词注入",
+    enabled: true,
+    priority: 0,
+    position: "after_system_prompt",
+    role: "USER",
+    injectDepth: 4,
+    content: "",
+  };
 }
 
 function createLorebookEntry(): Record<string, unknown> {
@@ -3832,7 +5419,8 @@ function LorebookEntryRow({
   const patch = (next: Partial<Record<string, unknown>>) => onChange({ ...entry, ...next });
   const keywords = Array.isArray(entry.keywords) ? entry.keywords.map(String) : [];
   const position = textValue(entry.position) || "after_system_prompt";
-  const usesStandaloneMessage = position === "top_of_chat" || position === "bottom_of_chat" || position === "at_depth";
+  const usesStandaloneMessage =
+    position === "top_of_chat" || position === "bottom_of_chat" || position === "at_depth";
   const constantActive = entry.constantActive === true;
   const triggerSummary = constantActive
     ? "常驻激活"
@@ -3847,8 +5435,15 @@ function LorebookEntryRow({
         className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left"
       >
         <span className="flex min-w-0 flex-1 items-center gap-2">
-          <span className={cn("size-2 rounded-full", entry.enabled === false ? "bg-muted-foreground/40" : "bg-emerald-500")} />
-          <span className="truncate text-sm font-medium">{textValue(entry.name) || `条目 ${index + 1}`}</span>
+          <span
+            className={cn(
+              "size-2 rounded-full",
+              entry.enabled === false ? "bg-muted-foreground/40" : "bg-emerald-500",
+            )}
+          />
+          <span className="truncate text-sm font-medium">
+            {textValue(entry.name) || `条目 ${index + 1}`}
+          </span>
           <span className="shrink-0 text-xs text-muted-foreground">· {triggerSummary}</span>
         </span>
         <ChevronDownChip expanded={expanded} />
@@ -3858,16 +5453,27 @@ function LorebookEntryRow({
           <div className="grid gap-3 md:grid-cols-2">
             <label className="space-y-1">
               <span className="text-xs font-medium text-muted-foreground">名称</span>
-              <Input value={textValue(entry.name)} onChange={(event) => patch({ name: event.target.value })} placeholder="（可选）条目名称" />
+              <Input
+                value={textValue(entry.name)}
+                onChange={(event) => patch({ name: event.target.value })}
+                placeholder="（可选）条目名称"
+              />
             </label>
             <label className="space-y-1">
               <span className="text-xs font-medium text-muted-foreground">优先级</span>
-              <Input type="number" value={numberText(entry.priority)} onChange={(event) => patch({ priority: Number(event.target.value) })} placeholder="0" />
+              <Input
+                type="number"
+                value={numberText(entry.priority)}
+                onChange={(event) => patch({ priority: Number(event.target.value) })}
+                placeholder="0"
+              />
             </label>
             <label className="space-y-1">
               <span className="text-xs font-medium text-muted-foreground">注入位置</span>
               <Select value={position} onValueChange={(value) => patch({ position: value })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="before_system_prompt">系统前</SelectItem>
                   <SelectItem value="after_system_prompt">系统后</SelectItem>
@@ -3880,8 +5486,13 @@ function LorebookEntryRow({
             {usesStandaloneMessage ? (
               <label className="space-y-1">
                 <span className="text-xs font-medium text-muted-foreground">角色</span>
-                <Select value={textValue(entry.role) || "USER"} onValueChange={(value) => patch({ role: value })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                <Select
+                  value={textValue(entry.role) || "USER"}
+                  onValueChange={(value) => patch({ role: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="USER">User</SelectItem>
                     <SelectItem value="ASSISTANT">Assistant</SelectItem>
@@ -3892,16 +5503,36 @@ function LorebookEntryRow({
             {position === "at_depth" ? (
               <label className="space-y-1">
                 <span className="text-xs font-medium text-muted-foreground">注入深度</span>
-                <Input type="number" min={1} value={numberText(entry.injectDepth ?? 4)} onChange={(event) => patch({ injectDepth: Math.max(1, Number(event.target.value) || 4) })} placeholder="4" />
+                <Input
+                  type="number"
+                  min={1}
+                  value={numberText(entry.injectDepth ?? 4)}
+                  onChange={(event) =>
+                    patch({ injectDepth: Math.max(1, Number(event.target.value) || 4) })
+                  }
+                  placeholder="4"
+                />
               </label>
             ) : null}
             <label className="space-y-1">
-              <span className="text-xs font-medium text-muted-foreground">扫描深度（最近 N 条消息）</span>
-              <Input type="number" min={1} value={numberText(entry.scanDepth ?? 4)} onChange={(event) => patch({ scanDepth: Math.max(1, Number(event.target.value) || 4) })} placeholder="4" />
+              <span className="text-xs font-medium text-muted-foreground">
+                扫描深度（最近 N 条消息）
+              </span>
+              <Input
+                type="number"
+                min={1}
+                value={numberText(entry.scanDepth ?? 4)}
+                onChange={(event) =>
+                  patch({ scanDepth: Math.max(1, Number(event.target.value) || 4) })
+                }
+                placeholder="4"
+              />
             </label>
           </div>
           <label className="space-y-1">
-            <span className="text-xs font-medium text-muted-foreground">关键词（按 Enter 添加；未启用常驻时需匹配上下文才触发）</span>
+            <span className="text-xs font-medium text-muted-foreground">
+              关键词（按 Enter 添加；未启用常驻时需匹配上下文才触发）
+            </span>
             <KeywordChipInput
               keywords={keywords}
               disabled={constantActive}
@@ -3911,15 +5542,26 @@ function LorebookEntryRow({
           <div className="grid gap-2 md:grid-cols-3">
             <label className="flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm">
               <span>使用正则</span>
-              <Switch checked={entry.useRegex === true} onCheckedChange={(checked) => patch({ useRegex: checked })} disabled={constantActive} />
+              <Switch
+                checked={entry.useRegex === true}
+                onCheckedChange={(checked) => patch({ useRegex: checked })}
+                disabled={constantActive}
+              />
             </label>
             <label className="flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm">
               <span>大小写敏感</span>
-              <Switch checked={entry.caseSensitive === true} onCheckedChange={(checked) => patch({ caseSensitive: checked })} disabled={constantActive} />
+              <Switch
+                checked={entry.caseSensitive === true}
+                onCheckedChange={(checked) => patch({ caseSensitive: checked })}
+                disabled={constantActive}
+              />
             </label>
             <label className="flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm">
               <span>常驻激活</span>
-              <Switch checked={constantActive} onCheckedChange={(checked) => patch({ constantActive: checked })} />
+              <Switch
+                checked={constantActive}
+                onCheckedChange={(checked) => patch({ constantActive: checked })}
+              />
             </label>
           </div>
           <label className="space-y-1">
@@ -3933,7 +5575,10 @@ function LorebookEntryRow({
           </label>
           <div className="flex items-center justify-between">
             <label className="flex items-center gap-2 text-sm">
-              <Switch checked={entry.enabled !== false} onCheckedChange={(checked) => patch({ enabled: checked })} />
+              <Switch
+                checked={entry.enabled !== false}
+                onCheckedChange={(checked) => patch({ enabled: checked })}
+              />
               <span>启用本条</span>
             </label>
             <Button type="button" variant="ghost" size="sm" onClick={onDelete}>
@@ -3958,7 +5603,15 @@ function ChevronDownChip({ expanded }: { expanded: boolean }) {
   );
 }
 
-function KeywordChipInput({ keywords, disabled, onChange }: { keywords: string[]; disabled?: boolean; onChange: (next: string[]) => void }) {
+function KeywordChipInput({
+  keywords,
+  disabled,
+  onChange,
+}: {
+  keywords: string[];
+  disabled?: boolean;
+  onChange: (next: string[]) => void;
+}) {
   const [value, setValue] = React.useState("");
   const commit = () => {
     const trimmed = value.trim();
@@ -3971,9 +5624,17 @@ function KeywordChipInput({ keywords, disabled, onChange }: { keywords: string[]
     setValue("");
   };
   return (
-    <div className={cn("flex flex-wrap items-center gap-1 rounded-md border bg-background px-2 py-1.5", disabled && "opacity-50")}>
+    <div
+      className={cn(
+        "flex flex-wrap items-center gap-1 rounded-md border bg-background px-2 py-1.5",
+        disabled && "opacity-50",
+      )}
+    >
       {keywords.map((keyword) => (
-        <span key={keyword} className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs">
+        <span
+          key={keyword}
+          className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs"
+        >
           {keyword}
           <button
             type="button"
@@ -4005,10 +5666,19 @@ function KeywordChipInput({ keywords, disabled, onChange }: { keywords: string[]
   );
 }
 
-function LorebookEditor({ settings, assistant, onSettings }: { settings: Settings; assistant: AssistantProfile; onSettings: (settings: Settings) => void }) {
+function LorebookEditor({
+  settings,
+  assistant,
+  onSettings,
+}: {
+  settings: Settings;
+  assistant: AssistantProfile;
+  onSettings: (settings: Settings) => void;
+}) {
   const items = (settings.lorebooks ?? []) as Array<Record<string, unknown>>;
   const [selectedId, setSelectedId] = React.useState(textValue(items[0]?.id));
-  const selected = items.find((item) => String(item.id) === selectedId) ?? items[0] ?? createLorebook();
+  const selected =
+    items.find((item) => String(item.id) === selectedId) ?? items[0] ?? createLorebook();
   const [draft, setDraft] = React.useState<Record<string, unknown>>(clone(selected));
   const dirtyRef = React.useRef(false);
   React.useEffect(() => {
@@ -4018,7 +5688,9 @@ function LorebookEditor({ settings, assistant, onSettings }: { settings: Setting
     setDraft(clone(next));
     dirtyRef.current = false;
   }, [selectedId, settings.lorebooks]);
-  const entries = Array.isArray(draft.entries) ? (draft.entries as Array<Record<string, unknown>>) : [];
+  const entries = Array.isArray(draft.entries)
+    ? (draft.entries as Array<Record<string, unknown>>)
+    : [];
   const patchDraft = (patch: Record<string, unknown>) => {
     dirtyRef.current = true;
     setDraft({ ...draft, ...patch });
@@ -4087,12 +5759,19 @@ function LorebookEditor({ settings, assistant, onSettings }: { settings: Setting
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="text-sm font-medium">世界书详情</div>
-          <Switch checked={(assistant.lorebookIds ?? []).includes(String(draft.id))} onCheckedChange={(checked) => void bind(checked)} />
+          <Switch
+            checked={(assistant.lorebookIds ?? []).includes(String(draft.id))}
+            onCheckedChange={(checked) => void bind(checked)}
+          />
         </div>
         <div className="grid gap-3 md:grid-cols-2">
           <label className="space-y-1">
             <span className="text-xs font-medium text-muted-foreground">名称</span>
-            <Input value={textValue(draft.name)} onChange={(event) => patchDraft({ name: event.target.value })} placeholder="世界书名称" />
+            <Input
+              value={textValue(draft.name)}
+              onChange={(event) => patchDraft({ name: event.target.value })}
+              placeholder="世界书名称"
+            />
           </label>
           <label className="flex items-end gap-2">
             <span className="flex-1 space-y-1">
@@ -4100,7 +5779,10 @@ function LorebookEditor({ settings, assistant, onSettings }: { settings: Setting
               <div className="rounded-md border px-3 py-2 text-sm">
                 <div className="flex items-center justify-between">
                   <span>{draft.enabled === false ? "已禁用" : "已启用"}</span>
-                  <Switch checked={draft.enabled !== false} onCheckedChange={(checked) => patchDraft({ enabled: checked })} />
+                  <Switch
+                    checked={draft.enabled !== false}
+                    onCheckedChange={(checked) => patchDraft({ enabled: checked })}
+                  />
                 </div>
               </div>
             </span>
@@ -4108,7 +5790,11 @@ function LorebookEditor({ settings, assistant, onSettings }: { settings: Setting
         </div>
         <label className="space-y-1">
           <span className="text-xs font-medium text-muted-foreground">描述</span>
-          <Input value={textValue(draft.description)} onChange={(event) => patchDraft({ description: event.target.value })} placeholder="（可选）说明这个世界书的用途" />
+          <Input
+            value={textValue(draft.description)}
+            onChange={(event) => patchDraft({ description: event.target.value })}
+            placeholder="（可选）说明这个世界书的用途"
+          />
         </label>
         <div className="space-y-2">
           <div className="flex items-center justify-between">
@@ -4134,15 +5820,28 @@ function LorebookEditor({ settings, assistant, onSettings }: { settings: Setting
                 key={String(entry.id ?? index)}
                 entry={entry}
                 index={index}
-                onChange={(next) => setEntries(entries.map((item, idx) => (idx === index ? next : item)))}
+                onChange={(next) =>
+                  setEntries(entries.map((item, idx) => (idx === index ? next : item)))
+                }
                 onDelete={() => setEntries(entries.filter((_, idx) => idx !== index))}
               />
             ))}
           </div>
         </div>
         <div className="flex justify-end gap-2">
-          <div className="mr-auto flex items-center px-2 text-xs text-muted-foreground">已自动保存</div>
-          <Button variant="destructive" onClick={async () => { await api.delete(`settings/lorebook/${draft.id}`); await pullSettings(onSettings); }}><Trash2 className="size-4" />删除世界书</Button>
+          <div className="mr-auto flex items-center px-2 text-xs text-muted-foreground">
+            已自动保存
+          </div>
+          <Button
+            variant="destructive"
+            onClick={async () => {
+              await api.delete(`settings/lorebook/${draft.id}`);
+              await pullSettings(onSettings);
+            }}
+          >
+            <Trash2 className="size-4" />
+            删除世界书
+          </Button>
         </div>
       </div>
     </EditorShell>
@@ -4174,10 +5873,19 @@ function createLorebook(): Record<string, unknown> {
   };
 }
 
-function QuickMessageEditor({ settings, assistant, onSettings }: { settings: Settings; assistant: AssistantProfile; onSettings: (settings: Settings) => void }) {
+function QuickMessageEditor({
+  settings,
+  assistant,
+  onSettings,
+}: {
+  settings: Settings;
+  assistant: AssistantProfile;
+  onSettings: (settings: Settings) => void;
+}) {
   const items = (settings.quickMessages ?? []) as unknown as Array<Record<string, unknown>>;
   const [selectedId, setSelectedId] = React.useState(textValue(items[0]?.id));
-  const selected = items.find((item) => String(item.id) === selectedId) ?? items[0] ?? { id: crypto.randomUUID(), title: "", content: "" };
+  const selected = items.find((item) => String(item.id) === selectedId) ??
+    items[0] ?? { id: crypto.randomUUID(), title: "", content: "" };
   const [draft, setDraft] = React.useState<Record<string, unknown>>(clone(selected));
   const dirtyRef = React.useRef(false);
   React.useEffect(() => {
@@ -4192,17 +5900,22 @@ function QuickMessageEditor({ settings, assistant, onSettings }: { settings: Set
     dirtyRef.current = true;
     setDraft({ ...draft, ...patch });
   };
-  const save = React.useCallback(async (announce = false) => {
-    if (!announce && !dirtyRef.current) return;
-    await api.post("settings/quick-message/detail", draft);
-    dirtyRef.current = false;
-    await pullSettings(onSettings);
-    if (announce) toast.success("快捷消息已保存");
-  }, [draft, onSettings]);
+  const save = React.useCallback(
+    async (announce = false) => {
+      if (!announce && !dirtyRef.current) return;
+      await api.post("settings/quick-message/detail", draft);
+      dirtyRef.current = false;
+      await pullSettings(onSettings);
+      if (announce) toast.success("快捷消息已保存");
+    },
+    [draft, onSettings],
+  );
   React.useEffect(() => {
     if (!dirtyRef.current) return;
     const timer = window.setTimeout(() => {
-      void save(false).catch((error: Error) => console.warn("Quick message auto-save failed", error));
+      void save(false).catch((error: Error) =>
+        console.warn("Quick message auto-save failed", error),
+      );
     }, 700);
     return () => window.clearTimeout(timer);
   }, [draft, save]);
@@ -4228,7 +5941,9 @@ function QuickMessageEditor({ settings, assistant, onSettings }: { settings: Set
       onMove={async (from, to) => {
         const next = moveItem(items, from, to);
         onSettings({ ...settings, quickMessages: next as unknown as Settings["quickMessages"] });
-        await api.post("settings/quick-message/reorder", { ids: next.map((item) => String(item.id)) });
+        await api.post("settings/quick-message/reorder", {
+          ids: next.map((item) => String(item.id)),
+        });
       }}
       onCreate={() => {
         const next = { id: crypto.randomUUID(), title: "快捷消息", content: "" };
@@ -4240,13 +5955,36 @@ function QuickMessageEditor({ settings, assistant, onSettings }: { settings: Set
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="text-sm font-medium">快捷消息详情</div>
-          <Switch checked={(assistant.quickMessageIds ?? []).includes(String(draft.id))} onCheckedChange={(checked) => void bind(checked)} />
+          <Switch
+            checked={(assistant.quickMessageIds ?? []).includes(String(draft.id))}
+            onCheckedChange={(checked) => void bind(checked)}
+          />
         </div>
-        <Input value={textValue(draft.title)} onChange={(event) => patchDraft({ title: event.target.value })} placeholder="标题" />
-        <Textarea value={textValue(draft.content)} onChange={(event) => patchDraft({ content: event.target.value })} className="min-h-52" placeholder="内容" />
+        <Input
+          value={textValue(draft.title)}
+          onChange={(event) => patchDraft({ title: event.target.value })}
+          placeholder="标题"
+        />
+        <Textarea
+          value={textValue(draft.content)}
+          onChange={(event) => patchDraft({ content: event.target.value })}
+          className="min-h-52"
+          placeholder="内容"
+        />
         <div className="flex justify-end gap-2">
-          <div className="mr-auto flex items-center px-2 text-xs text-muted-foreground">已自动保存</div>
-          <Button variant="destructive" onClick={async () => { await api.delete(`settings/quick-message/${draft.id}`); await pullSettings(onSettings); }}><Trash2 className="size-4" />删除</Button>
+          <div className="mr-auto flex items-center px-2 text-xs text-muted-foreground">
+            已自动保存
+          </div>
+          <Button
+            variant="destructive"
+            onClick={async () => {
+              await api.delete(`settings/quick-message/${draft.id}`);
+              await pullSettings(onSettings);
+            }}
+          >
+            <Trash2 className="size-4" />
+            删除
+          </Button>
         </div>
       </div>
     </EditorShell>
@@ -4285,9 +6023,19 @@ function PromptItemEditor({
   title: string;
 }) {
   const dirtyRef = React.useRef(false);
-  const promptVariables = ["{{cur_datetime}}", "{{date}}", "{{time}}", "{{locale}}", "{{timezone}}", "{{model_name}}", "{{user}}", "{{char}}"];
+  const promptVariables = [
+    "{{cur_datetime}}",
+    "{{date}}",
+    "{{time}}",
+    "{{locale}}",
+    "{{timezone}}",
+    "{{model_name}}",
+    "{{user}}",
+    "{{char}}",
+  ];
   const position = textValue(draft.position) || "after_system_prompt";
-  const usesStandaloneMessage = position === "top_of_chat" || position === "bottom_of_chat" || position === "at_depth";
+  const usesStandaloneMessage =
+    position === "top_of_chat" || position === "bottom_of_chat" || position === "at_depth";
   React.useEffect(() => {
     dirtyRef.current = false;
   }, [selectedId, items]);
@@ -4295,13 +6043,16 @@ function PromptItemEditor({
     dirtyRef.current = true;
     setDraft({ ...draft, ...patch });
   };
-  const save = React.useCallback(async (announce = false) => {
-    if (!announce && !dirtyRef.current) return;
-    await api.post(savePath, draft);
-    dirtyRef.current = false;
-    await pullSettings(onSettings);
-    if (announce) toast.success(`${title} 已保存`);
-  }, [draft, onSettings, savePath, title]);
+  const save = React.useCallback(
+    async (announce = false) => {
+      if (!announce && !dirtyRef.current) return;
+      await api.post(savePath, draft);
+      dirtyRef.current = false;
+      await pullSettings(onSettings);
+      if (announce) toast.success(`${title} 已保存`);
+    },
+    [draft, onSettings, savePath, title],
+  );
   React.useEffect(() => {
     if (!dirtyRef.current) return;
     const timer = window.setTimeout(() => {
@@ -4320,7 +6071,8 @@ function PromptItemEditor({
     else ids.delete(String(draft.id));
     await api.post("settings/assistant/injections", {
       assistantId: assistant.id,
-      modeInjectionIds: bindKey === "modeInjectionIds" ? [...ids] : assistant.modeInjectionIds ?? [],
+      modeInjectionIds:
+        bindKey === "modeInjectionIds" ? [...ids] : (assistant.modeInjectionIds ?? []),
       lorebookIds: assistant.lorebookIds ?? [],
       quickMessageIds: assistant.quickMessageIds ?? [],
     });
@@ -4364,18 +6116,32 @@ function PromptItemEditor({
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="text-sm font-medium">{title} 详情</div>
-          <Switch checked={(assistant[bindKey] ?? []).includes(String(draft.id))} onCheckedChange={(checked) => void bind(checked)} />
+          <Switch
+            checked={(assistant[bindKey] ?? []).includes(String(draft.id))}
+            onCheckedChange={(checked) => void bind(checked)}
+          />
         </div>
-        <Input value={textValue(draft.name)} onChange={(event) => patchDraft({ name: event.target.value })} placeholder="名称" />
+        <Input
+          value={textValue(draft.name)}
+          onChange={(event) => patchDraft({ name: event.target.value })}
+          placeholder="名称"
+        />
         <div className="grid gap-3 md:grid-cols-2">
           <label className="space-y-1">
             <span className="text-xs font-medium text-muted-foreground">优先级</span>
-            <Input type="number" value={numberText(draft.priority)} onChange={(event) => patchDraft({ priority: Number(event.target.value) })} placeholder="0" />
+            <Input
+              type="number"
+              value={numberText(draft.priority)}
+              onChange={(event) => patchDraft({ priority: Number(event.target.value) })}
+              placeholder="0"
+            />
           </label>
           <label className="space-y-1">
             <span className="text-xs font-medium text-muted-foreground">注入位置</span>
             <Select value={position} onValueChange={(value) => patchDraft({ position: value })}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="before_system_prompt">系统前</SelectItem>
                 <SelectItem value="after_system_prompt">系统后</SelectItem>
@@ -4388,8 +6154,13 @@ function PromptItemEditor({
           {usesStandaloneMessage ? (
             <label className="space-y-1">
               <span className="text-xs font-medium text-muted-foreground">角色</span>
-              <Select value={textValue(draft.role) || "USER"} onValueChange={(value) => patchDraft({ role: value })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+              <Select
+                value={textValue(draft.role) || "USER"}
+                onValueChange={(value) => patchDraft({ role: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="USER">User</SelectItem>
                   <SelectItem value="ASSISTANT">Assistant</SelectItem>
@@ -4399,14 +6170,27 @@ function PromptItemEditor({
           ) : null}
           {position === "at_depth" ? (
             <label className="space-y-1">
-              <span className="text-xs font-medium text-muted-foreground">注入深度（从最新消息往前数）</span>
-              <Input type="number" min={1} value={numberText(draft.injectDepth ?? 4)} onChange={(event) => patchDraft({ injectDepth: Math.max(1, Number(event.target.value) || 4) })} placeholder="4" />
+              <span className="text-xs font-medium text-muted-foreground">
+                注入深度（从最新消息往前数）
+              </span>
+              <Input
+                type="number"
+                min={1}
+                value={numberText(draft.injectDepth ?? 4)}
+                onChange={(event) =>
+                  patchDraft({ injectDepth: Math.max(1, Number(event.target.value) || 4) })
+                }
+                placeholder="4"
+              />
             </label>
           ) : null}
         </div>
         <div className="flex items-center justify-between rounded-md border px-3 py-2">
           <span className="text-sm">启用</span>
-          <Switch checked={draft.enabled !== false} onCheckedChange={(checked) => patchDraft({ enabled: checked })} />
+          <Switch
+            checked={draft.enabled !== false}
+            onCheckedChange={(checked) => patchDraft({ enabled: checked })}
+          />
         </div>
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-2">
@@ -4431,15 +6215,34 @@ function PromptItemEditor({
           />
         </div>
         <div className="flex justify-end gap-2">
-          <div className="mr-auto flex items-center px-2 text-xs text-muted-foreground">已自动保存</div>
-          <Button variant="destructive" onClick={async () => { await api.delete(`${deletePath}/${draft.id}`); await pullSettings(onSettings); }}><Trash2 className="size-4" />删除</Button>
+          <div className="mr-auto flex items-center px-2 text-xs text-muted-foreground">
+            已自动保存
+          </div>
+          <Button
+            variant="destructive"
+            onClick={async () => {
+              await api.delete(`${deletePath}/${draft.id}`);
+              await pullSettings(onSettings);
+            }}
+          >
+            <Trash2 className="size-4" />
+            删除
+          </Button>
         </div>
       </div>
     </EditorShell>
   );
 }
 
-function SkillsEditor({ settings, assistant, onSettings }: { settings: Settings; assistant: AssistantProfile; onSettings: (settings: Settings) => void }) {
+function SkillsEditor({
+  settings,
+  assistant,
+  onSettings,
+}: {
+  settings: Settings;
+  assistant: AssistantProfile;
+  onSettings: (settings: Settings) => void;
+}) {
   const [skills, setSkills] = React.useState<SkillProfile[]>([]);
   const [selected, setSelected] = React.useState("");
   const [content, setContent] = React.useState("");
@@ -4469,30 +6272,39 @@ function SkillsEditor({ settings, assistant, onSettings }: { settings: Settings;
       setFiles([]);
       return;
     }
-    api.get<SkillProfile>(`skills/${encodeURIComponent(selected)}`).then((skill) => {
-      setContent(skill.content ?? "");
-      dirtyRef.current = false;
-    }).catch(() => setContent(""));
-    api.get<{ files: SkillFileInfo[] }>(`skills/${encodeURIComponent(selected)}/files`).then((result) => setFiles(result.files)).catch(() => setFiles([]));
+    api
+      .get<SkillProfile>(`skills/${encodeURIComponent(selected)}`)
+      .then((skill) => {
+        setContent(skill.content ?? "");
+        dirtyRef.current = false;
+      })
+      .catch(() => setContent(""));
+    api
+      .get<{ files: SkillFileInfo[] }>(`skills/${encodeURIComponent(selected)}/files`)
+      .then((result) => setFiles(result.files))
+      .catch(() => setFiles([]));
   }, [selected, selectedSkill]);
 
-  const save = React.useCallback(async (announce = false) => {
-    if (!announce && !dirtyRef.current) return;
-    const name = textValue(parseSkillName(content) || selected || "new-skill");
-    setSaving(true);
-    try {
-      await api.post("skills/detail", { name, content });
-      dirtyRef.current = false;
-      await load();
-      setSelected(name);
-      if (announce) toast.success("Skill 已保存");
-    } catch (error) {
-      if (announce) toast.error(error instanceof Error ? error.message : "保存失败");
-      else console.warn("Skill auto-save failed", error);
-    } finally {
-      setSaving(false);
-    }
-  }, [content, load, selected]);
+  const save = React.useCallback(
+    async (announce = false) => {
+      if (!announce && !dirtyRef.current) return;
+      const name = textValue(parseSkillName(content) || selected || "new-skill");
+      setSaving(true);
+      try {
+        await api.post("skills/detail", { name, content });
+        dirtyRef.current = false;
+        await load();
+        setSelected(name);
+        if (announce) toast.success("Skill 已保存");
+      } catch (error) {
+        if (announce) toast.error(error instanceof Error ? error.message : "保存失败");
+        else console.warn("Skill auto-save failed", error);
+      } finally {
+        setSaving(false);
+      }
+    },
+    [content, load, selected],
+  );
   React.useEffect(() => {
     if (!dirtyRef.current) return;
     const timer = window.setTimeout(() => {
@@ -4512,7 +6324,11 @@ function SkillsEditor({ settings, assistant, onSettings }: { settings: Settings;
     if (!githubUrl.trim()) return;
     setImporting(true);
     try {
-      const result = await api.post<{ skill: SkillProfile }>("skills/import-github", { repoUrl: githubUrl.trim() }, { timeout: false });
+      const result = await api.post<{ skill: SkillProfile }>(
+        "skills/import-github",
+        { repoUrl: githubUrl.trim() },
+        { timeout: false },
+      );
       await load();
       setSelected(result.skill.name);
       setContent(result.skill.content ?? "");
@@ -4537,7 +6353,11 @@ function SkillsEditor({ settings, assistant, onSettings }: { settings: Settings;
         method: "POST",
         body: formData,
       });
-      const data = await res.json() as { imported?: string[]; skills?: SkillProfile[]; error?: string };
+      const data = (await res.json()) as {
+        imported?: string[];
+        skills?: SkillProfile[];
+        error?: string;
+      };
       if (!res.ok) throw new Error(data.error || "导入失败");
       await load();
       const first = data.skills?.[0];
@@ -4564,7 +6384,10 @@ function SkillsEditor({ settings, assistant, onSettings }: { settings: Settings;
     const ids = new Set(assistant.enabledSkills as string[] | undefined);
     if (checked) ids.add(skillName);
     else ids.delete(skillName);
-    await api.post("settings/assistant/skills", { assistantId: assistant.id, enabledSkills: [...ids] });
+    await api.post("settings/assistant/skills", {
+      assistantId: assistant.id,
+      enabledSkills: [...ids],
+    });
     await pullSettings(onSettings);
   };
 
@@ -4580,7 +6403,9 @@ function SkillsEditor({ settings, assistant, onSettings }: { settings: Settings;
         const enabled = (assistant.enabledSkills as string[] | undefined)?.includes(name) ?? false;
         return (
           <div className="flex min-w-0 items-center gap-2 text-left">
-            <span className={`size-2 shrink-0 rounded-full ${enabled ? "bg-emerald-500" : "bg-red-500"}`} />
+            <span
+              className={`size-2 shrink-0 rounded-full ${enabled ? "bg-emerald-500" : "bg-red-500"}`}
+            />
             <span className="block min-w-0 truncate font-medium">{name}</span>
           </div>
         );
@@ -4588,7 +6413,9 @@ function SkillsEditor({ settings, assistant, onSettings }: { settings: Settings;
       onCreate={() => {
         const name = "new-skill";
         setSelected(name);
-        setContent(`---\nname: ${name}\ndescription: 描述何时应使用这个 skill\n---\n\n写入 Skill 指令。\n`);
+        setContent(
+          `---\nname: ${name}\ndescription: 描述何时应使用这个 skill\n---\n\n写入 Skill 指令。\n`,
+        );
         setFiles([]);
         dirtyRef.current = true;
       }}
@@ -4605,8 +6432,17 @@ function SkillsEditor({ settings, assistant, onSettings }: { settings: Settings;
                 if (event.key === "Enter") void importFromGitHub();
               }}
             />
-            <Button type="button" variant="outline" onClick={() => void importFromGitHub()} disabled={importing || !githubUrl.trim()}>
-              {importing ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void importFromGitHub()}
+              disabled={importing || !githubUrl.trim()}
+            >
+              {importing ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Download className="size-4" />
+              )}
               导入
             </Button>
           </div>
@@ -4629,14 +6465,27 @@ function SkillsEditor({ settings, assistant, onSettings }: { settings: Settings;
             onClick={() => fileInputRef.current?.click()}
             disabled={importingFile}
           >
-            {importingFile ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}
+            {importingFile ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <Upload className="size-4" />
+            )}
             选择文件…
           </Button>
         </div>
         <div className="space-y-2 rounded-md border p-3">
           {skills.map((skill) => (
-            <label key={skill.name} className="flex items-center gap-3 rounded-md px-2 py-2 text-sm hover:bg-muted/40">
-              <Checkbox className="mt-0.5" checked={(assistant.enabledSkills as string[] | undefined)?.includes(skill.name) ?? false} onCheckedChange={(checked) => void toggle(skill.name, checked === true)} />
+            <label
+              key={skill.name}
+              className="flex items-center gap-3 rounded-md px-2 py-2 text-sm hover:bg-muted/40"
+            >
+              <Checkbox
+                className="mt-0.5"
+                checked={
+                  (assistant.enabledSkills as string[] | undefined)?.includes(skill.name) ?? false
+                }
+                onCheckedChange={(checked) => void toggle(skill.name, checked === true)}
+              />
               <span className="min-w-0 flex-1 truncate font-medium">{skill.name}</span>
             </label>
           ))}
@@ -4649,11 +6498,18 @@ function SkillsEditor({ settings, assistant, onSettings }: { settings: Settings;
         <div className="rounded-md border">
           <div className="border-b px-3 py-2 text-sm font-medium">文件列表</div>
           <div className="max-h-40 overflow-auto p-2">
-            {files.length === 0 ? <div className="p-2 text-sm text-muted-foreground">暂无文件</div> : null}
+            {files.length === 0 ? (
+              <div className="p-2 text-sm text-muted-foreground">暂无文件</div>
+            ) : null}
             {files.map((file) => (
-              <div key={file.path} className="flex items-center justify-between gap-3 rounded px-2 py-1 text-xs hover:bg-muted/40">
+              <div
+                key={file.path}
+                className="flex items-center justify-between gap-3 rounded px-2 py-1 text-xs hover:bg-muted/40"
+              >
                 <span className={file.type === "directory" ? "font-medium" : ""}>{file.path}</span>
-                <span className="text-muted-foreground">{file.type === "directory" ? "目录" : `${file.size} B`}</span>
+                <span className="text-muted-foreground">
+                  {file.type === "directory" ? "目录" : `${file.size} B`}
+                </span>
               </div>
             ))}
           </div>
@@ -4670,8 +6526,13 @@ function SkillsEditor({ settings, assistant, onSettings }: { settings: Settings;
           />
         </label>
         <div className="flex justify-end gap-2">
-          <div className="mr-auto flex items-center px-2 text-xs text-muted-foreground">{saving ? "正在自动保存..." : "已自动保存"}</div>
-          <Button variant="destructive" onClick={() => void remove()} disabled={!selected}><Trash2 className="size-4" />删除</Button>
+          <div className="mr-auto flex items-center px-2 text-xs text-muted-foreground">
+            {saving ? "正在自动保存..." : "已自动保存"}
+          </div>
+          <Button variant="destructive" onClick={() => void remove()} disabled={!selected}>
+            <Trash2 className="size-4" />
+            删除
+          </Button>
         </div>
       </div>
     </EditorShell>
@@ -4712,10 +6573,25 @@ function EditorShell({
           新增
         </Button>
         <div className="space-y-1">
-          {items.length === 0 ? <div className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">{emptyLabel}</div> : null}
+          {items.length === 0 ? (
+            <div className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
+              {emptyLabel}
+            </div>
+          ) : null}
           {items.map((item, index) => (
-            <SortableRow key={String(item.id ?? item.name)} id={String(item.id ?? item.name)} index={index} active={String(item.id ?? item.name) === selectedId} onSelect={() => onSelect(String(item.id ?? item.name))} onMove={onMove ? ((from, to) => void onMove(from, to)) : undefined}>
-              {renderItem ? renderItem(item) : <div className="truncate text-left">{titleOf(item)}</div>}
+            <SortableRow
+              key={String(item.id ?? item.name)}
+              id={String(item.id ?? item.name)}
+              index={index}
+              active={String(item.id ?? item.name) === selectedId}
+              onSelect={() => onSelect(String(item.id ?? item.name))}
+              onMove={onMove ? (from, to) => void onMove(from, to) : undefined}
+            >
+              {renderItem ? (
+                renderItem(item)
+              ) : (
+                <div className="truncate text-left">{titleOf(item)}</div>
+              )}
             </SortableRow>
           ))}
         </div>
@@ -4725,7 +6601,13 @@ function EditorShell({
   );
 }
 
-function DataSection({ settings, onSettings }: { settings: Settings; onSettings: (settings: Settings) => void }) {
+function DataSection({
+  settings,
+  onSettings,
+}: {
+  settings: Settings;
+  onSettings: (settings: Settings) => void;
+}) {
   const { t } = useTranslation();
   const importInputRef = React.useRef<HTMLInputElement>(null);
   const schemaInputRef = React.useRef<HTMLInputElement>(null);
@@ -4736,15 +6618,28 @@ function DataSection({ settings, onSettings }: { settings: Settings; onSettings:
   const [importing, setImporting] = React.useState(false);
   const [importPhase, setImportPhase] = React.useState<"idle" | "uploading" | "processing">("idle");
   const [showExportDialog, setShowExportDialog] = React.useState(false);
-  const [schemaStatus, setSchemaStatus] = React.useState<{ hasAndroidSchema: boolean; schemaInfo: { identityHash: string; version: number } | null; conversationCount: number } | null>(null);
+  const [schemaStatus, setSchemaStatus] = React.useState<{
+    hasAndroidSchema: boolean;
+    schemaInfo: { identityHash: string; version: number } | null;
+    conversationCount: number;
+  } | null>(null);
   const [registeringSchema, setRegisteringSchema] = React.useState(false);
   const [schemaExpanded, setSchemaExpanded] = React.useState(false);
   const [importProgress, setImportProgress] = React.useState(0); // 0-100 during upload
-  const defaultWebDav = (settings.webDavConfig ?? { url: "", username: "", password: "", path: "rikkahub_backups", items: ["DATABASE", "FILES"] }) as WebDavConfig;
+  const defaultWebDav = (settings.webDavConfig ?? {
+    url: "",
+    username: "",
+    password: "",
+    path: "rikkahub_backups",
+    items: ["DATABASE", "FILES"],
+  }) as WebDavConfig;
   const [webDavDraft, setWebDavDraft] = React.useState<WebDavConfig>(defaultWebDav);
   const [webDavItems, setWebDavItems] = React.useState<WebDavBackupItem[]>([]);
   const [webDavBusy, setWebDavBusy] = React.useState("");
-  const [webDavBackupProgress, setWebDavBackupProgress] = React.useState<{ message: string; percent: number } | null>(null);
+  const [webDavBackupProgress, setWebDavBackupProgress] = React.useState<{
+    message: string;
+    percent: number;
+  } | null>(null);
   const [showWebDavPassword, setShowWebDavPassword] = React.useState(false);
   const webDavDirtyRef = React.useRef(false);
 
@@ -4761,17 +6656,31 @@ function DataSection({ settings, onSettings }: { settings: Settings; onSettings:
   const [s3Draft, setS3Draft] = React.useState<S3Config>(defaultS3);
   const [s3Items, setS3Items] = React.useState<S3BackupItem[]>([]);
   const [s3Busy, setS3Busy] = React.useState("");
-  const [s3BackupProgress, setS3BackupProgress] = React.useState<{ message: string; percent: number } | null>(null);
+  const [s3BackupProgress, setS3BackupProgress] = React.useState<{
+    message: string;
+    percent: number;
+  } | null>(null);
   const [showS3Secret, setShowS3Secret] = React.useState(false);
   const s3DirtyRef = React.useRef(false);
 
   React.useEffect(() => {
     setWebDavDraft(defaultWebDav);
     webDavDirtyRef.current = false;
-  }, [defaultWebDav.url, defaultWebDav.username, defaultWebDav.password, defaultWebDav.path, JSON.stringify(defaultWebDav.items ?? [])]);
+  }, [
+    defaultWebDav.url,
+    defaultWebDav.username,
+    defaultWebDav.password,
+    defaultWebDav.path,
+    JSON.stringify(defaultWebDav.items ?? []),
+  ]);
 
   React.useEffect(() => {
-    fetch(appendWebAuthQuery("/api/data/export/status")).then(r => r.ok ? r.json() : null).then(s => { if (s) setSchemaStatus(s); }).catch(() => {});
+    fetch(appendWebAuthQuery("/api/data/export/status"))
+      .then((r) => (r.ok ? r.json() : null))
+      .then((s) => {
+        if (s) setSchemaStatus(s);
+      })
+      .catch(() => {});
   }, []);
 
   const consumeBackupSse = async (
@@ -4798,8 +6707,17 @@ function DataSection({ settings, onSettings }: { settings: Settings; onSettings:
       const blocks = buffer.split(/\n\n+/);
       buffer = blocks.pop() ?? "";
       for (const block of blocks) {
-        const eventName = block.split(/\r?\n/).find((line) => line.startsWith("event:"))?.slice(6).trim() ?? "message";
-        const dataText = block.split(/\r?\n/).filter((line) => line.startsWith("data:")).map((line) => line.slice(5).trim()).join("\n");
+        const eventName =
+          block
+            .split(/\r?\n/)
+            .find((line) => line.startsWith("event:"))
+            ?.slice(6)
+            .trim() ?? "message";
+        const dataText = block
+          .split(/\r?\n/)
+          .filter((line) => line.startsWith("data:"))
+          .map((line) => line.slice(5).trim())
+          .join("\n");
         if (!dataText) continue;
         const data = JSON.parse(dataText) as Record<string, unknown>;
         if (eventName === "progress") {
@@ -4819,18 +6737,23 @@ function DataSection({ settings, onSettings }: { settings: Settings; onSettings:
     setWebDavDraft({ ...webDavDraft, ...patch });
   };
 
-  const saveWebDav = React.useCallback(async (announce = false) => {
-    if (!announce && !webDavDirtyRef.current) return;
-    const result = await api.post<{ config: WebDavConfig }>("data/webdav/config", webDavDraft);
-    webDavDirtyRef.current = false;
-    onSettings({ ...settings, webDavConfig: result.config } as Settings);
-    if (announce) toast.success(t("settings:data.webdav_saved"));
-  }, [onSettings, settings, webDavDraft, t]);
+  const saveWebDav = React.useCallback(
+    async (announce = false) => {
+      if (!announce && !webDavDirtyRef.current) return;
+      const result = await api.post<{ config: WebDavConfig }>("data/webdav/config", webDavDraft);
+      webDavDirtyRef.current = false;
+      onSettings({ ...settings, webDavConfig: result.config } as Settings);
+      if (announce) toast.success(t("settings:data.webdav_saved"));
+    },
+    [onSettings, settings, webDavDraft, t],
+  );
 
   React.useEffect(() => {
     if (!webDavDirtyRef.current) return;
     const timer = window.setTimeout(() => {
-      void saveWebDav(false).catch((error: Error) => toast.error(error.message || t("settings:data.webdav_autosave_failed")));
+      void saveWebDav(false).catch((error: Error) =>
+        toast.error(error.message || t("settings:data.webdav_autosave_failed")),
+      );
     }, 700);
     return () => window.clearTimeout(timer);
   }, [saveWebDav, webDavDraft, t]);
@@ -4839,7 +6762,9 @@ function DataSection({ settings, onSettings }: { settings: Settings; onSettings:
     setWebDavBusy("list");
     try {
       await saveWebDav(false);
-      const result = await api.get<{ items: WebDavBackupItem[] }>("data/webdav/list", { timeout: false });
+      const result = await api.get<{ items: WebDavBackupItem[] }>("data/webdav/list", {
+        timeout: false,
+      });
       setWebDavItems(result.items);
     } finally {
       setWebDavBusy("");
@@ -4868,7 +6793,9 @@ function DataSection({ settings, onSettings }: { settings: Settings; onSettings:
           toast(t("settings:data.no_schema_warn"), { duration: 6000 });
         }
       }
-    } catch { /* */ }
+    } catch {
+      /* */
+    }
   };
 
   const backupWebDav = async () => {
@@ -4895,13 +6822,19 @@ function DataSection({ settings, onSettings }: { settings: Settings; onSettings:
     setWebDavBusy(`restore:${item.displayName}`);
     setWebDavBackupProgress({ message: t("settings:data.preparing"), percent: 0 });
     try {
-      const data = await consumeBackupSse("/api/data/webdav/restore/stream", (message, percent) => {
-        setWebDavBackupProgress({ message, percent });
-      }, JSON.stringify({ fileName: item.displayName }));
+      const data = await consumeBackupSse(
+        "/api/data/webdav/restore/stream",
+        (message, percent) => {
+          setWebDavBackupProgress({ message, percent });
+        },
+        JSON.stringify({ fileName: item.displayName }),
+      );
       if (data.settings) onSettings(data.settings as Settings);
       toast.success(t("settings:data.webdav_restored"));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : t("settings:data.webdav_restore_failed"));
+      toast.error(
+        error instanceof Error ? error.message : t("settings:data.webdav_restore_failed"),
+      );
     } finally {
       setWebDavBusy("");
       setWebDavBackupProgress(null);
@@ -4912,7 +6845,11 @@ function DataSection({ settings, onSettings }: { settings: Settings; onSettings:
     if (!window.confirm(t("settings:data.delete_confirm", { name: item.displayName }))) return;
     setWebDavBusy(`delete:${item.displayName}`);
     try {
-      const result = await api.post<{ items: WebDavBackupItem[] }>("data/webdav/delete", { fileName: item.displayName }, { timeout: false });
+      const result = await api.post<{ items: WebDavBackupItem[] }>(
+        "data/webdav/delete",
+        { fileName: item.displayName },
+        { timeout: false },
+      );
       setWebDavItems(result.items);
       toast.success(t("settings:data.webdav_deleted"));
     } catch (error) {
@@ -4925,23 +6862,37 @@ function DataSection({ settings, onSettings }: { settings: Settings; onSettings:
   React.useEffect(() => {
     setS3Draft(defaultS3);
     s3DirtyRef.current = false;
-  }, [defaultS3.endpoint, defaultS3.region, defaultS3.accessKeyId, defaultS3.secretAccessKey, defaultS3.bucket, defaultS3.prefix, defaultS3.forcePathStyle, JSON.stringify(defaultS3.items ?? [])]);
+  }, [
+    defaultS3.endpoint,
+    defaultS3.region,
+    defaultS3.accessKeyId,
+    defaultS3.secretAccessKey,
+    defaultS3.bucket,
+    defaultS3.prefix,
+    defaultS3.forcePathStyle,
+    JSON.stringify(defaultS3.items ?? []),
+  ]);
 
   const patchS3 = (patch: Partial<S3Config>) => {
     s3DirtyRef.current = true;
     setS3Draft({ ...s3Draft, ...patch });
   };
-  const saveS3 = React.useCallback(async (announce = false) => {
-    if (!announce && !s3DirtyRef.current) return;
-    const result = await api.post<{ config: S3Config }>("data/s3/config", s3Draft);
-    s3DirtyRef.current = false;
-    onSettings({ ...settings, s3Config: result.config } as Settings);
-    if (announce) toast.success(t("settings:data.s3_saved"));
-  }, [onSettings, settings, s3Draft, t]);
+  const saveS3 = React.useCallback(
+    async (announce = false) => {
+      if (!announce && !s3DirtyRef.current) return;
+      const result = await api.post<{ config: S3Config }>("data/s3/config", s3Draft);
+      s3DirtyRef.current = false;
+      onSettings({ ...settings, s3Config: result.config } as Settings);
+      if (announce) toast.success(t("settings:data.s3_saved"));
+    },
+    [onSettings, settings, s3Draft, t],
+  );
   React.useEffect(() => {
     if (!s3DirtyRef.current) return;
     const timer = window.setTimeout(() => {
-      void saveS3(false).catch((error: Error) => toast.error(error.message || t("settings:data.s3_autosave_failed")));
+      void saveS3(false).catch((error: Error) =>
+        toast.error(error.message || t("settings:data.s3_autosave_failed")),
+      );
     }, 700);
     return () => window.clearTimeout(timer);
   }, [saveS3, s3Draft, t]);
@@ -4992,9 +6943,13 @@ function DataSection({ settings, onSettings }: { settings: Settings; onSettings:
     setS3Busy(`restore:${item.displayName}`);
     setS3BackupProgress({ message: t("settings:data.preparing"), percent: 0 });
     try {
-      const data = await consumeBackupSse("/api/data/s3/restore/stream", (message, percent) => {
-        setS3BackupProgress({ message, percent });
-      }, JSON.stringify({ fileName: item.displayName }));
+      const data = await consumeBackupSse(
+        "/api/data/s3/restore/stream",
+        (message, percent) => {
+          setS3BackupProgress({ message, percent });
+        },
+        JSON.stringify({ fileName: item.displayName }),
+      );
       if (data.settings) onSettings(data.settings as Settings);
       toast.success(t("settings:data.s3_restored"));
     } catch (error) {
@@ -5008,7 +6963,11 @@ function DataSection({ settings, onSettings }: { settings: Settings; onSettings:
     if (!window.confirm(t("settings:data.delete_confirm", { name: item.displayName }))) return;
     setS3Busy(`delete:${item.displayName}`);
     try {
-      const result = await api.post<{ items: S3BackupItem[] }>("data/s3/delete", { fileName: item.displayName }, { timeout: false });
+      const result = await api.post<{ items: S3BackupItem[] }>(
+        "data/s3/delete",
+        { fileName: item.displayName },
+        { timeout: false },
+      );
       setS3Items(result.items);
       toast.success(t("settings:data.s3_deleted"));
     } catch (error) {
@@ -5022,7 +6981,9 @@ function DataSection({ settings, onSettings }: { settings: Settings; onSettings:
     try {
       const res = await fetch(appendWebAuthQuery("/api/data/export/status"));
       if (res.ok) setSchemaStatus(await res.json());
-    } catch { /* */ }
+    } catch {
+      /* */
+    }
     setShowExportDialog(true);
   };
 
@@ -5040,8 +7001,17 @@ function DataSection({ settings, onSettings }: { settings: Settings; onSettings:
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || t("settings:data.register_failed"));
-      setSchemaStatus((prev) => prev ? { ...prev, hasAndroidSchema: true, schemaInfo: data.schemaInfo } : { hasAndroidSchema: true, schemaInfo: data.schemaInfo, conversationCount: 0 });
-      toast.success(t("settings:data.register_ok", { version: data.schemaInfo.version, hash: data.schemaInfo.identityHash.slice(0, 8) }));
+      setSchemaStatus((prev) =>
+        prev
+          ? { ...prev, hasAndroidSchema: true, schemaInfo: data.schemaInfo }
+          : { hasAndroidSchema: true, schemaInfo: data.schemaInfo, conversationCount: 0 },
+      );
+      toast.success(
+        t("settings:data.register_ok", {
+          version: data.schemaInfo.version,
+          hash: data.schemaInfo.identityHash.slice(0, 8),
+        }),
+      );
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t("settings:data.register_failed"));
     } finally {
@@ -5107,10 +7077,7 @@ function DataSection({ settings, onSettings }: { settings: Settings; onSettings:
       toast.dismiss(prepToast);
       // Long-lived success toast so the user has time to read the filename before it dismisses.
       // 8s is enough to copy the name into a file manager search box if they want.
-      toast.success(
-        t("settings:data.export_done", { name: result.fileName }),
-        { duration: 8000 },
-      );
+      toast.success(t("settings:data.export_done", { name: result.fileName }), { duration: 8000 });
     } catch (error) {
       toast.dismiss(prepToast);
       toast.error(error instanceof Error ? error.message : t("settings:data.export_failed"));
@@ -5179,7 +7146,9 @@ function DataSection({ settings, onSettings }: { settings: Settings; onSettings:
             try {
               const parsed = JSON.parse(xhr.responseText) as { error?: string };
               if (parsed.error) serverError = parsed.error;
-            } catch { /* keep status code */ }
+            } catch {
+              /* keep status code */
+            }
             reject(new Error(serverError));
           }
         };
@@ -5192,7 +7161,11 @@ function DataSection({ settings, onSettings }: { settings: Settings; onSettings:
       onSettings(result.settings);
       if (result.source === "android-zip") {
         const lines = (result.summary ?? []).filter(Boolean);
-        toast.success(lines.length ? t("settings:data.import_android_lines", { lines: lines.join("；") }) : t("settings:data.import_android"));
+        toast.success(
+          lines.length
+            ? t("settings:data.import_android_lines", { lines: lines.join("；") })
+            : t("settings:data.import_android"),
+        );
       } else {
         toast.success(t("settings:data.import_done"));
       }
@@ -5208,8 +7181,14 @@ function DataSection({ settings, onSettings }: { settings: Settings; onSettings:
   return (
     <>
       {showExportDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowExportDialog(false)}>
-          <div className="mx-4 max-w-md rounded-lg bg-card p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          onClick={() => setShowExportDialog(false)}
+        >
+          <div
+            className="mx-4 max-w-md rounded-lg bg-card p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
             <h3 className="text-lg font-semibold">{t("settings:data.export_confirm_title")}</h3>
             <div className="mt-3 text-sm text-muted-foreground">
               {schemaStatus?.hasAndroidSchema
@@ -5217,45 +7196,75 @@ function DataSection({ settings, onSettings }: { settings: Settings; onSettings:
                 : t("settings:data.export_without_schema")}
             </div>
             <div className="mt-4 flex justify-end gap-2">
-              <Button variant="ghost" onClick={() => setShowExportDialog(false)}>{t("settings:data.cancel")}</Button>
+              <Button variant="ghost" onClick={() => setShowExportDialog(false)}>
+                {t("settings:data.cancel")}
+              </Button>
               <Button onClick={() => void doExport()}>
                 <Download className="mr-1 size-4" />
-                {schemaStatus?.hasAndroidSchema ? t("settings:data.confirm_export") : t("settings:data.export_no_chat")}
+                {schemaStatus?.hasAndroidSchema
+                  ? t("settings:data.confirm_export")
+                  : t("settings:data.export_no_chat")}
               </Button>
             </div>
           </div>
         </div>
       )}
-      <SectionHeader icon={Database} title={t("settings:data.title")} subtitle={t("settings:data.subtitle")} />
+      <SectionHeader
+        icon={Database}
+        title={t("settings:data.title")}
+        subtitle={t("settings:data.subtitle")}
+      />
       <div className="mb-4 rounded-lg border p-4">
-        <div className="flex items-center gap-2 cursor-pointer" onClick={() => schemaStatus?.hasAndroidSchema && setSchemaExpanded(!schemaExpanded)}>
+        <div
+          className="flex items-center gap-2 cursor-pointer"
+          onClick={() => schemaStatus?.hasAndroidSchema && setSchemaExpanded(!schemaExpanded)}
+        >
           <div className="text-sm font-medium">{t("settings:data.android_compat")}</div>
           {schemaStatus?.hasAndroidSchema ? (
-            <span className="rounded bg-green-100 px-1.5 py-0.5 text-xs text-green-700 dark:bg-green-900 dark:text-green-300">{t("settings:data.ready")}</span>
+            <span className="rounded bg-green-100 px-1.5 py-0.5 text-xs text-green-700 dark:bg-green-900 dark:text-green-300">
+              {t("settings:data.ready")}
+            </span>
           ) : (
-            <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700 dark:bg-amber-900 dark:text-amber-300">{t("settings:data.unregistered")}</span>
+            <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700 dark:bg-amber-900 dark:text-amber-300">
+              {t("settings:data.unregistered")}
+            </span>
           )}
           {schemaStatus?.hasAndroidSchema && (
-            <span className="ml-auto text-xs text-muted-foreground">{schemaExpanded ? t("settings:data.collapse") : t("settings:data.expand")}</span>
+            <span className="ml-auto text-xs text-muted-foreground">
+              {schemaExpanded ? t("settings:data.collapse") : t("settings:data.expand")}
+            </span>
           )}
         </div>
         {schemaStatus?.hasAndroidSchema && !schemaExpanded && (
           <div className="mt-2 text-xs text-muted-foreground">
-            {t("settings:data.compat_summary", { version: schemaStatus.schemaInfo?.version, hash: schemaStatus.schemaInfo?.identityHash.slice(0, 8) })}
+            {t("settings:data.compat_summary", {
+              version: schemaStatus.schemaInfo?.version,
+              hash: schemaStatus.schemaInfo?.identityHash.slice(0, 8),
+            })}
           </div>
         )}
         {(!schemaStatus?.hasAndroidSchema || schemaExpanded) && (
           <div className="mt-2 space-y-2">
             {!schemaStatus?.hasAndroidSchema && (
-              <div className="text-xs text-muted-foreground" dangerouslySetInnerHTML={{ __html: t("settings:data.unregistered_warn") }} />
+              <div
+                className="text-xs text-muted-foreground"
+                dangerouslySetInnerHTML={{ __html: t("settings:data.unregistered_warn") }}
+              />
             )}
             {schemaStatus?.hasAndroidSchema && (
               <div className="text-xs text-muted-foreground">
-                {t("settings:data.current_format", { version: schemaStatus.schemaInfo?.version, hash: schemaStatus.schemaInfo?.identityHash.slice(0, 8) })}
+                {t("settings:data.current_format", {
+                  version: schemaStatus.schemaInfo?.version,
+                  hash: schemaStatus.schemaInfo?.identityHash.slice(0, 8),
+                })}
               </div>
             )}
             <div className="rounded-md border border-amber-200 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-950">
-              <div className="text-xs font-medium">{schemaStatus?.hasAndroidSchema ? t("settings:data.update_format") : t("settings:data.how_to_register")}</div>
+              <div className="text-xs font-medium">
+                {schemaStatus?.hasAndroidSchema
+                  ? t("settings:data.update_format")
+                  : t("settings:data.how_to_register")}
+              </div>
               <ol className="mt-1.5 list-inside list-decimal space-y-1 text-xs text-muted-foreground">
                 <li>{t("settings:data.step1")}</li>
                 <li>{t("settings:data.step2")}</li>
@@ -5264,11 +7273,27 @@ function DataSection({ settings, onSettings }: { settings: Settings; onSettings:
               <div className="mt-2 text-xs font-bold text-amber-700 dark:text-amber-300">
                 {t("settings:data.register_note")}
               </div>
-              <Button variant="outline" size="sm" className="mt-3" onClick={() => schemaInputRef.current?.click()} disabled={registeringSchema}>
-                {registeringSchema ? <Loader2 className="mr-1 size-3 animate-spin" /> : <Upload className="mr-1 size-3" />}
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-3"
+                onClick={() => schemaInputRef.current?.click()}
+                disabled={registeringSchema}
+              >
+                {registeringSchema ? (
+                  <Loader2 className="mr-1 size-3 animate-spin" />
+                ) : (
+                  <Upload className="mr-1 size-3" />
+                )}
                 {t("settings:data.upload_phone_backup")}
               </Button>
-              <input ref={schemaInputRef} className="sr-only" type="file" accept="application/zip,.zip" onChange={(e) => void handleRegisterSchema(e)} />
+              <input
+                ref={schemaInputRef}
+                className="sr-only"
+                type="file"
+                accept="application/zip,.zip"
+                onChange={(e) => void handleRegisterSchema(e)}
+              />
             </div>
           </div>
         )}
@@ -5278,15 +7303,37 @@ function DataSection({ settings, onSettings }: { settings: Settings; onSettings:
           <div className="text-sm font-medium">{t("settings:data.backup_title")}</div>
           <div className="mt-1 text-xs text-muted-foreground">{t("settings:data.backup_desc")}</div>
           <div className="mt-4 flex flex-wrap gap-2">
-            <Button variant="outline" onClick={() => void handleExportClick()} disabled={exporting || importing}>
-              {exporting ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
+            <Button
+              variant="outline"
+              onClick={() => void handleExportClick()}
+              disabled={exporting || importing}
+            >
+              {exporting ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Download className="size-4" />
+              )}
               {t("settings:data.export_backup")}
             </Button>
-            <Button variant="outline" onClick={() => importInputRef.current?.click()} disabled={importing || exporting}>
-              {importing ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}
+            <Button
+              variant="outline"
+              onClick={() => importInputRef.current?.click()}
+              disabled={importing || exporting}
+            >
+              {importing ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Upload className="size-4" />
+              )}
               {t("settings:data.import_backup")}
             </Button>
-            <input ref={importInputRef} className="sr-only" type="file" accept="application/json,.json,application/zip,.zip" onChange={(event) => void importData(event)} />
+            <input
+              ref={importInputRef}
+              className="sr-only"
+              type="file"
+              accept="application/json,.json,application/zip,.zip"
+              onChange={(event) => void importData(event)}
+            />
           </div>
           {exporting ? (
             <div className="mt-3 space-y-1.5">
@@ -5298,18 +7345,24 @@ function DataSection({ settings, onSettings }: { settings: Settings; onSettings:
                 </span>
                 {exportTotalBytes > 0 ? (
                   <span>
-                    {(exportedBytes / (1024 * 1024)).toFixed(1)} / {(exportTotalBytes / (1024 * 1024)).toFixed(1)} MB · {exportProgress}%
+                    {(exportedBytes / (1024 * 1024)).toFixed(1)} /{" "}
+                    {(exportTotalBytes / (1024 * 1024)).toFixed(1)} MB · {exportProgress}%
                   </span>
                 ) : null}
               </div>
               <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
                 <div
-                  className={cn("h-full bg-primary transition-all", exportTotalBytes === 0 && "animate-pulse w-full")}
+                  className={cn(
+                    "h-full bg-primary transition-all",
+                    exportTotalBytes === 0 && "animate-pulse w-full",
+                  )}
                   style={exportTotalBytes > 0 ? { width: `${exportProgress}%` } : undefined}
                 />
               </div>
               {exportTotalBytes === 0 ? (
-                <div className="text-[11px] text-muted-foreground">{t("settings:data.pack_slow")}</div>
+                <div className="text-[11px] text-muted-foreground">
+                  {t("settings:data.pack_slow")}
+                </div>
               ) : null}
             </div>
           ) : null}
@@ -5333,45 +7386,94 @@ function DataSection({ settings, onSettings }: { settings: Settings; onSettings:
                 />
               </div>
               {importPhase === "processing" ? (
-                <div className="text-[11px] text-muted-foreground">{t("settings:data.extract_slow")}</div>
+                <div className="text-[11px] text-muted-foreground">
+                  {t("settings:data.extract_slow")}
+                </div>
               ) : null}
             </div>
           ) : null}
         </div>
         <div className="rounded-lg border bg-card p-4">
           <div className="text-sm font-medium">{t("settings:data.chat_files_title")}</div>
-          <div className="mt-1 text-xs text-muted-foreground">{t("settings:data.chat_files_desc")}</div>
+          <div className="mt-1 text-xs text-muted-foreground">
+            {t("settings:data.chat_files_desc")}
+          </div>
         </div>
         <div className="rounded-lg border bg-card p-4">
           <div className="text-sm font-medium">{t("settings:data.web_service_title")}</div>
-          <div className="mt-1 text-xs text-muted-foreground">{t("settings:data.web_service_desc", { status: settings.webServerJwtEnabled ? t("settings:data.enabled") : t("settings:data.disabled") })}</div>
+          <div className="mt-1 text-xs text-muted-foreground">
+            {t("settings:data.web_service_desc", {
+              status: settings.webServerJwtEnabled
+                ? t("settings:data.enabled")
+                : t("settings:data.disabled"),
+            })}
+          </div>
         </div>
         <div className="rounded-lg border bg-card p-4 md:col-span-2">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <div className="flex items-center gap-2 text-sm font-medium">{t("settings:data.webdav_title")}{!schemaStatus?.hasAndroidSchema && <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] text-amber-700 dark:bg-amber-900 dark:text-amber-300">{t("settings:data.chat_unsyncable")}</span>}</div>
-              <div className="mt-1 text-xs text-muted-foreground">{t("settings:data.webdav_desc")}</div>
+              <div className="flex items-center gap-2 text-sm font-medium">
+                {t("settings:data.webdav_title")}
+                {!schemaStatus?.hasAndroidSchema && (
+                  <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] text-amber-700 dark:bg-amber-900 dark:text-amber-300">
+                    {t("settings:data.chat_unsyncable")}
+                  </span>
+                )}
+              </div>
+              <div className="mt-1 text-xs text-muted-foreground">
+                {t("settings:data.webdav_desc")}
+              </div>
             </div>
-            <div className="text-xs text-muted-foreground">{webDavBusy ? t("settings:data.processing") : t("settings:common.autosaved")}</div>
+            <div className="text-xs text-muted-foreground">
+              {webDavBusy ? t("settings:data.processing") : t("settings:common.autosaved")}
+            </div>
           </div>
           <div className="mt-4 grid gap-3 md:grid-cols-2">
             <label className="space-y-1">
-              <span className="text-xs font-medium text-muted-foreground">{t("settings:data.server_url")}</span>
-              <Input value={webDavDraft.url} onChange={(event) => patchWebDav({ url: event.target.value })} placeholder="https://example.com/dav" />
+              <span className="text-xs font-medium text-muted-foreground">
+                {t("settings:data.server_url")}
+              </span>
+              <Input
+                value={webDavDraft.url}
+                onChange={(event) => patchWebDav({ url: event.target.value })}
+                placeholder="https://example.com/dav"
+              />
             </label>
             <label className="space-y-1">
-              <span className="text-xs font-medium text-muted-foreground">{t("settings:data.backup_path")}</span>
-              <Input value={webDavDraft.path} onChange={(event) => patchWebDav({ path: event.target.value })} placeholder="rikkahub_backups" />
+              <span className="text-xs font-medium text-muted-foreground">
+                {t("settings:data.backup_path")}
+              </span>
+              <Input
+                value={webDavDraft.path}
+                onChange={(event) => patchWebDav({ path: event.target.value })}
+                placeholder="rikkahub_backups"
+              />
             </label>
             <label className="space-y-1">
-              <span className="text-xs font-medium text-muted-foreground">{t("settings:proxy.username")}</span>
-              <Input value={webDavDraft.username} onChange={(event) => patchWebDav({ username: event.target.value })} />
+              <span className="text-xs font-medium text-muted-foreground">
+                {t("settings:proxy.username")}
+              </span>
+              <Input
+                value={webDavDraft.username}
+                onChange={(event) => patchWebDav({ username: event.target.value })}
+              />
             </label>
             <label className="space-y-1">
-              <span className="text-xs font-medium text-muted-foreground">{t("settings:proxy.password")}</span>
+              <span className="text-xs font-medium text-muted-foreground">
+                {t("settings:proxy.password")}
+              </span>
               <div className="flex gap-2">
-                <Input type={showWebDavPassword ? "text" : "password"} value={webDavDraft.password} onChange={(event) => patchWebDav({ password: event.target.value })} />
-                <Button type="button" variant="outline" size="icon" onClick={() => setShowWebDavPassword((value) => !value)}>
+                <Input
+                  type={showWebDavPassword ? "text" : "password"}
+                  value={webDavDraft.password}
+                  onChange={(event) => patchWebDav({ password: event.target.value })}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setShowWebDavPassword((value) => !value)}
+                >
                   {showWebDavPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                 </Button>
               </div>
@@ -5379,7 +7481,10 @@ function DataSection({ settings, onSettings }: { settings: Settings; onSettings:
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
             {(["DATABASE", "FILES"] as const).map((item) => (
-              <label key={item} className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm">
+              <label
+                key={item}
+                className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm"
+              >
                 <Checkbox
                   checked={(webDavDraft.items ?? []).includes(item)}
                   onCheckedChange={(checked) => {
@@ -5389,55 +7494,117 @@ function DataSection({ settings, onSettings }: { settings: Settings; onSettings:
                     patchWebDav({ items: [...items] });
                   }}
                 />
-                {item === "DATABASE" ? t("settings:data.item_database") : t("settings:data.item_files")}
+                {item === "DATABASE"
+                  ? t("settings:data.item_database")
+                  : t("settings:data.item_files")}
               </label>
             ))}
           </div>
           <div className="mt-4 flex flex-wrap gap-2">
-            <Button variant="outline" onClick={() => void testWebDav()} disabled={Boolean(webDavBusy) || !webDavDraft.url.trim()}>
-              {webDavBusy === "test" ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
+            <Button
+              variant="outline"
+              onClick={() => void testWebDav()}
+              disabled={Boolean(webDavBusy) || !webDavDraft.url.trim()}
+            >
+              {webDavBusy === "test" ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Check className="size-4" />
+              )}
               {t("settings:data.test_conn")}
             </Button>
-            <Button variant="outline" onClick={() => void refreshWebDavList()} disabled={Boolean(webDavBusy) || !webDavDraft.url.trim()}>
-              {webDavBusy === "list" ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
+            <Button
+              variant="outline"
+              onClick={() => void refreshWebDavList()}
+              disabled={Boolean(webDavBusy) || !webDavDraft.url.trim()}
+            >
+              {webDavBusy === "list" ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <RefreshCw className="size-4" />
+              )}
               {t("settings:data.refresh_backups")}
             </Button>
-            <Button onClick={() => void backupWebDav()} disabled={Boolean(webDavBusy) || !webDavDraft.url.trim()}>
-              {webDavBusy === "backup" && !webDavBackupProgress ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}
+            <Button
+              onClick={() => void backupWebDav()}
+              disabled={Boolean(webDavBusy) || !webDavDraft.url.trim()}
+            >
+              {webDavBusy === "backup" && !webDavBackupProgress ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Upload className="size-4" />
+              )}
               {t("settings:data.backup_now")}
             </Button>
           </div>
-          {(webDavBusy === "backup" || webDavBusy.startsWith("restore:")) && webDavBackupProgress ? (
+          {(webDavBusy === "backup" || webDavBusy.startsWith("restore:")) &&
+          webDavBackupProgress ? (
             <div className="mt-3 space-y-1.5">
               <div className="flex items-center justify-between text-xs text-muted-foreground">
                 <span>{webDavBackupProgress.message}</span>
-                {webDavBackupProgress.percent > 0 ? <span>{webDavBackupProgress.percent}%</span> : null}
+                {webDavBackupProgress.percent > 0 ? (
+                  <span>{webDavBackupProgress.percent}%</span>
+                ) : null}
               </div>
               <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
                 <div
-                  className={cn("h-full bg-primary transition-all", webDavBackupProgress.percent === 0 && "animate-pulse w-full")}
-                  style={webDavBackupProgress.percent > 0 ? { width: `${webDavBackupProgress.percent}%` } : undefined}
+                  className={cn(
+                    "h-full bg-primary transition-all",
+                    webDavBackupProgress.percent === 0 && "animate-pulse w-full",
+                  )}
+                  style={
+                    webDavBackupProgress.percent > 0
+                      ? { width: `${webDavBackupProgress.percent}%` }
+                      : undefined
+                  }
                 />
               </div>
             </div>
           ) : null}
           <div className="mt-4 rounded-md border">
-            {webDavItems.length === 0 ? <div className="p-4 text-sm text-muted-foreground">{t("settings:data.no_remote_backups")}</div> : null}
+            {webDavItems.length === 0 ? (
+              <div className="p-4 text-sm text-muted-foreground">
+                {t("settings:data.no_remote_backups")}
+              </div>
+            ) : null}
             {webDavItems.map((item, index) => (
               <React.Fragment key={item.displayName}>
                 {index > 0 ? <Separator /> : null}
                 <div className="flex items-center justify-between gap-3 p-3">
                   <div className="min-w-0">
                     <div className="truncate text-sm font-medium">{item.displayName}</div>
-                    <div className="mt-0.5 text-xs text-muted-foreground">{new Date(item.lastModified || 0).toLocaleString()} · {Math.round((item.size || 0) / 1024)} KB</div>
+                    <div className="mt-0.5 text-xs text-muted-foreground">
+                      {new Date(item.lastModified || 0).toLocaleString()} ·{" "}
+                      {Math.round((item.size || 0) / 1024)} KB
+                    </div>
                   </div>
                   <div className="flex shrink-0 gap-2">
-                    <Button type="button" size="sm" variant="outline" onClick={() => void restoreWebDav(item)} disabled={Boolean(webDavBusy)}>
-                      {webDavBusy === `restore:${item.displayName}` ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => void restoreWebDav(item)}
+                      disabled={Boolean(webDavBusy)}
+                    >
+                      {webDavBusy === `restore:${item.displayName}` ? (
+                        <Loader2 className="size-4 animate-spin" />
+                      ) : (
+                        <Download className="size-4" />
+                      )}
                       {t("settings:data.restore")}
                     </Button>
-                    <Button type="button" size="sm" variant="ghost" onClick={() => void deleteWebDav(item)} disabled={Boolean(webDavBusy)}>
-                      {webDavBusy === `delete:${item.displayName}` ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => void deleteWebDav(item)}
+                      disabled={Boolean(webDavBusy)}
+                    >
+                      {webDavBusy === `delete:${item.displayName}` ? (
+                        <Loader2 className="size-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="size-4" />
+                      )}
                     </Button>
                   </div>
                 </div>
@@ -5448,56 +7615,121 @@ function DataSection({ settings, onSettings }: { settings: Settings; onSettings:
         <div className="rounded-lg border bg-card p-4 md:col-span-2">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <div className="flex items-center gap-2 text-sm font-medium">{t("settings:data.s3_title")}{!schemaStatus?.hasAndroidSchema && <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] text-amber-700 dark:bg-amber-900 dark:text-amber-300">{t("settings:data.chat_unsyncable")}</span>}</div>
+              <div className="flex items-center gap-2 text-sm font-medium">
+                {t("settings:data.s3_title")}
+                {!schemaStatus?.hasAndroidSchema && (
+                  <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] text-amber-700 dark:bg-amber-900 dark:text-amber-300">
+                    {t("settings:data.chat_unsyncable")}
+                  </span>
+                )}
+              </div>
               <div className="mt-1 text-xs text-muted-foreground">{t("settings:data.s3_desc")}</div>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-xs text-muted-foreground">Path-style</span>
-              <Switch checked={s3Draft.forcePathStyle} onCheckedChange={(forcePathStyle) => patchS3({ forcePathStyle })} />
+              <Switch
+                checked={s3Draft.forcePathStyle}
+                onCheckedChange={(forcePathStyle) => patchS3({ forcePathStyle })}
+              />
             </div>
           </div>
           <div className="mt-3 grid gap-3 md:grid-cols-2">
             <label className="space-y-1">
-              <span className="text-xs font-medium text-muted-foreground">{t("settings:data.endpoint_label")}</span>
-              <Input value={s3Draft.endpoint} onChange={(event) => patchS3({ endpoint: event.target.value })} placeholder="https://s3.example.com" />
+              <span className="text-xs font-medium text-muted-foreground">
+                {t("settings:data.endpoint_label")}
+              </span>
+              <Input
+                value={s3Draft.endpoint}
+                onChange={(event) => patchS3({ endpoint: event.target.value })}
+                placeholder="https://s3.example.com"
+              />
             </label>
             <label className="space-y-1">
               <span className="text-xs font-medium text-muted-foreground">Region</span>
-              <Input value={s3Draft.region} onChange={(event) => patchS3({ region: event.target.value })} placeholder="us-east-1" />
+              <Input
+                value={s3Draft.region}
+                onChange={(event) => patchS3({ region: event.target.value })}
+                placeholder="us-east-1"
+              />
             </label>
             <label className="space-y-1">
               <span className="text-xs font-medium text-muted-foreground">Bucket</span>
-              <Input value={s3Draft.bucket} onChange={(event) => patchS3({ bucket: event.target.value })} placeholder="my-rikkahub-bucket" />
+              <Input
+                value={s3Draft.bucket}
+                onChange={(event) => patchS3({ bucket: event.target.value })}
+                placeholder="my-rikkahub-bucket"
+              />
             </label>
             <label className="space-y-1">
-              <span className="text-xs font-medium text-muted-foreground">{t("settings:data.prefix_path")}</span>
-              <Input value={s3Draft.prefix} onChange={(event) => patchS3({ prefix: event.target.value })} placeholder="rikkahub_backups" />
+              <span className="text-xs font-medium text-muted-foreground">
+                {t("settings:data.prefix_path")}
+              </span>
+              <Input
+                value={s3Draft.prefix}
+                onChange={(event) => patchS3({ prefix: event.target.value })}
+                placeholder="rikkahub_backups"
+              />
             </label>
             <label className="space-y-1">
               <span className="text-xs font-medium text-muted-foreground">Access Key ID</span>
-              <Input value={s3Draft.accessKeyId} onChange={(event) => patchS3({ accessKeyId: event.target.value })} />
+              <Input
+                value={s3Draft.accessKeyId}
+                onChange={(event) => patchS3({ accessKeyId: event.target.value })}
+              />
             </label>
             <label className="space-y-1">
               <span className="text-xs font-medium text-muted-foreground">Secret Access Key</span>
               <div className="flex gap-2">
-                <Input type={showS3Secret ? "text" : "password"} value={s3Draft.secretAccessKey} onChange={(event) => patchS3({ secretAccessKey: event.target.value })} />
-                <Button type="button" variant="outline" size="icon" onClick={() => setShowS3Secret((value) => !value)}>
+                <Input
+                  type={showS3Secret ? "text" : "password"}
+                  value={s3Draft.secretAccessKey}
+                  onChange={(event) => patchS3({ secretAccessKey: event.target.value })}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setShowS3Secret((value) => !value)}
+                >
                   {showS3Secret ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                 </Button>
               </div>
             </label>
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
-            <Button variant="outline" onClick={() => void testS3()} disabled={Boolean(s3Busy) || !s3Draft.bucket.trim() || !s3Draft.accessKeyId.trim()}>
-              {s3Busy === "test" ? <Loader2 className="size-4 animate-spin" /> : <CheckCircle2 className="size-4" />}
+            <Button
+              variant="outline"
+              onClick={() => void testS3()}
+              disabled={Boolean(s3Busy) || !s3Draft.bucket.trim() || !s3Draft.accessKeyId.trim()}
+            >
+              {s3Busy === "test" ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <CheckCircle2 className="size-4" />
+              )}
               {t("settings:data.test_conn")}
             </Button>
-            <Button variant="outline" onClick={() => void refreshS3List()} disabled={Boolean(s3Busy) || !s3Draft.bucket.trim()}>
-              {s3Busy === "list" ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
+            <Button
+              variant="outline"
+              onClick={() => void refreshS3List()}
+              disabled={Boolean(s3Busy) || !s3Draft.bucket.trim()}
+            >
+              {s3Busy === "list" ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <RefreshCw className="size-4" />
+              )}
               {t("settings:data.refresh_backups")}
             </Button>
-            <Button onClick={() => void backupS3()} disabled={Boolean(s3Busy) || !s3Draft.bucket.trim() || !s3Draft.accessKeyId.trim()}>
-              {s3Busy === "backup" && !s3BackupProgress ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}
+            <Button
+              onClick={() => void backupS3()}
+              disabled={Boolean(s3Busy) || !s3Draft.bucket.trim() || !s3Draft.accessKeyId.trim()}
+            >
+              {s3Busy === "backup" && !s3BackupProgress ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Upload className="size-4" />
+              )}
               {t("settings:data.backup_now")}
             </Button>
           </div>
@@ -5509,29 +7741,63 @@ function DataSection({ settings, onSettings }: { settings: Settings; onSettings:
               </div>
               <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
                 <div
-                  className={cn("h-full bg-primary transition-all", s3BackupProgress.percent === 0 && "animate-pulse w-full")}
-                  style={s3BackupProgress.percent > 0 ? { width: `${s3BackupProgress.percent}%` } : undefined}
+                  className={cn(
+                    "h-full bg-primary transition-all",
+                    s3BackupProgress.percent === 0 && "animate-pulse w-full",
+                  )}
+                  style={
+                    s3BackupProgress.percent > 0
+                      ? { width: `${s3BackupProgress.percent}%` }
+                      : undefined
+                  }
                 />
               </div>
             </div>
           ) : null}
           <div className="mt-3 overflow-hidden rounded-md border">
-            {s3Items.length === 0 ? <div className="p-4 text-sm text-muted-foreground">{t("settings:data.no_remote_backups_s3")}</div> : null}
+            {s3Items.length === 0 ? (
+              <div className="p-4 text-sm text-muted-foreground">
+                {t("settings:data.no_remote_backups_s3")}
+              </div>
+            ) : null}
             {s3Items.map((item, index) => (
               <React.Fragment key={item.displayName}>
                 {index > 0 ? <Separator /> : null}
                 <div className="flex items-center justify-between gap-3 p-3">
                   <div className="min-w-0">
                     <div className="truncate text-sm font-medium">{item.displayName}</div>
-                    <div className="mt-0.5 text-xs text-muted-foreground">{new Date(item.lastModified || 0).toLocaleString()} · {Math.round((item.size || 0) / 1024)} KB</div>
+                    <div className="mt-0.5 text-xs text-muted-foreground">
+                      {new Date(item.lastModified || 0).toLocaleString()} ·{" "}
+                      {Math.round((item.size || 0) / 1024)} KB
+                    </div>
                   </div>
                   <div className="flex shrink-0 gap-2">
-                    <Button type="button" size="sm" variant="outline" onClick={() => void restoreS3(item)} disabled={Boolean(s3Busy)}>
-                      {s3Busy === `restore:${item.displayName}` ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => void restoreS3(item)}
+                      disabled={Boolean(s3Busy)}
+                    >
+                      {s3Busy === `restore:${item.displayName}` ? (
+                        <Loader2 className="size-4 animate-spin" />
+                      ) : (
+                        <Download className="size-4" />
+                      )}
                       {t("settings:data.restore")}
                     </Button>
-                    <Button type="button" size="sm" variant="ghost" onClick={() => void deleteS3(item)} disabled={Boolean(s3Busy)}>
-                      {s3Busy === `delete:${item.displayName}` ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => void deleteS3(item)}
+                      disabled={Boolean(s3Busy)}
+                    >
+                      {s3Busy === `delete:${item.displayName}` ? (
+                        <Loader2 className="size-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="size-4" />
+                      )}
                     </Button>
                   </div>
                 </div>
@@ -5559,12 +7825,17 @@ function StatsSection({ stats }: { stats: StatsPayload | null }) {
   const start = new Date(today);
   start.setHours(0, 0, 0, 0);
   start.setDate(start.getDate() - start.getDay() - 52 * 7);
-  const activeCounts = stats.daily.map((item) => item.messages).filter((count) => count > 0).sort((a, b) => a - b);
-  const quantile = (ratio: number, fallback: number) => activeCounts[Math.floor(activeCounts.length * ratio)] ?? fallback;
+  const activeCounts = stats.daily
+    .map((item) => item.messages)
+    .filter((count) => count > 0)
+    .sort((a, b) => a - b);
+  const quantile = (ratio: number, fallback: number) =>
+    activeCounts[Math.floor(activeCounts.length * ratio)] ?? fallback;
   const q1 = quantile(0.25, 1);
   const q2 = quantile(0.5, 2);
   const q3 = quantile(0.75, 3);
-  const formatKey = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  const formatKey = (date: Date) =>
+    `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
   const heatmapWeeks = Array.from({ length: 53 }, (_, weekIndex) =>
     Array.from({ length: 7 }, (_, dayIndex) => {
       const date = new Date(start);
@@ -5572,8 +7843,18 @@ function StatsSection({ stats }: { stats: StatsPayload | null }) {
       const key = formatKey(date);
       const item = dailyByDate.get(key);
       const isFuture = date > today;
-      const count = isFuture ? 0 : item?.messages ?? 0;
-      const level = isFuture ? -1 : count === 0 ? 0 : count <= q1 ? 1 : count <= q2 ? 2 : count <= q3 ? 3 : 4;
+      const count = isFuture ? 0 : (item?.messages ?? 0);
+      const level = isFuture
+        ? -1
+        : count === 0
+          ? 0
+          : count <= q1
+            ? 1
+            : count <= q2
+              ? 2
+              : count <= q3
+                ? 3
+                : 4;
       return { key, date, count, level };
     }),
   );
@@ -5591,7 +7872,11 @@ function StatsSection({ stats }: { stats: StatsPayload | null }) {
   };
   return (
     <>
-      <SectionHeader icon={Database} title={t("settings:stats.title")} subtitle={t("settings:stats.subtitle")} />
+      <SectionHeader
+        icon={Database}
+        title={t("settings:stats.title")}
+        subtitle={t("settings:stats.subtitle")}
+      />
       <div className="grid gap-4 md:grid-cols-5">
         {[
           [t("settings:stats.t_conversations"), stats.totals.conversations],
@@ -5611,19 +7896,50 @@ function StatsSection({ stats }: { stats: StatsPayload | null }) {
         <div className="pb-1">
           <div className="grid w-full grid-cols-[24px_minmax(0,1fr)] gap-x-2 overflow-hidden">
             <div />
-            <div className="grid justify-between gap-[2px]" style={{ gridTemplateColumns: "repeat(53, minmax(10px, 14px))" }}>
+            <div
+              className="grid justify-between gap-[2px]"
+              style={{ gridTemplateColumns: "repeat(53, minmax(10px, 14px))" }}
+            >
               {monthLabels.map((label, index) => (
-                <div key={`${label}-${index}`} className="h-5 overflow-visible whitespace-nowrap text-[11px] text-muted-foreground">{label}</div>
+                <div
+                  key={`${label}-${index}`}
+                  className="h-5 overflow-visible whitespace-nowrap text-[11px] text-muted-foreground"
+                >
+                  {label}
+                </div>
               ))}
             </div>
-            <div className="grid gap-[2px] pt-[2px]" style={{ gridTemplateRows: "repeat(7, 12px)" }}>
-              {["", t("settings:stats.day_mon"), "", t("settings:stats.day_wed"), "", t("settings:stats.day_fri"), ""].map((label, index) => (
-                <div key={`${label}-${index}`} className="flex h-3 items-center justify-end text-[11px] text-muted-foreground">{label}</div>
+            <div
+              className="grid gap-[2px] pt-[2px]"
+              style={{ gridTemplateRows: "repeat(7, 12px)" }}
+            >
+              {[
+                "",
+                t("settings:stats.day_mon"),
+                "",
+                t("settings:stats.day_wed"),
+                "",
+                t("settings:stats.day_fri"),
+                "",
+              ].map((label, index) => (
+                <div
+                  key={`${label}-${index}`}
+                  className="flex h-3 items-center justify-end text-[11px] text-muted-foreground"
+                >
+                  {label}
+                </div>
               ))}
             </div>
-            <div className="grid justify-between gap-[2px] pt-[2px]" style={{ gridTemplateColumns: "repeat(53, minmax(10px, 14px))" }}>
+            <div
+              className="grid justify-between gap-[2px] pt-[2px]"
+              style={{ gridTemplateColumns: "repeat(53, minmax(10px, 14px))" }}
+            >
               {heatmapWeeks.map((week, weekIndex) => (
-                <div key={weekIndex} className="grid gap-[2px]" style={{ gridTemplateRows: "repeat(7, 12px)" }}>
+                <div
+                  key={weekIndex}
+                  className="grid gap-[2px]"
+                  style={{ gridTemplateRows: "repeat(7, 12px)" }}
+                >
                   {week.map((day) => (
                     <div
                       key={day.key}
@@ -5638,10 +7954,16 @@ function StatsSection({ stats }: { stats: StatsPayload | null }) {
         </div>
         <div className="mt-3 flex items-center justify-end gap-1 text-[11px] text-muted-foreground">
           <span>{t("settings:stats.less")}</span>
-          {[0, 1, 2, 3, 4].map((level) => <span key={level} className={`size-[12px] rounded-[4px] ${heatmapClass(level)}`} />)}
+          {[0, 1, 2, 3, 4].map((level) => (
+            <span key={level} className={`size-[12px] rounded-[4px] ${heatmapClass(level)}`} />
+          ))}
           <span>{t("settings:stats.more")}</span>
         </div>
-        {stats.daily.length === 0 ? <div className="mt-3 text-xs text-muted-foreground">{t("settings:stats.heatmap_empty")}</div> : null}
+        {stats.daily.length === 0 ? (
+          <div className="mt-3 text-xs text-muted-foreground">
+            {t("settings:stats.heatmap_empty")}
+          </div>
+        ) : null}
       </div>
       <div className="mt-6 grid gap-4 md:grid-cols-2">
         <div className="rounded-lg border bg-card p-4">
@@ -5649,11 +7971,15 @@ function StatsSection({ stats }: { stats: StatsPayload | null }) {
           <div className="space-y-2">
             {stats.models.slice(0, 8).map((item) => (
               <div key={item.id} className="flex items-center justify-between gap-3 text-sm">
-                <span className="truncate">{[item.providerName, item.name || item.id].filter(Boolean).join(" / ")}</span>
+                <span className="truncate">
+                  {[item.providerName, item.name || item.id].filter(Boolean).join(" / ")}
+                </span>
                 <span className="text-muted-foreground">{item.count}</span>
               </div>
             ))}
-            {stats.models.length === 0 ? <div className="text-sm text-muted-foreground">{t("settings:stats.no_models")}</div> : null}
+            {stats.models.length === 0 ? (
+              <div className="text-sm text-muted-foreground">{t("settings:stats.no_models")}</div>
+            ) : null}
           </div>
         </div>
         <div className="rounded-lg border bg-card p-4">
@@ -5662,20 +7988,30 @@ function StatsSection({ stats }: { stats: StatsPayload | null }) {
             {(stats.requestGroups ?? []).map((item) => (
               <div key={item.name} className="flex items-center justify-between gap-3 text-sm">
                 <span className="truncate">{item.name}</span>
-                <span className="text-muted-foreground">{t("settings:stats.ok_failed", { ok: item.ok, failed: item.failed })}</span>
+                <span className="text-muted-foreground">
+                  {t("settings:stats.ok_failed", { ok: item.ok, failed: item.failed })}
+                </span>
               </div>
             ))}
-            {(stats.requestGroups ?? []).length === 0 ? <div className="text-sm text-muted-foreground">{t("settings:stats.no_groups")}</div> : null}
+            {(stats.requestGroups ?? []).length === 0 ? (
+              <div className="text-sm text-muted-foreground">{t("settings:stats.no_groups")}</div>
+            ) : null}
           </div>
           <div className="mb-3 text-sm font-medium">{t("settings:stats.provider_requests")}</div>
           <div className="space-y-2">
             {stats.providers.slice(0, 8).map((item) => (
               <div key={item.name} className="flex items-center justify-between gap-3 text-sm">
                 <span className="truncate">{item.name}</span>
-                <span className="text-muted-foreground">{item.ok} / {item.failed}</span>
+                <span className="text-muted-foreground">
+                  {item.ok} / {item.failed}
+                </span>
               </div>
             ))}
-            {stats.providers.length === 0 ? <div className="text-sm text-muted-foreground">{t("settings:stats.no_provider_requests")}</div> : null}
+            {stats.providers.length === 0 ? (
+              <div className="text-sm text-muted-foreground">
+                {t("settings:stats.no_provider_requests")}
+              </div>
+            ) : null}
           </div>
         </div>
       </div>
@@ -5695,7 +8031,13 @@ interface ProxyStatus {
   detectedSystemProxy: string | null;
 }
 
-function ProxySection({ settings, onSettings }: { settings: Settings; onSettings: (settings: Settings) => void }) {
+function ProxySection({
+  settings,
+  onSettings,
+}: {
+  settings: Settings;
+  onSettings: (settings: Settings) => void;
+}) {
   const { t } = useTranslation();
   const initial = (settings.proxyConfig ?? { url: "", username: "", password: "" }) as ProxyConfig;
   const [draft, setDraft] = React.useState<ProxyConfig>(initial);
@@ -5735,18 +8077,28 @@ function ProxySection({ settings, onSettings }: { settings: Settings; onSettings
     setDraft((prev) => ({ ...prev, ...next }));
   };
 
-  const save = React.useCallback(async (announce = false) => {
-    if (!announce && !dirtyRef.current) return;
-    try {
-      const result = await api.post<{ config: ProxyConfig } & ProxyStatus>("settings/proxy", draft);
-      dirtyRef.current = false;
-      onSettings({ ...settings, proxyConfig: result.config } as Settings);
-      setStatus({ activeUrl: result.activeUrl, source: result.source, detectedSystemProxy: result.detectedSystemProxy });
-      if (announce) toast.success(t("settings:proxy.saved"));
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : t("settings:proxy.save_failed"));
-    }
-  }, [draft, onSettings, settings]);
+  const save = React.useCallback(
+    async (announce = false) => {
+      if (!announce && !dirtyRef.current) return;
+      try {
+        const result = await api.post<{ config: ProxyConfig } & ProxyStatus>(
+          "settings/proxy",
+          draft,
+        );
+        dirtyRef.current = false;
+        onSettings({ ...settings, proxyConfig: result.config } as Settings);
+        setStatus({
+          activeUrl: result.activeUrl,
+          source: result.source,
+          detectedSystemProxy: result.detectedSystemProxy,
+        });
+        if (announce) toast.success(t("settings:proxy.saved"));
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : t("settings:proxy.save_failed"));
+      }
+    },
+    [draft, onSettings, settings],
+  );
 
   React.useEffect(() => {
     if (!dirtyRef.current) return;
@@ -5762,7 +8114,9 @@ function ProxySection({ settings, onSettings }: { settings: Settings; onSettings
         patch({ url: result.detected });
         toast.success(t("settings:proxy.detected", { url: result.detected }));
       } else {
-        toast.message(t("settings:proxy.none_detected"), { description: t("settings:proxy.none_detected_desc") });
+        toast.message(t("settings:proxy.none_detected"), {
+          description: t("settings:proxy.none_detected_desc"),
+        });
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t("settings:proxy.detect_failed"));
@@ -5775,7 +8129,9 @@ function ProxySection({ settings, onSettings }: { settings: Settings; onSettings
   // 端口是启动期配置：写入后要重启应用才生效。这里沿用代理的 600ms 防抖自动保存，
   // 但走独立的 settings/port 端点（它需要做范围校验并返回 requiresRestart 提示）。
   const initialPort = settings.preferredPort ?? null;
-  const [portDraft, setPortDraft] = React.useState<string>(initialPort == null ? "" : String(initialPort));
+  const [portDraft, setPortDraft] = React.useState<string>(
+    initialPort == null ? "" : String(initialPort),
+  );
   const portDirtyRef = React.useRef(false);
 
   React.useEffect(() => {
@@ -5784,26 +8140,29 @@ function ProxySection({ settings, onSettings }: { settings: Settings; onSettings
     setPortDraft(initialPort == null ? "" : String(initialPort));
   }, [initialPort]);
 
-  const savePort = React.useCallback(async (announce = false) => {
-    const trimmed = portDraft.trim();
-    const parsed = trimmed === "" ? null : Number(trimmed);
-    if (
-      parsed !== null &&
-      (!Number.isFinite(parsed) || !Number.isInteger(parsed) || parsed < 1 || parsed > 65535)
-    ) {
-      toast.error(t("settings:proxy.port_invalid"));
-      return;
-    }
-    if (!announce && !portDirtyRef.current) return;
-    try {
-      await api.post<{ preferredPort: number | null }>("settings/port", { port: parsed });
-      portDirtyRef.current = false;
-      onSettings({ ...settings, preferredPort: parsed } as Settings);
-      if (announce) toast.success(t("settings:proxy.port_saved"));
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : t("settings:proxy.port_save_failed"));
-    }
-  }, [portDraft, onSettings, settings]);
+  const savePort = React.useCallback(
+    async (announce = false) => {
+      const trimmed = portDraft.trim();
+      const parsed = trimmed === "" ? null : Number(trimmed);
+      if (
+        parsed !== null &&
+        (!Number.isFinite(parsed) || !Number.isInteger(parsed) || parsed < 1 || parsed > 65535)
+      ) {
+        toast.error(t("settings:proxy.port_invalid"));
+        return;
+      }
+      if (!announce && !portDirtyRef.current) return;
+      try {
+        await api.post<{ preferredPort: number | null }>("settings/port", { port: parsed });
+        portDirtyRef.current = false;
+        onSettings({ ...settings, preferredPort: parsed } as Settings);
+        if (announce) toast.success(t("settings:proxy.port_saved"));
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : t("settings:proxy.port_save_failed"));
+      }
+    },
+    [portDraft, onSettings, settings],
+  );
 
   React.useEffect(() => {
     if (!portDirtyRef.current) return;
@@ -5819,93 +8178,124 @@ function ProxySection({ settings, onSettings }: { settings: Settings; onSettings
 
   return (
     <>
-      <SectionHeader icon={Globe} title={t("settings:proxy.title")} subtitle={t("settings:proxy.subtitle")} />
+      <SectionHeader
+        icon={Globe}
+        title={t("settings:proxy.title")}
+        subtitle={t("settings:proxy.subtitle")}
+      />
       <div className="space-y-4">
-      <div className="space-y-5 rounded-lg border bg-card p-6">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <div className="text-base font-medium">{t("settings:proxy.http_title")}</div>
-            <div className="mt-1 text-xs text-muted-foreground">{t("settings:proxy.http_desc")}</div>
-          </div>
-          <Button type="button" variant="outline" size="sm" onClick={() => void detectSystemProxy()} disabled={detecting}>
-            {detecting ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
-            {t("settings:proxy.detect")}
-          </Button>
-        </div>
-
-        <label className="block space-y-2">
-          <span className="text-sm font-medium">{t("settings:proxy.address")}</span>
-          <Input
-            value={draft.url}
-            onChange={(event) => patch({ url: event.target.value })}
-            placeholder={t("settings:proxy.address_ph")}
-          />
-        </label>
-
-        <label className="block space-y-2">
-          <span className="text-sm font-medium">
-            {t("settings:proxy.username")} <span className="text-xs font-normal text-muted-foreground">{t("settings:proxy.optional")}</span>
-          </span>
-          <Input
-            value={draft.username}
-            onChange={(event) => patch({ username: event.target.value })}
-            placeholder="proxy username"
-            autoComplete="off"
-          />
-        </label>
-
-        <label className="block space-y-2">
-          <span className="text-sm font-medium">
-            {t("settings:proxy.password")} <span className="text-xs font-normal text-muted-foreground">{t("settings:proxy.optional")}</span>
-          </span>
-          <div className="flex gap-2">
-            <Input
-              type={showPassword ? "text" : "password"}
-              value={draft.password}
-              onChange={(event) => patch({ password: event.target.value })}
-              placeholder="proxy password"
-              autoComplete="off"
-            />
-            <Button type="button" variant="outline" size="icon" onClick={() => setShowPassword((value) => !value)}>
-              {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+        <div className="space-y-5 rounded-lg border bg-card p-6">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="text-base font-medium">{t("settings:proxy.http_title")}</div>
+              <div className="mt-1 text-xs text-muted-foreground">
+                {t("settings:proxy.http_desc")}
+              </div>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => void detectSystemProxy()}
+              disabled={detecting}
+            >
+              {detecting ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <RefreshCw className="size-4" />
+              )}
+              {t("settings:proxy.detect")}
             </Button>
           </div>
-        </label>
 
-        <div className="rounded-md bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-          {t("settings:proxy.current")}:<span className="font-mono text-foreground">{activeDisplay}</span>
-        </div>
-      </div>
+          <label className="block space-y-2">
+            <span className="text-sm font-medium">{t("settings:proxy.address")}</span>
+            <Input
+              value={draft.url}
+              onChange={(event) => patch({ url: event.target.value })}
+              placeholder={t("settings:proxy.address_ph")}
+            />
+          </label>
 
-      <div className="space-y-4 rounded-lg border bg-card p-6">
-        <div>
-          <div className="text-base font-medium">{t("settings:proxy.port_title")}</div>
-          <div className="mt-1 text-xs text-muted-foreground">
-            {t("settings:proxy.port_desc")}
+          <label className="block space-y-2">
+            <span className="text-sm font-medium">
+              {t("settings:proxy.username")}{" "}
+              <span className="text-xs font-normal text-muted-foreground">
+                {t("settings:proxy.optional")}
+              </span>
+            </span>
+            <Input
+              value={draft.username}
+              onChange={(event) => patch({ username: event.target.value })}
+              placeholder="proxy username"
+              autoComplete="off"
+            />
+          </label>
+
+          <label className="block space-y-2">
+            <span className="text-sm font-medium">
+              {t("settings:proxy.password")}{" "}
+              <span className="text-xs font-normal text-muted-foreground">
+                {t("settings:proxy.optional")}
+              </span>
+            </span>
+            <div className="flex gap-2">
+              <Input
+                type={showPassword ? "text" : "password"}
+                value={draft.password}
+                onChange={(event) => patch({ password: event.target.value })}
+                placeholder="proxy password"
+                autoComplete="off"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={() => setShowPassword((value) => !value)}
+              >
+                {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+              </Button>
+            </div>
+          </label>
+
+          <div className="rounded-md bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+            {t("settings:proxy.current")}:
+            <span className="font-mono text-foreground">{activeDisplay}</span>
           </div>
         </div>
-        <label className="block space-y-2">
-          <span className="text-sm font-medium">
-            {t("settings:proxy.port_number")} <span className="text-xs font-normal text-muted-foreground">{t("settings:proxy.port_number_hint")}</span>
-          </span>
-          <Input
-            type="number"
-            inputMode="numeric"
-            value={portDraft}
-            onChange={(event) => {
-              portDirtyRef.current = true;
-              setPortDraft(event.target.value);
-            }}
-            placeholder="8080"
-            min={1}
-            max={65535}
-            step={1}
-          />
-        </label>
-        <div className="rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
-          {t("settings:proxy.port_restart_note")}
+
+        <div className="space-y-4 rounded-lg border bg-card p-6">
+          <div>
+            <div className="text-base font-medium">{t("settings:proxy.port_title")}</div>
+            <div className="mt-1 text-xs text-muted-foreground">
+              {t("settings:proxy.port_desc")}
+            </div>
+          </div>
+          <label className="block space-y-2">
+            <span className="text-sm font-medium">
+              {t("settings:proxy.port_number")}{" "}
+              <span className="text-xs font-normal text-muted-foreground">
+                {t("settings:proxy.port_number_hint")}
+              </span>
+            </span>
+            <Input
+              type="number"
+              inputMode="numeric"
+              value={portDraft}
+              onChange={(event) => {
+                portDirtyRef.current = true;
+                setPortDraft(event.target.value);
+              }}
+              placeholder="8080"
+              min={1}
+              max={65535}
+              step={1}
+            />
+          </label>
+          <div className="rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
+            {t("settings:proxy.port_restart_note")}
+          </div>
         </div>
-      </div>
       </div>
     </>
   );
@@ -5940,22 +8330,58 @@ function AboutSection() {
   };
 
   const aboutRows = [
-    { key: "version", label: t("settings:about.version"), value: APP_VERSION, icon: Settings2, onClick: undefined, action: "update" as const },
-    { key: "system", label: t("settings:about.system"), value: systemSummary || "—", icon: Smartphone, onClick: undefined, action: undefined },
-    { key: "website", label: t("settings:about.website"), value: "https://rikkahub-desktop.pages.dev", icon: Globe, onClick: () => void openExternal("https://rikkahub-desktop.pages.dev/"), action: undefined },
-    { key: "github", label: "GitHub", value: "https://github.com/yuh-G/rikkahub-desktop", icon: Github, onClick: () => void openExternal("https://github.com/yuh-G/rikkahub-desktop/"), action: undefined },
-    { key: "license", label: "License", value: "https://github.com/yuh-G/rikkahub-desktop/blob/master/LICENSE", icon: FileClock, onClick: () => void openExternal("https://github.com/yuh-G/rikkahub-desktop/blob/master/LICENSE"), action: undefined },
+    {
+      key: "version",
+      label: t("settings:about.version"),
+      value: APP_VERSION,
+      icon: Settings2,
+      onClick: undefined,
+      action: "update" as const,
+    },
+    {
+      key: "system",
+      label: t("settings:about.system"),
+      value: systemSummary || "—",
+      icon: Smartphone,
+      onClick: undefined,
+      action: undefined,
+    },
+    {
+      key: "website",
+      label: t("settings:about.website"),
+      value: "https://rikkahub-desktop.pages.dev",
+      icon: Globe,
+      onClick: () => void openExternal("https://rikkahub-desktop.pages.dev/"),
+      action: undefined,
+    },
+    {
+      key: "github",
+      label: "GitHub",
+      value: "https://github.com/yuh-G/rikkahub-desktop",
+      icon: Github,
+      onClick: () => void openExternal("https://github.com/yuh-G/rikkahub-desktop/"),
+      action: undefined,
+    },
+    {
+      key: "license",
+      label: "License",
+      value: "https://github.com/yuh-G/rikkahub-desktop/blob/master/LICENSE",
+      icon: FileClock,
+      onClick: () =>
+        void openExternal("https://github.com/yuh-G/rikkahub-desktop/blob/master/LICENSE"),
+      action: undefined,
+    },
   ];
   return (
     <>
-      <SectionHeader icon={CheckCircle2} title={t("settings:about.title")} subtitle={t("settings:about.subtitle")} />
+      <SectionHeader
+        icon={CheckCircle2}
+        title={t("settings:about.title")}
+        subtitle={t("settings:about.subtitle")}
+      />
       <div className="space-y-6">
         <div className="flex flex-col items-center gap-3 rounded-lg border bg-card p-8 text-center">
-          <img
-            src="/app-icon.png"
-            alt="RikkaHub"
-            className="size-28 rounded-full shadow-sm"
-          />
+          <img src="/app-icon.png" alt="RikkaHub" className="size-28 rounded-full shadow-sm" />
           <div className="text-3xl font-semibold tracking-normal">RikkaHub</div>
         </div>
         <div className="rounded-lg border bg-card">
@@ -5975,10 +8401,17 @@ function AboutSection() {
                       variant="outline"
                       size="sm"
                       className="ml-2 shrink-0"
-                      onClick={(event) => { event.stopPropagation(); void checkForUpdate(); }}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        void checkForUpdate();
+                      }}
                       disabled={checking}
                     >
-                      {checking ? <Loader2 className="size-3.5 animate-spin" /> : <RefreshCw className="size-3.5" />}
+                      {checking ? (
+                        <Loader2 className="size-3.5 animate-spin" />
+                      ) : (
+                        <RefreshCw className="size-3.5" />
+                      )}
                       {t("settings:about.check_update")}
                     </Button>
                   ) : row.onClick ? (
@@ -5991,13 +8424,15 @@ function AboutSection() {
               <React.Fragment key={row.key}>
                 {index > 0 ? <Separator /> : null}
                 {row.onClick ? (
-                  <button type="button" className="flex w-full items-center justify-between gap-4 p-4 text-left transition hover:bg-accent/50" onClick={row.onClick}>
+                  <button
+                    type="button"
+                    className="flex w-full items-center justify-between gap-4 p-4 text-left transition hover:bg-accent/50"
+                    onClick={row.onClick}
+                  >
                     {content}
                   </button>
                 ) : (
-                  <div className="flex items-center justify-between gap-4 p-4">
-                    {content}
-                  </div>
+                  <div className="flex items-center justify-between gap-4 p-4">{content}</div>
                 )}
               </React.Fragment>
             );
@@ -6005,11 +8440,7 @@ function AboutSection() {
         </div>
       </div>
       {updateInfo && (
-        <UpdateDialog
-          info={updateInfo}
-          open={true}
-          onClose={() => setUpdateInfo(null)}
-        />
+        <UpdateDialog info={updateInfo} open={true} onClose={() => setUpdateInfo(null)} />
       )}
     </>
   );
@@ -6018,61 +8449,97 @@ function AboutSection() {
 function LogsSection({ logs }: { logs: RequestLog[] }) {
   const { t } = useTranslation();
   const [openId, setOpenId] = React.useState<string | null>(null);
-  const copyLogText = React.useCallback(async (event: React.MouseEvent, title: string, text: string) => {
-    event.stopPropagation();
-    if (!text) return;
-    await navigator.clipboard.writeText(text);
-    toast.success(t("settings:logs.copied", { title }));
-  }, [t]);
+  const copyLogText = React.useCallback(
+    async (event: React.MouseEvent, title: string, text: string) => {
+      event.stopPropagation();
+      if (!text) return;
+      await navigator.clipboard.writeText(text);
+      toast.success(t("settings:logs.copied", { title }));
+    },
+    [t],
+  );
   return (
     <>
-      <SectionHeader icon={FileClock} title={t("settings:logs.title")} subtitle={t("settings:logs.subtitle")} />
+      <SectionHeader
+        icon={FileClock}
+        title={t("settings:logs.title")}
+        subtitle={t("settings:logs.subtitle")}
+      />
       <div className="space-y-3">
-        {logs.length === 0 ? <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">{t("settings:logs.empty")}</div> : null}
+        {logs.length === 0 ? (
+          <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
+            {t("settings:logs.empty")}
+          </div>
+        ) : null}
         {logs.map((log) => {
           const open = openId === log.id;
           const requestText = log.requestBody || log.requestPreview || "";
           const responseText = log.responseBody || log.responsePreview || log.error || "";
           return (
-          <div
-            key={log.id}
-            role="button"
-            tabIndex={0}
-            className="block w-full select-text rounded-lg border bg-card p-4 text-left transition hover:shadow-sm"
-            onClick={() => setOpenId(open ? null : log.id)}
-            onKeyDown={(event) => {
-              if (event.key !== "Enter" && event.key !== " ") return;
-              event.preventDefault();
-              setOpenId(open ? null : log.id);
-            }}
-          >
-            <div className="flex items-center justify-between gap-3">
-              <div className="font-medium">{log.providerName}</div>
-              <span className={log.ok ? "text-xs text-emerald-600" : "text-xs text-destructive"}>{log.status}</span>
-            </div>
-            <div className="mt-1 truncate text-xs text-muted-foreground">{log.url}</div>
-            <div className="mt-1 text-xs text-muted-foreground">{new Date(log.at).toLocaleString()} · {log.kind ?? "request"} · {log.durationMs ?? 0}ms</div>
-            {log.error ? <pre className="mt-2 max-h-32 select-text overflow-auto rounded bg-muted p-2 text-xs whitespace-pre-wrap">{log.error}</pre> : null}
-            {open ? (
-              <div className="mt-3 grid gap-3 md:grid-cols-2">
-                <div>
-                  <div className="mb-1 flex items-center justify-between gap-2 text-xs font-medium text-muted-foreground">
-                    <span>Request</span>
-                    <button type="button" className="rounded px-1.5 py-0.5 hover:bg-muted" onClick={(event) => void copyLogText(event, "Request", requestText)}>{t("settings:logs.copy")}</button>
-                  </div>
-                  <pre className="max-h-[520px] select-text overflow-auto rounded bg-muted p-2 text-xs whitespace-pre-wrap">{requestText || t("settings:logs.no_request_body")}</pre>
-                </div>
-                <div>
-                  <div className="mb-1 flex items-center justify-between gap-2 text-xs font-medium text-muted-foreground">
-                    <span>Response</span>
-                    <button type="button" className="rounded px-1.5 py-0.5 hover:bg-muted" onClick={(event) => void copyLogText(event, "Response", responseText)}>{t("settings:logs.copy")}</button>
-                  </div>
-                  <pre className="max-h-[520px] select-text overflow-auto rounded bg-muted p-2 text-xs whitespace-pre-wrap">{responseText || t("settings:logs.no_response_body")}</pre>
-                </div>
+            <div
+              key={log.id}
+              role="button"
+              tabIndex={0}
+              className="block w-full select-text rounded-lg border bg-card p-4 text-left transition hover:shadow-sm"
+              onClick={() => setOpenId(open ? null : log.id)}
+              onKeyDown={(event) => {
+                if (event.key !== "Enter" && event.key !== " ") return;
+                event.preventDefault();
+                setOpenId(open ? null : log.id);
+              }}
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div className="font-medium">{log.providerName}</div>
+                <span className={log.ok ? "text-xs text-emerald-600" : "text-xs text-destructive"}>
+                  {log.status}
+                </span>
               </div>
-            ) : null}
-          </div>
-        );
+              <div className="mt-1 truncate text-xs text-muted-foreground">{log.url}</div>
+              <div className="mt-1 text-xs text-muted-foreground">
+                {new Date(log.at).toLocaleString()} · {log.kind ?? "request"} ·{" "}
+                {log.durationMs ?? 0}ms
+              </div>
+              {log.error ? (
+                <pre className="mt-2 max-h-32 select-text overflow-auto rounded bg-muted p-2 text-xs whitespace-pre-wrap">
+                  {log.error}
+                </pre>
+              ) : null}
+              {open ? (
+                <div className="mt-3 grid gap-3 md:grid-cols-2">
+                  <div>
+                    <div className="mb-1 flex items-center justify-between gap-2 text-xs font-medium text-muted-foreground">
+                      <span>Request</span>
+                      <button
+                        type="button"
+                        className="rounded px-1.5 py-0.5 hover:bg-muted"
+                        onClick={(event) => void copyLogText(event, "Request", requestText)}
+                      >
+                        {t("settings:logs.copy")}
+                      </button>
+                    </div>
+                    <pre className="max-h-[520px] select-text overflow-auto rounded bg-muted p-2 text-xs whitespace-pre-wrap">
+                      {requestText || t("settings:logs.no_request_body")}
+                    </pre>
+                  </div>
+                  <div>
+                    <div className="mb-1 flex items-center justify-between gap-2 text-xs font-medium text-muted-foreground">
+                      <span>Response</span>
+                      <button
+                        type="button"
+                        className="rounded px-1.5 py-0.5 hover:bg-muted"
+                        onClick={(event) => void copyLogText(event, "Response", responseText)}
+                      >
+                        {t("settings:logs.copy")}
+                      </button>
+                    </div>
+                    <pre className="max-h-[520px] select-text overflow-auto rounded bg-muted p-2 text-xs whitespace-pre-wrap">
+                      {responseText || t("settings:logs.no_response_body")}
+                    </pre>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          );
         })}
       </div>
     </>

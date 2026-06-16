@@ -94,7 +94,13 @@ function isKnownBuiltInSearchModel(model: ProviderModel | null): boolean {
   const id = model.modelId.toLowerCase();
   if (id.includes("gpt-")) return true;
   // Gemini family detection mirrors ModelRegistry.GEMINI_SERIES (token-based: "gemini" in id).
-  if (id === "gemini" || id.startsWith("gemini-") || id.includes("gemini-") || id.includes("gemini_")) return true;
+  if (
+    id === "gemini" ||
+    id.startsWith("gemini-") ||
+    id.includes("gemini-") ||
+    id.includes("gemini_")
+  )
+    return true;
   return false;
 }
 
@@ -143,7 +149,8 @@ export function SearchPickerButton({ disabled = false, className }: SearchPicker
   // the unverified provider's logo on the button is misleading: that service won't be used
   // during chat (isServiceUsable filters it out of the chat picker too). Fallback to the
   // generic Earth icon. Mirrors the chat picker's own usable-only filter.
-  const currentService = rawSelectedService && isServiceUsable(rawSelectedService) ? rawSelectedService : null;
+  const currentService =
+    rawSelectedService && isServiceUsable(rawSelectedService) ? rawSelectedService : null;
   const checked = searchEnabled || builtInSearchEnabled;
 
   React.useEffect(() => {
@@ -256,7 +263,10 @@ export function SearchPickerButton({ disabled = false, className }: SearchPicker
                 disabled={disabled || loading}
                 onCheckedChange={(nextChecked) => {
                   if (!canUse || !currentModel) return;
-                  toggleBuiltInSearchMutation.mutate({ modelId: currentModel.id, enabled: nextChecked });
+                  toggleBuiltInSearchMutation.mutate({
+                    modelId: currentModel.id,
+                    enabled: nextChecked,
+                  });
                 }}
               />
             </div>
@@ -268,98 +278,110 @@ export function SearchPickerButton({ disabled = false, className }: SearchPicker
               (the backend already uses built-in search when present and falls back to the
               external service otherwise, but Android hides the redundant settings entirely). */}
           {builtInSearchEnabled ? null : (
-          <div className="space-y-4">
-            <div className="flex items-center gap-3 rounded-lg border px-3 py-3">
-              <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted">
-                <Earth className="size-4" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="text-sm font-medium">{t("search.web_title")}</div>
-                <div className="text-muted-foreground text-xs">
-                  {searchEnabled
-                    ? t("search.status_enabled")
-                    : t("search.status_disabled")}
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 rounded-lg border px-3 py-3">
+                <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted">
+                  <Earth className="size-4" />
                 </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-medium">{t("search.web_title")}</div>
+                  <div className="text-muted-foreground text-xs">
+                    {searchEnabled ? t("search.status_enabled") : t("search.status_disabled")}
+                  </div>
+                </div>
+                <Switch
+                  checked={searchEnabled}
+                  disabled={disabled || loading}
+                  onCheckedChange={(nextChecked) => {
+                    if (!canUse) return;
+                    toggleSearchEnabledMutation.mutate({ enabled: nextChecked });
+                  }}
+                />
               </div>
-              <Switch
-                checked={searchEnabled}
-                disabled={disabled || loading}
-                onCheckedChange={(nextChecked) => {
-                  if (!canUse) return;
-                  toggleSearchEnabledMutation.mutate({ enabled: nextChecked });
-                }}
-              />
-            </div>
 
-            <ScrollArea className="h-[16rem] pr-3">
-              {settings?.searchServices?.length ? (() => {
-                const visibleServices = settings.searchServices
-                  .map((service, originalIndex) => ({ service, originalIndex }))
-                  .filter(({ service }) => isServiceUsable(service));
-                if (visibleServices.length === 0) {
-                  return (
-                    <div className="rounded-md border border-dashed px-3 py-8 text-center text-sm text-muted-foreground">
-                      没有可用的搜索服务。请前往设置 → 搜索服务，配置 API Key 并通过测试。
-                    </div>
-                  );
-                }
-                return (
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  {visibleServices.map(({ service, originalIndex }) => {
-                    const selected = originalIndex === settings.searchServiceSelected;
-                    const switching =
-                      selectServiceMutation.isPending &&
-                      selectServiceMutation.variables?.index === originalIndex;
-                    const type = getServiceType(service);
-                    const isPreset = type ? ALWAYS_AVAILABLE_TYPES.has(type) : false;
-                    const passed = isPreset || (service as Record<string, unknown>).testPassed === true;
-
-                    return (
-                      <button
-                        key={service.id}
-                        type="button"
-                        className={cn(
-                          "hover:bg-muted flex w-full items-center gap-3 rounded-lg border px-3 py-2 text-left transition",
-                          selected && "border-primary bg-primary/5",
-                        )}
-                        disabled={disabled || loading}
-                        onClick={() => {
-                          if (!canUse || !settings || originalIndex === settings.searchServiceSelected)
-                            return;
-                          selectServiceMutation.mutate({ index: originalIndex });
-                        }}
-                      >
-                        <AIIcon
-                          name={getServiceLabel(service, t)}
-                          size={20}
-                          className="bg-transparent"
-                          imageClassName="h-full w-full"
-                        />
-                        <div className="min-w-0 flex-1">
-                          <div className="truncate text-sm font-medium">
-                            {getServiceLabel(service, t)}
-                          </div>
-                          <div className="text-muted-foreground truncate text-xs">
-                            {type ?? t("search.unknown")}
-                          </div>
+              <ScrollArea className="h-[16rem] pr-3">
+                {settings?.searchServices?.length ? (
+                  (() => {
+                    const visibleServices = settings.searchServices
+                      .map((service, originalIndex) => ({ service, originalIndex }))
+                      .filter(({ service }) => isServiceUsable(service));
+                    if (visibleServices.length === 0) {
+                      return (
+                        <div className="rounded-md border border-dashed px-3 py-8 text-center text-sm text-muted-foreground">
+                          没有可用的搜索服务。请前往设置 → 搜索服务，配置 API Key 并通过测试。
                         </div>
-                        <span
-                          className={cn("size-2 shrink-0 rounded-full", passed ? "bg-emerald-500" : "bg-muted-foreground/40")}
-                          title={passed ? (isPreset ? "预置可用" : "已通过测试") : "未通过测试"}
-                        />
-                        {switching ? <LoaderCircle className="size-3.5 animate-spin" /> : null}
-                      </button>
+                      );
+                    }
+                    return (
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        {visibleServices.map(({ service, originalIndex }) => {
+                          const selected = originalIndex === settings.searchServiceSelected;
+                          const switching =
+                            selectServiceMutation.isPending &&
+                            selectServiceMutation.variables?.index === originalIndex;
+                          const type = getServiceType(service);
+                          const isPreset = type ? ALWAYS_AVAILABLE_TYPES.has(type) : false;
+                          const passed =
+                            isPreset || (service as Record<string, unknown>).testPassed === true;
+
+                          return (
+                            <button
+                              key={service.id}
+                              type="button"
+                              className={cn(
+                                "hover:bg-muted flex w-full items-center gap-3 rounded-lg border px-3 py-2 text-left transition",
+                                selected && "border-primary bg-primary/5",
+                              )}
+                              disabled={disabled || loading}
+                              onClick={() => {
+                                if (
+                                  !canUse ||
+                                  !settings ||
+                                  originalIndex === settings.searchServiceSelected
+                                )
+                                  return;
+                                selectServiceMutation.mutate({ index: originalIndex });
+                              }}
+                            >
+                              <AIIcon
+                                name={getServiceLabel(service, t)}
+                                size={20}
+                                className="bg-transparent"
+                                imageClassName="h-full w-full"
+                              />
+                              <div className="min-w-0 flex-1">
+                                <div className="truncate text-sm font-medium">
+                                  {getServiceLabel(service, t)}
+                                </div>
+                                <div className="text-muted-foreground truncate text-xs">
+                                  {type ?? t("search.unknown")}
+                                </div>
+                              </div>
+                              <span
+                                className={cn(
+                                  "size-2 shrink-0 rounded-full",
+                                  passed ? "bg-emerald-500" : "bg-muted-foreground/40",
+                                )}
+                                title={
+                                  passed ? (isPreset ? "预置可用" : "已通过测试") : "未通过测试"
+                                }
+                              />
+                              {switching ? (
+                                <LoaderCircle className="size-3.5 animate-spin" />
+                              ) : null}
+                            </button>
+                          );
+                        })}
+                      </div>
                     );
-                  })}
-                </div>
-                );
-              })() : (
-                <div className="rounded-md border border-dashed px-3 py-8 text-center text-sm text-muted-foreground">
-                  {t("search.empty")}
-                </div>
-              )}
-            </ScrollArea>
-          </div>
+                  })()
+                ) : (
+                  <div className="rounded-md border border-dashed px-3 py-8 text-center text-sm text-muted-foreground">
+                    {t("search.empty")}
+                  </div>
+                )}
+              </ScrollArea>
+            </div>
           )}
         </div>
       </PopoverContent>

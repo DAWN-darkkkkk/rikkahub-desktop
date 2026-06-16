@@ -44,7 +44,11 @@ import { toConversationSummaryUpdate, useConversationList } from "~/hooks/use-co
 import { useCurrentAssistant } from "~/hooks/use-current-assistant";
 import { useCurrentModel } from "~/hooks/use-current-model";
 import { getAssistantDisplayName, getModelDisplayName } from "~/lib/display";
-import { convertConversationToMarkdown, downloadMarkdown, safeMarkdownFilename } from "~/lib/export-markdown";
+import {
+  convertConversationToMarkdown,
+  downloadMarkdown,
+  safeMarkdownFilename,
+} from "~/lib/export-markdown";
 import { refreshSettingsStore } from "~/lib/settings-sync";
 import { cn } from "~/lib/utils";
 import api, { sse } from "~/services/api";
@@ -113,7 +117,13 @@ function ConversationSystemPromptButton({
 
   return (
     <div className="flex w-full flex-col items-center px-4 py-2">
-      <Button type="button" variant="ghost" size="sm" className="h-8 gap-1.5 text-xs" onClick={() => setExpanded((current) => !current)}>
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="h-8 gap-1.5 text-xs"
+        onClick={() => setExpanded((current) => !current)}
+      >
         <Pencil className="size-3.5" />
         <span>{hasCustomPrompt ? "会话系统提示词 ✎" : "会话系统提示词"}</span>
       </Button>
@@ -127,7 +137,13 @@ function ConversationSystemPromptButton({
           />
           <div className="flex justify-end gap-2">
             {hasCustomPrompt ? (
-              <Button type="button" variant="ghost" size="sm" disabled={saving} onClick={() => void save("")}>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={saving}
+                onClick={() => void save("")}
+              >
                 清除
               </Button>
             ) : null}
@@ -194,8 +210,11 @@ interface EditingSession {
 function ThemeToggleButton() {
   const { theme, setTheme } = useTheme();
   // Resolve "system" to a concrete light/dark, so the toggle always lands on the opposite mode.
-  const isDark = theme === "dark"
-    || (theme === "system" && typeof window !== "undefined" && window.matchMedia?.("(prefers-color-scheme: dark)").matches);
+  const isDark =
+    theme === "dark" ||
+    (theme === "system" &&
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-color-scheme: dark)").matches);
   return (
     <Button
       type="button"
@@ -421,13 +440,13 @@ function applyNodeUpdate(
     return conversation;
   }
 
-    if (targetIndex < nextNodes.length) {
-      nextNodes[targetIndex] = event.node;
-    } else if (targetIndex === nextNodes.length) {
-      nextNodes.push(event.node);
-    } else {
-      nextNodes.push(event.node);
-    }
+  if (targetIndex < nextNodes.length) {
+    nextNodes[targetIndex] = event.node;
+  } else if (targetIndex === nextNodes.length) {
+    nextNodes.push(event.node);
+  } else {
+    nextNodes.push(event.node);
+  }
 
   return {
     ...conversation,
@@ -478,7 +497,9 @@ function useConversationDetail(activeId: string | null, updateSummary: Conversat
         // Treat 404 as "no conversation yet" rather than a hard error. This commonly happens
         // right after creating a new conversation on the home page: setActiveId is set before
         // the first POST /messages completes, so the immediate GET races and 404s.
-        const status = (err as { status?: number }).status ?? (err as { response?: { status?: number } }).response?.status;
+        const status =
+          (err as { status?: number }).status ??
+          (err as { response?: { status?: number } }).response?.status;
         if (status === 404 || /Conversation not found/i.test(err.message ?? "")) {
           setDetail(null);
           setDetailError(null);
@@ -655,7 +676,16 @@ function useDraftInputController({
     setActiveId(conversationId);
     navigate(`/c/${conversationId}`);
     refreshList();
-  }, [activeId, clearDraft, draftKey, getSubmitParts, navigate, refreshList, setActiveId, setHomeDraftId]);
+  }, [
+    activeId,
+    clearDraft,
+    draftKey,
+    getSubmitParts,
+    navigate,
+    refreshList,
+    setActiveId,
+    setHomeDraftId,
+  ]);
 
   const replaceDraft = React.useCallback(
     (text: string, parts: UIMessagePart[]) => {
@@ -691,162 +721,186 @@ function useDraftInputController({
   };
 }
 
-const ConversationTimeline = React.memo(({
-  activeId,
-  isHomeRoute,
-  detailLoading,
-  detailError,
-  selectedNodeMessages,
-  isGenerating,
-  settings,
-  conversationAssistantId,
-  contentClassName,
-  onEdit,
-  onDelete,
-  onFork,
-  onRegenerate,
-  onSelectBranch,
-  onTranslate,
-  onToolApproval,
-}: {
-  activeId: string | null;
-  isHomeRoute: boolean;
-  detailLoading: boolean;
-  detailError: string | null;
-  selectedNodeMessages: SelectedNodeMessage[];
-  isGenerating: boolean;
-  settings: Settings | null;
-  conversationAssistantId: string | null;
-  contentClassName?: string;
-  onEdit: (message: MessageDto) => void | Promise<void>;
-  onDelete: (messageId: string) => Promise<void>;
-  onFork: (messageId: string) => Promise<void>;
-  onRegenerate: (messageId: string) => Promise<void>;
-  onSelectBranch: (nodeId: string, selectIndex: number) => Promise<void>;
-  onTranslate: (messageId: string) => Promise<void>;
-  onToolApproval: (toolCallId: string, approved: boolean, reason: string, answer?: string) => Promise<void>;
-}) => {
-  const { t } = useTranslation("page");
-  const canQuickJump =
-    Boolean(activeId) && !detailLoading && !detailError && selectedNodeMessages.length > 1;
-  const assistant = React.useMemo(() => {
-    if (!settings) return null;
-    return settings.assistants.find((item) => item.id === conversationAssistantId) ?? settings.assistants[0] ?? null;
-  }, [conversationAssistantId, settings]);
-  const modelById = React.useMemo(() => {
-    const map = new Map<string, ProviderModel>();
-    if (!settings) return map;
+const ConversationTimeline = React.memo(
+  ({
+    activeId,
+    isHomeRoute,
+    detailLoading,
+    detailError,
+    selectedNodeMessages,
+    isGenerating,
+    settings,
+    conversationAssistantId,
+    contentClassName,
+    onEdit,
+    onDelete,
+    onFork,
+    onRegenerate,
+    onSelectBranch,
+    onTranslate,
+    onToolApproval,
+  }: {
+    activeId: string | null;
+    isHomeRoute: boolean;
+    detailLoading: boolean;
+    detailError: string | null;
+    selectedNodeMessages: SelectedNodeMessage[];
+    isGenerating: boolean;
+    settings: Settings | null;
+    conversationAssistantId: string | null;
+    contentClassName?: string;
+    onEdit: (message: MessageDto) => void | Promise<void>;
+    onDelete: (messageId: string) => Promise<void>;
+    onFork: (messageId: string) => Promise<void>;
+    onRegenerate: (messageId: string) => Promise<void>;
+    onSelectBranch: (nodeId: string, selectIndex: number) => Promise<void>;
+    onTranslate: (messageId: string) => Promise<void>;
+    onToolApproval: (
+      toolCallId: string,
+      approved: boolean,
+      reason: string,
+      answer?: string,
+    ) => Promise<void>;
+  }) => {
+    const { t } = useTranslation("page");
+    const canQuickJump =
+      Boolean(activeId) && !detailLoading && !detailError && selectedNodeMessages.length > 1;
+    const assistant = React.useMemo(() => {
+      if (!settings) return null;
+      return (
+        settings.assistants.find((item) => item.id === conversationAssistantId) ??
+        settings.assistants[0] ??
+        null
+      );
+    }, [conversationAssistantId, settings]);
+    const modelById = React.useMemo(() => {
+      const map = new Map<string, ProviderModel>();
+      if (!settings) return map;
 
-    for (const provider of settings.providers) {
-      for (const model of provider.models) {
-        if (!map.has(model.id)) {
-          map.set(model.id, model);
+      for (const provider of settings.providers) {
+        for (const model of provider.models) {
+          if (!map.has(model.id)) {
+            map.set(model.id, model);
+          }
         }
       }
-    }
 
-    return map;
-  }, [settings]);
-  const fallbackModel = React.useMemo(() => {
-    if (!settings) return null;
-    const fallbackId = assistant?.chatModelId ?? settings.chatModelId;
-    return modelById.get(fallbackId) ?? settings.providers.flatMap((provider) => provider.models)[0] ?? null;
-  }, [assistant?.chatModelId, modelById, settings]);
-  const lastMessageId = selectedNodeMessages.at(-1)?.message.id ?? null;
+      return map;
+    }, [settings]);
+    const fallbackModel = React.useMemo(() => {
+      if (!settings) return null;
+      const fallbackId = assistant?.chatModelId ?? settings.chatModelId;
+      return (
+        modelById.get(fallbackId) ??
+        settings.providers.flatMap((provider) => provider.models)[0] ??
+        null
+      );
+    }, [assistant?.chatModelId, modelById, settings]);
+    const lastMessageId = selectedNodeMessages.at(-1)?.message.id ?? null;
 
-  React.useEffect(() => {
-    if (!activeId || detailLoading || detailError || !lastMessageId) return;
-    const frame = window.requestAnimationFrame(() => {
-      document
-        .getElementById(getConversationMessageAnchorId(lastMessageId))
-        ?.scrollIntoView({ block: "end", inline: "nearest" });
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [activeId, detailError, detailLoading, lastMessageId]);
+    React.useEffect(() => {
+      if (!activeId || detailLoading || detailError || !lastMessageId) return;
+      const frame = window.requestAnimationFrame(() => {
+        document
+          .getElementById(getConversationMessageAnchorId(lastMessageId))
+          ?.scrollIntoView({ block: "end", inline: "nearest" });
+      });
+      return () => window.cancelAnimationFrame(frame);
+    }, [activeId, detailError, detailLoading, lastMessageId]);
 
-  return (
-    <Conversation key={activeId ?? "home"} className="flex-1 min-h-0">
-      <ConversationAutoScroll conversationId={activeId} messageCount={selectedNodeMessages.length} />
-      <ConversationContent
-        className={cn("mx-auto w-full max-w-3xl gap-4 px-4 py-6", contentClassName)}
-      >
-        {!activeId && !isHomeRoute && (
-          <ConversationEmptyState
-            icon={<MessageSquare className="size-10" />}
-            title={t("conversations.empty_state.select_title")}
-            description={t("conversations.empty_state.select_description")}
-          />
-        )}
-        {activeId && detailLoading && (
-          <ConversationEmptyState
-            title={t("conversations.empty_state.loading_title")}
-            description={t("conversations.empty_state.loading_description")}
-          />
-        )}
-        {activeId && detailError && (
-          <ConversationEmptyState
-            title={t("conversations.empty_state.error_title")}
-            description={detailError}
-          />
-        )}
-        {!detailLoading && !detailError && activeId && selectedNodeMessages.length === 0 && (
-          <ConversationEmptyState
-            icon={<MessageSquare className="size-10" />}
-            title={t("conversations.empty_state.no_message_title")}
-            description={t("conversations.empty_state.no_message_description")}
-          />
-        )}
-        {!detailLoading &&
-          !detailError &&
-          activeId &&
-          selectedNodeMessages.map(({ node, message }, index) => {
-            const model = message.modelId ? (modelById.get(message.modelId) ?? fallbackModel) : fallbackModel;
-
-            return (
-              <div
-                key={message.id}
-                id={getConversationMessageAnchorId(message.id)}
-                className="scroll-mt-24"
-              >
-                <ChatMessage
-                  node={node}
-                  message={message}
-                  loading={isGenerating && index === selectedNodeMessages.length - 1}
-                  isLastMessage={index === selectedNodeMessages.length - 1}
-                  assistant={assistant}
-                  model={model}
-                  onEdit={onEdit}
-                  onDelete={onDelete}
-                  onFork={onFork}
-                  onRegenerate={onRegenerate}
-                  onSelectBranch={onSelectBranch}
-                  onTranslate={onTranslate}
-                  onToolApproval={onToolApproval}
-                />
-              </div>
-            );
-          })}
-        {!detailLoading && !detailError && activeId && isGenerating && selectedNodeMessages.length === 0 && (
-          <div className="flex items-start py-2">
-            <TypingIndicator className="px-1 py-2" />
-          </div>
-        )}
-      </ConversationContent>
-
-      {canQuickJump ? (
-        <ConversationQuickJump
-          items={selectedNodeMessages.map(({ message }) => ({
-            id: message.id,
-            role: message.role,
-            preview: getQuickJumpPreview(message, t),
-          }))}
+    return (
+      <Conversation key={activeId ?? "home"} className="flex-1 min-h-0">
+        <ConversationAutoScroll
+          conversationId={activeId}
+          messageCount={selectedNodeMessages.length}
         />
-      ) : null}
+        <ConversationContent
+          className={cn("mx-auto w-full max-w-3xl gap-4 px-4 py-6", contentClassName)}
+        >
+          {!activeId && !isHomeRoute && (
+            <ConversationEmptyState
+              icon={<MessageSquare className="size-10" />}
+              title={t("conversations.empty_state.select_title")}
+              description={t("conversations.empty_state.select_description")}
+            />
+          )}
+          {activeId && detailLoading && (
+            <ConversationEmptyState
+              title={t("conversations.empty_state.loading_title")}
+              description={t("conversations.empty_state.loading_description")}
+            />
+          )}
+          {activeId && detailError && (
+            <ConversationEmptyState
+              title={t("conversations.empty_state.error_title")}
+              description={detailError}
+            />
+          )}
+          {!detailLoading && !detailError && activeId && selectedNodeMessages.length === 0 && (
+            <ConversationEmptyState
+              icon={<MessageSquare className="size-10" />}
+              title={t("conversations.empty_state.no_message_title")}
+              description={t("conversations.empty_state.no_message_description")}
+            />
+          )}
+          {!detailLoading &&
+            !detailError &&
+            activeId &&
+            selectedNodeMessages.map(({ node, message }, index) => {
+              const model = message.modelId
+                ? (modelById.get(message.modelId) ?? fallbackModel)
+                : fallbackModel;
 
-      <ConversationScrollButton />
-    </Conversation>
-  );
-});
+              return (
+                <div
+                  key={message.id}
+                  id={getConversationMessageAnchorId(message.id)}
+                  className="scroll-mt-24"
+                >
+                  <ChatMessage
+                    node={node}
+                    message={message}
+                    loading={isGenerating && index === selectedNodeMessages.length - 1}
+                    isLastMessage={index === selectedNodeMessages.length - 1}
+                    assistant={assistant}
+                    model={model}
+                    onEdit={onEdit}
+                    onDelete={onDelete}
+                    onFork={onFork}
+                    onRegenerate={onRegenerate}
+                    onSelectBranch={onSelectBranch}
+                    onTranslate={onTranslate}
+                    onToolApproval={onToolApproval}
+                  />
+                </div>
+              );
+            })}
+          {!detailLoading &&
+            !detailError &&
+            activeId &&
+            isGenerating &&
+            selectedNodeMessages.length === 0 && (
+              <div className="flex items-start py-2">
+                <TypingIndicator className="px-1 py-2" />
+              </div>
+            )}
+        </ConversationContent>
+
+        {canQuickJump ? (
+          <ConversationQuickJump
+            items={selectedNodeMessages.map(({ message }) => ({
+              id: message.id,
+              role: message.role,
+              preview: getQuickJumpPreview(message, t),
+            }))}
+          />
+        ) : null}
+
+        <ConversationScrollButton />
+      </Conversation>
+    );
+  },
+);
 
 export function meta() {
   return [
@@ -897,9 +951,11 @@ function ConversationsPageInner() {
   const [compressKeepRecent, setCompressKeepRecent] = React.useState(32);
   const [compressAdditionalPrompt, setCompressAdditionalPrompt] = React.useState("");
   const [compressing, setCompressing] = React.useState(false);
-  const [translationDialogMessageId, setTranslationDialogMessageId] = React.useState<string | null>(null);
+  const [translationDialogMessageId, setTranslationDialogMessageId] = React.useState<string | null>(
+    null,
+  );
   const [translationLanguage, setTranslationLanguage] = React.useState(() =>
-    i18n.language?.startsWith("zh") ? "zh-CN" : (navigator.language || "en-US"),
+    i18n.language?.startsWith("zh") ? "zh-CN" : navigator.language || "en-US",
   );
   const [translatingMessage, setTranslatingMessage] = React.useState(false);
   const [systemPromptDialogOpen, setSystemPromptDialogOpen] = React.useState(false);
@@ -932,16 +988,34 @@ function ConversationsPageInner() {
   const activeConversation = conversations.find((item) => item.id === activeId);
   const chatSuggestions = detail?.chatSuggestions ?? EMPTY_SUGGESTIONS;
   const activeAssistantForConversation = React.useMemo(() => {
-    const assistantId = detail?.assistantId ?? activeConversation?.assistantId ?? currentAssistantId;
-    return settings?.assistants.find((assistant) => assistant.id === assistantId) ?? currentAssistant ?? null;
-  }, [activeConversation?.assistantId, currentAssistant, currentAssistantId, detail?.assistantId, settings]);
+    const assistantId =
+      detail?.assistantId ?? activeConversation?.assistantId ?? currentAssistantId;
+    return (
+      settings?.assistants.find((assistant) => assistant.id === assistantId) ??
+      currentAssistant ??
+      null
+    );
+  }, [
+    activeConversation?.assistantId,
+    currentAssistant,
+    currentAssistantId,
+    detail?.assistantId,
+    settings,
+  ]);
   const canOverrideConversationSystemPrompt =
     activeAssistantForConversation?.allowConversationSystemPrompt === true;
 
   React.useEffect(() => {
     if (!systemPromptDialogOpen) return;
-    setSystemPromptDraft(detail?.systemPrompt ?? activeAssistantForConversation?.systemPrompt ?? "");
-  }, [activeAssistantForConversation?.allowConversationSystemPrompt, activeAssistantForConversation?.systemPrompt, detail?.systemPrompt, systemPromptDialogOpen]);
+    setSystemPromptDraft(
+      detail?.systemPrompt ?? activeAssistantForConversation?.systemPrompt ?? "",
+    );
+  }, [
+    activeAssistantForConversation?.allowConversationSystemPrompt,
+    activeAssistantForConversation?.systemPrompt,
+    detail?.systemPrompt,
+    systemPromptDialogOpen,
+  ]);
 
   React.useEffect(() => {
     const base = t("conversations.meta.title");
@@ -1041,12 +1115,9 @@ function ConversationsPageInner() {
     [activeId, navigate, refreshList, setActiveId],
   );
 
-  const handleTranslateMessage = React.useCallback(
-    async (messageId: string) => {
-      setTranslationDialogMessageId(messageId);
-    },
-    [],
-  );
+  const handleTranslateMessage = React.useCallback(async (messageId: string) => {
+    setTranslationDialogMessageId(messageId);
+  }, []);
 
   const handleConfirmTranslateMessage = React.useCallback(async () => {
     if (!activeId || !translationDialogMessageId) return;
@@ -1120,7 +1191,14 @@ function ConversationsPageInner() {
 
     setEditingSession(null);
     clearCurrentDraft();
-  }, [activeId, clearCurrentDraft, editingSession, getCurrentSubmitParts, handleSubmit, refreshList]);
+  }, [
+    activeId,
+    clearCurrentDraft,
+    editingSession,
+    getCurrentSubmitParts,
+    handleSubmit,
+    refreshList,
+  ]);
 
   const handleTogglePinConversation = React.useCallback(
     async (conversationId: string) => {
@@ -1132,7 +1210,11 @@ function ConversationsPageInner() {
 
   const handleRegenerateConversationTitle = React.useCallback(
     async (conversationId: string) => {
-      await api.post<{ status: string }>(`conversations/${conversationId}/regenerate-title`, undefined, { timeout: false });
+      await api.post<{ status: string }>(
+        `conversations/${conversationId}/regenerate-title`,
+        undefined,
+        { timeout: false },
+      );
       if (conversationId === activeId) {
         refreshDetail();
       }
@@ -1231,11 +1313,15 @@ function ConversationsPageInner() {
     if (!activeId) return;
     setCompressing(true);
     try {
-      await api.post<{ status: string }>(`conversations/${activeId}/compress`, {
-        targetTokens: compressTargetTokens,
-        additionalPrompt: compressAdditionalPrompt,
-        keepRecentMessages: compressKeepRecent,
-      }, { timeout: false });
+      await api.post<{ status: string }>(
+        `conversations/${activeId}/compress`,
+        {
+          targetTokens: compressTargetTokens,
+          additionalPrompt: compressAdditionalPrompt,
+          keepRecentMessages: compressKeepRecent,
+        },
+        { timeout: false },
+      );
       setCompressDialogOpen(false);
       await refreshDetail();
       refreshList();
@@ -1245,7 +1331,14 @@ function ConversationsPageInner() {
     } finally {
       setCompressing(false);
     }
-  }, [activeId, compressAdditionalPrompt, compressKeepRecent, compressTargetTokens, refreshDetail, refreshList]);
+  }, [
+    activeId,
+    compressAdditionalPrompt,
+    compressKeepRecent,
+    compressTargetTokens,
+    refreshDetail,
+    refreshList,
+  ]);
 
   const handleCreateConversation = React.useCallback(() => {
     closePanel();
@@ -1272,18 +1365,33 @@ function ConversationsPageInner() {
     refreshDetail();
     refreshList();
     toast.success("会话系统提示词已保存");
-  }, [activeAssistantForConversation?.allowConversationSystemPrompt, activeId, refreshDetail, refreshList, systemPromptDraft]);
+  }, [
+    activeAssistantForConversation?.allowConversationSystemPrompt,
+    activeId,
+    refreshDetail,
+    refreshList,
+    systemPromptDraft,
+  ]);
 
-  const handleSaveConversationSystemPromptValue = React.useCallback(async (systemPrompt: string) => {
-    if (!activeId || activeAssistantForConversation?.allowConversationSystemPrompt !== true) return;
-    await api.post<{ status: string }>(`conversations/${activeId}/system-prompt`, {
-      systemPrompt,
-    });
-    setSystemPromptDraft(systemPrompt);
-    refreshDetail();
-    refreshList();
-    toast.success("会话系统提示词已保存");
-  }, [activeAssistantForConversation?.allowConversationSystemPrompt, activeId, refreshDetail, refreshList]);
+  const handleSaveConversationSystemPromptValue = React.useCallback(
+    async (systemPrompt: string) => {
+      if (!activeId || activeAssistantForConversation?.allowConversationSystemPrompt !== true)
+        return;
+      await api.post<{ status: string }>(`conversations/${activeId}/system-prompt`, {
+        systemPrompt,
+      });
+      setSystemPromptDraft(systemPrompt);
+      refreshDetail();
+      refreshList();
+      toast.success("会话系统提示词已保存");
+    },
+    [
+      activeAssistantForConversation?.allowConversationSystemPrompt,
+      activeId,
+      refreshDetail,
+      refreshList,
+    ],
+  );
 
   const hasWorkbenchPanel = Boolean(panel);
   const workbenchPanelRef = React.useRef<PanelImperativeHandle | null>(null);
@@ -1308,7 +1416,10 @@ function ConversationsPageInner() {
       {!isNewChat && (
         <>
           {canOverrideConversationSystemPrompt && detail ? (
-            <ConversationSystemPromptButton value={detail.systemPrompt} onSave={handleSaveConversationSystemPromptValue} />
+            <ConversationSystemPromptButton
+              value={detail.systemPrompt}
+              onSave={handleSaveConversationSystemPromptValue}
+            />
           ) : null}
           <div className="relative flex min-h-0 flex-1">
             <ConversationTimeline
@@ -1337,7 +1448,7 @@ function ConversationsPageInner() {
           <div className="mb-4 text-center">
             <div className="mb-3 flex justify-center">
               <div className="[&>svg]:size-16">
-                <Logo className="size-16 text-primary"/>
+                <Logo className="size-16 text-primary" />
               </div>
             </div>
             <p className="text-lg text-muted-foreground">{t("conversations.welcome_prompt")}</p>
@@ -1371,7 +1482,9 @@ function ConversationsPageInner() {
                 }
               : undefined
           }
-          onCompressConversation={detail && detail.messages.length > 0 ? handleCompressConversation : undefined}
+          onCompressConversation={
+            detail && detail.messages.length > 0 ? handleCompressConversation : undefined
+          }
           getOptimizeContext={getOptimizeContext}
         />
       </div>
@@ -1486,7 +1599,10 @@ function ConversationsPageInner() {
         ) : null}
       </SidebarInset>
 
-      <Dialog open={compressDialogOpen} onOpenChange={(open) => !compressing && setCompressDialogOpen(open)}>
+      <Dialog
+        open={compressDialogOpen}
+        onOpenChange={(open) => !compressing && setCompressDialogOpen(open)}
+      >
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>压缩对话历史</DialogTitle>
@@ -1513,7 +1629,9 @@ function ConversationsPageInner() {
                 type="number"
                 min={256}
                 value={compressTargetTokens}
-                onChange={(event) => setCompressTargetTokens(Math.max(256, Number(event.target.value) || 2000))}
+                onChange={(event) =>
+                  setCompressTargetTokens(Math.max(256, Number(event.target.value) || 2000))
+                }
               />
             </div>
             <div className="space-y-2">
@@ -1542,10 +1660,19 @@ function ConversationsPageInner() {
             </label>
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" disabled={compressing} onClick={() => setCompressDialogOpen(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={compressing}
+              onClick={() => setCompressDialogOpen(false)}
+            >
               取消
             </Button>
-            <Button type="button" disabled={compressing} onClick={() => void handleConfirmCompressConversation()}>
+            <Button
+              type="button"
+              disabled={compressing}
+              onClick={() => void handleConfirmCompressConversation()}
+            >
               {compressing ? <Loader2 className="size-4 animate-spin" /> : null}
               开始压缩
             </Button>
@@ -1561,9 +1688,7 @@ function ConversationsPageInner() {
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>选择翻译语言</DialogTitle>
-            <DialogDescription>
-              译文会保存在当前回复下方，不会进入下一轮上下文。
-            </DialogDescription>
+            <DialogDescription>译文会保存在当前回复下方，不会进入下一轮上下文。</DialogDescription>
           </DialogHeader>
           <Select value={translationLanguage} onValueChange={setTranslationLanguage}>
             <SelectTrigger>
@@ -1578,10 +1703,19 @@ function ConversationsPageInner() {
             </SelectContent>
           </Select>
           <DialogFooter>
-            <Button type="button" variant="outline" disabled={translatingMessage} onClick={() => setTranslationDialogMessageId(null)}>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={translatingMessage}
+              onClick={() => setTranslationDialogMessageId(null)}
+            >
               取消
             </Button>
-            <Button type="button" disabled={translatingMessage} onClick={() => void handleConfirmTranslateMessage()}>
+            <Button
+              type="button"
+              disabled={translatingMessage}
+              onClick={() => void handleConfirmTranslateMessage()}
+            >
               {translatingMessage ? <Loader2 className="size-4 animate-spin" /> : null}
               翻译
             </Button>

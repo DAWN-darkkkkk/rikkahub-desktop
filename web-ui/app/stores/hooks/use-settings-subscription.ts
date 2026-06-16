@@ -16,11 +16,14 @@ export function useSettingsSubscription() {
     let closed = false;
 
     const refreshSettings = () => {
-      api.get<Settings>("settings").then((settings) => {
-        if (!closed) setSettings(settings);
-      }).catch((error) => {
-        console.error("Settings refresh error:", error);
-      });
+      api
+        .get<Settings>("settings")
+        .then((settings) => {
+          if (!closed) setSettings(settings);
+        })
+        .catch((error) => {
+          console.error("Settings refresh error:", error);
+        });
     };
 
     refreshSettings();

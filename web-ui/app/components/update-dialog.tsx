@@ -42,7 +42,9 @@ export function UpdateDialog({ info, open, onClose }: UpdateDialogProps) {
   const [downloadProgress, setDownloadProgress] = React.useState(0);
   const [downloadedBytes, setDownloadedBytes] = React.useState(0);
   const [totalBytes, setTotalBytes] = React.useState(0);
-  const [installerPath, setInstallerPath] = React.useState<string | null>(info.cachedInstallerPath ?? null);
+  const [installerPath, setInstallerPath] = React.useState<string | null>(
+    info.cachedInstallerPath ?? null,
+  );
   const [installerCached, setInstallerCached] = React.useState(!!info.cachedInstallerPath);
   const [installerLaunching, setInstallerLaunching] = React.useState(false);
 
@@ -72,32 +74,40 @@ export function UpdateDialog({ info, open, onClose }: UpdateDialogProps) {
     setDownloadedBytes(0);
     setTotalBytes(0);
     try {
-      const result = await new Promise<{ status: string; path: string; size: number }>((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open("POST", appendWebAuthQuery("/api/update/download"));
-        xhr.setRequestHeader("Content-Type", "application/json");
-        xhr.responseType = "json";
-        xhr.timeout = 0;
-        xhr.onprogress = (event) => {
-          if (event.lengthComputable && event.total > 0) {
-            setTotalBytes(event.total);
-            setDownloadedBytes(event.loaded);
-            setDownloadProgress(Math.round((event.loaded / event.total) * 100));
-          } else {
-            setDownloadedBytes(event.loaded);
-          }
-        };
-        xhr.onload = () => {
-          if (xhr.status >= 200 && xhr.status < 300 && xhr.response) {
-            resolve(xhr.response as { status: string; path: string; size: number });
-          } else {
-            reject(new Error(typeof xhr.response?.error === "string" ? xhr.response.error : `HTTP ${xhr.status}`));
-          }
-        };
-        xhr.onerror = () => reject(new Error("网络错误，无法连接后端"));
-        xhr.ontimeout = () => reject(new Error("下载超时"));
-        xhr.send(JSON.stringify({ url: info.downloadUrl, fileName: info.fileName }));
-      });
+      const result = await new Promise<{ status: string; path: string; size: number }>(
+        (resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open("POST", appendWebAuthQuery("/api/update/download"));
+          xhr.setRequestHeader("Content-Type", "application/json");
+          xhr.responseType = "json";
+          xhr.timeout = 0;
+          xhr.onprogress = (event) => {
+            if (event.lengthComputable && event.total > 0) {
+              setTotalBytes(event.total);
+              setDownloadedBytes(event.loaded);
+              setDownloadProgress(Math.round((event.loaded / event.total) * 100));
+            } else {
+              setDownloadedBytes(event.loaded);
+            }
+          };
+          xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300 && xhr.response) {
+              resolve(xhr.response as { status: string; path: string; size: number });
+            } else {
+              reject(
+                new Error(
+                  typeof xhr.response?.error === "string"
+                    ? xhr.response.error
+                    : `HTTP ${xhr.status}`,
+                ),
+              );
+            }
+          };
+          xhr.onerror = () => reject(new Error("网络错误，无法连接后端"));
+          xhr.ontimeout = () => reject(new Error("下载超时"));
+          xhr.send(JSON.stringify({ url: info.downloadUrl, fileName: info.fileName }));
+        },
+      );
       setInstallerPath(result.path);
       setInstallerCached(false);
       setDownloadProgress(100);
@@ -122,7 +132,8 @@ export function UpdateDialog({ info, open, onClose }: UpdateDialogProps) {
       const { exit } = await import("@tauri-apps/plugin-process");
       await exit(0);
     } catch (err) {
-      const message = err instanceof Error ? err.message : (typeof err === "string" ? err : "启动安装程序失败");
+      const message =
+        err instanceof Error ? err.message : typeof err === "string" ? err : "启动安装程序失败";
       toast.error(`启动安装程序失败：${message}`);
       setInstallerLaunching(false);
     }
@@ -146,12 +157,15 @@ export function UpdateDialog({ info, open, onClose }: UpdateDialogProps) {
   };
 
   return (
-    <Dialog open={open} onOpenChange={(o) => { if (!o) handleClose(); }}>
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        if (!o) handleClose();
+      }}
+    >
       <DialogContent className="max-w-xl">
         <DialogHeader>
-          <DialogTitle>
-            {info.isNewer ? "发现新版本" : "当前已是最新版本"}
-          </DialogTitle>
+          <DialogTitle>{info.isNewer ? "发现新版本" : "当前已是最新版本"}</DialogTitle>
           <DialogDescription>
             {info.isNewer
               ? `当前版本 ${info.current} → 最新版本 ${info.latest}`
@@ -161,13 +175,17 @@ export function UpdateDialog({ info, open, onClose }: UpdateDialogProps) {
         {info.notes ? (
           <div className="rounded-md border bg-muted/30 p-3">
             <div className="mb-1 text-xs font-medium text-muted-foreground">更新说明</div>
-            <pre className="max-h-64 overflow-auto whitespace-pre-wrap text-xs text-muted-foreground">{info.notes}</pre>
+            <pre className="max-h-64 overflow-auto whitespace-pre-wrap text-xs text-muted-foreground">
+              {info.notes}
+            </pre>
           </div>
         ) : null}
         {info.containerized ? (
           <div className="rounded-md border border-amber-500/40 bg-amber-500/5 p-3 text-xs text-amber-700 dark:text-amber-300">
             检测到容器化部署，无法在应用内自动更新。请运行
-            <code className="mx-0.5 rounded bg-amber-500/10 px-1 py-0.5 font-mono">docker pull</code>
+            <code className="mx-0.5 rounded bg-amber-500/10 px-1 py-0.5 font-mono">
+              docker pull
+            </code>
             拉取最新镜像后重建容器。
           </div>
         ) : null}
@@ -177,7 +195,8 @@ export function UpdateDialog({ info, open, onClose }: UpdateDialogProps) {
               <span>{downloadProgress > 0 ? `正在更新 · ${downloadProgress}%` : "正在更新…"}</span>
               {totalBytes > 0 ? (
                 <span className="font-mono">
-                  {(downloadedBytes / (1024 * 1024)).toFixed(1)} / {(totalBytes / (1024 * 1024)).toFixed(1)} MB
+                  {(downloadedBytes / (1024 * 1024)).toFixed(1)} /{" "}
+                  {(totalBytes / (1024 * 1024)).toFixed(1)} MB
                 </span>
               ) : downloadedBytes > 0 ? (
                 <span className="font-mono">{(downloadedBytes / (1024 * 1024)).toFixed(1)} MB</span>
@@ -197,10 +216,15 @@ export function UpdateDialog({ info, open, onClose }: UpdateDialogProps) {
         {installerPath ? (
           <div className="rounded-md border border-emerald-500/30 bg-emerald-500/5 p-3 text-xs text-emerald-700 dark:text-emerald-300">
             {info.platform === "linux" ? (
-              <>✅ 新版本已下载就绪（含二进制与前端）。点击下方按钮应用更新，应用后需手动重启 Rikkahub 生效。数据目录与配置不受影响。</>
+              <>
+                ✅ 新版本已下载就绪（含二进制与前端）。点击下方按钮应用更新，应用后需手动重启
+                Rikkahub 生效。数据目录与配置不受影响。
+              </>
             ) : (
               <>
-                {installerCached ? "✅ 更新包已就绪：" : "更新包已下载完成，点击下方按钮重启并更新："}
+                {installerCached
+                  ? "✅ 更新包已就绪："
+                  : "更新包已下载完成，点击下方按钮重启并更新："}
                 <code className="ml-1 break-all font-mono">{installerPath}</code>
                 <br />
                 安装过程会自动保留你的数据目录和配置。
@@ -215,10 +239,19 @@ export function UpdateDialog({ info, open, onClose }: UpdateDialogProps) {
             </Button>
           ) : info.containerized ? (
             <>
-              <Button type="button" variant="outline" className="mr-auto" onClick={() => void skipThisVersion()}>
+              <Button
+                type="button"
+                variant="outline"
+                className="mr-auto"
+                onClick={() => void skipThisVersion()}
+              >
                 忽略此版本
               </Button>
-              <Button type="button" variant="outline" onClick={() => info.htmlUrl && window.open(info.htmlUrl, "_blank")}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => info.htmlUrl && window.open(info.htmlUrl, "_blank")}
+              >
                 查看 Release
               </Button>
               <Button type="button" onClick={handleClose}>
@@ -227,23 +260,45 @@ export function UpdateDialog({ info, open, onClose }: UpdateDialogProps) {
             </>
           ) : !info.downloadUrl ? (
             <>
-              <Button type="button" variant="outline" className="mr-auto" onClick={() => void skipThisVersion()}>
+              <Button
+                type="button"
+                variant="outline"
+                className="mr-auto"
+                onClick={() => void skipThisVersion()}
+              >
                 忽略此版本
               </Button>
-              <Button type="button" onClick={() => info.htmlUrl && window.open(info.htmlUrl, "_blank")}>
+              <Button
+                type="button"
+                onClick={() => info.htmlUrl && window.open(info.htmlUrl, "_blank")}
+              >
                 前往 GitHub 下载
               </Button>
             </>
           ) : !installerPath ? (
             <>
-              <Button type="button" variant="outline" className="mr-auto" onClick={() => void skipThisVersion()} disabled={downloading}>
+              <Button
+                type="button"
+                variant="outline"
+                className="mr-auto"
+                onClick={() => void skipThisVersion()}
+                disabled={downloading}
+              >
                 忽略此版本
               </Button>
               <Button type="button" variant="outline" onClick={handleClose} disabled={downloading}>
                 稍后再说
               </Button>
-              <Button type="button" onClick={() => void downloadAndInstall()} disabled={downloading || !info.downloadUrl}>
-                {downloading ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
+              <Button
+                type="button"
+                onClick={() => void downloadAndInstall()}
+                disabled={downloading || !info.downloadUrl}
+              >
+                {downloading ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Download className="size-4" />
+                )}
                 {downloading ? "正在更新…" : "立即更新"}
               </Button>
             </>
@@ -252,7 +307,11 @@ export function UpdateDialog({ info, open, onClose }: UpdateDialogProps) {
               <Button type="button" variant="outline" onClick={handleClose}>
                 稍后重启
               </Button>
-              <Button type="button" onClick={() => void applyUpdate()} disabled={installerLaunching}>
+              <Button
+                type="button"
+                onClick={() => void applyUpdate()}
+                disabled={installerLaunching}
+              >
                 {installerLaunching ? <Loader2 className="size-4 animate-spin" /> : null}
                 应用并重启
               </Button>
@@ -262,7 +321,11 @@ export function UpdateDialog({ info, open, onClose }: UpdateDialogProps) {
               <Button type="button" variant="outline" onClick={handleClose}>
                 稍后再更新
               </Button>
-              <Button type="button" onClick={() => void launchAndExit()} disabled={installerLaunching}>
+              <Button
+                type="button"
+                onClick={() => void launchAndExit()}
+                disabled={installerLaunching}
+              >
                 {installerLaunching ? <Loader2 className="size-4 animate-spin" /> : null}
                 重启并更新
               </Button>

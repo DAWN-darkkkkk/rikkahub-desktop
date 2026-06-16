@@ -59,7 +59,12 @@ function getAbilityLabel(ability: ModelAbility, t: TFunction): string {
 
 function isBalanceEnabled(provider: Record<string, unknown>): boolean {
   const option = provider.balanceOption;
-  return Boolean(option && typeof option === "object" && !Array.isArray(option) && (option as { enabled?: unknown }).enabled === true);
+  return Boolean(
+    option &&
+    typeof option === "object" &&
+    !Array.isArray(option) &&
+    (option as { enabled?: unknown }).enabled === true,
+  );
 }
 
 function balanceText(value: BalanceState | undefined): string {
@@ -233,7 +238,10 @@ export function ModelList({ disabled = false, className, onChanged }: ModelListP
 
     return sections.find((section) => section.providerId === selectedProviderId) ?? sections[0];
   }, [sections, selectedProviderId]);
-  const filteredModels = React.useMemo(() => sections.flatMap((section) => section.models), [sections]);
+  const filteredModels = React.useMemo(
+    () => sections.flatMap((section) => section.models),
+    [sections],
+  );
 
   const favoriteModels = React.useMemo(() => {
     return favoriteModelIds
@@ -241,9 +249,13 @@ export function ModelList({ disabled = false, className, onChanged }: ModelListP
       .filter((model): model is ProviderModel => model !== undefined);
   }, [favoriteModelIds, filteredModels]);
   const isFavoriteSectionSelected = selectedProviderId === FAVORITE_SECTION_ID;
-  const displayedModels = isFavoriteSectionSelected ? favoriteModels : (selectedSection?.models ?? []);
+  const displayedModels = isFavoriteSectionSelected
+    ? favoriteModels
+    : (selectedSection?.models ?? []);
   const selectedBalanceState = selectedSection ? balances[selectedSection.providerId] : undefined;
-  const selectedBalanceText = selectedSection?.balanceEnabled ? balanceText(selectedBalanceState) : "-";
+  const selectedBalanceText = selectedSection?.balanceEnabled
+    ? balanceText(selectedBalanceState)
+    : "-";
 
   const currentModel = React.useMemo(
     () => allModels.find((model) => model.id === currentModelId) ?? null,
@@ -263,18 +275,26 @@ export function ModelList({ disabled = false, className, onChanged }: ModelListP
 
   React.useEffect(() => {
     if (!open || !settings) return;
-    const providersToQuery = settings.providers.filter((provider) =>
-      provider.enabled &&
-      isBalanceEnabled(provider as unknown as Record<string, unknown>) &&
-      !balances[provider.id]
+    const providersToQuery = settings.providers.filter(
+      (provider) =>
+        provider.enabled &&
+        isBalanceEnabled(provider as unknown as Record<string, unknown>) &&
+        !balances[provider.id],
     );
     if (providersToQuery.length === 0) return;
     setBalances((current) => ({
       ...current,
-      ...Object.fromEntries(providersToQuery.map((provider) => [provider.id, { status: "loading" as const }])),
+      ...Object.fromEntries(
+        providersToQuery.map((provider) => [provider.id, { status: "loading" as const }]),
+      ),
     }));
     providersToQuery.forEach((provider) => {
-      void api.post<{ value: string; endpoint: string }>("settings/provider/balance", { providerId: provider.id }, { timeout: false })
+      void api
+        .post<{ value: string; endpoint: string }>(
+          "settings/provider/balance",
+          { providerId: provider.id },
+          { timeout: false },
+        )
         .then((result) => {
           setBalances((current) => ({
             ...current,
@@ -286,7 +306,10 @@ export function ModelList({ disabled = false, className, onChanged }: ModelListP
             ...current,
             [provider.id]: {
               status: "error",
-              message: balanceError instanceof Error ? balanceError.message : t("model_list.balance_failed", "余额查询失败"),
+              message:
+                balanceError instanceof Error
+                  ? balanceError.message
+                  : t("model_list.balance_failed", "余额查询失败"),
             },
           }));
         });
@@ -307,13 +330,21 @@ export function ModelList({ disabled = false, className, onChanged }: ModelListP
       return;
     }
 
-    if (selectedProviderId && sections.some((section) => section.providerId === selectedProviderId)) {
+    if (
+      selectedProviderId &&
+      sections.some((section) => section.providerId === selectedProviderId)
+    ) {
       return;
     }
 
     const currentModelSection =
-      currentModelId == null ? null : sections.find((section) => section.models.some((model) => model.id === currentModelId));
-    setSelectedProviderId(currentModelSection?.providerId ?? (favoriteModels.length > 0 ? FAVORITE_SECTION_ID : sections[0]?.providerId ?? null));
+      currentModelId == null
+        ? null
+        : sections.find((section) => section.models.some((model) => model.id === currentModelId));
+    setSelectedProviderId(
+      currentModelSection?.providerId ??
+        (favoriteModels.length > 0 ? FAVORITE_SECTION_ID : (sections[0]?.providerId ?? null)),
+    );
   }, [currentModelId, favoriteModels.length, open, sections, selectedProviderId]);
 
   React.useEffect(() => {
@@ -348,9 +379,7 @@ export function ModelList({ disabled = false, className, onChanged }: ModelListP
         setOpen(false);
       } catch (changeError) {
         const message =
-          changeError instanceof Error
-            ? changeError.message
-            : t("model_list.switch_model_failed");
+          changeError instanceof Error ? changeError.message : t("model_list.switch_model_failed");
         setError(message);
       } finally {
         setUpdatingModelId(null);
@@ -430,9 +459,7 @@ export function ModelList({ disabled = false, className, onChanged }: ModelListP
       <PopoverContent align="end" className="w-[min(96vw,30rem)] gap-0 p-0">
         <PopoverHeader className="border-b px-4 py-3">
           <PopoverTitle className="text-sm">{t("model_list.title")}</PopoverTitle>
-          <PopoverDescription className="text-xs">
-            {t("model_list.description")}
-          </PopoverDescription>
+          <PopoverDescription className="text-xs">{t("model_list.description")}</PopoverDescription>
         </PopoverHeader>
 
         <div className="space-y-2 px-3 py-3">
@@ -474,7 +501,9 @@ export function ModelList({ disabled = false, className, onChanged }: ModelListP
                           setSelectedProviderId(FAVORITE_SECTION_ID);
                         }}
                       >
-                        <Heart className={cn("size-3", isFavoriteSectionSelected && "fill-current")} />
+                        <Heart
+                          className={cn("size-3", isFavoriteSectionSelected && "fill-current")}
+                        />
                         <span>{t("model_list.favorites")}</span>
                       </button>
                     )}
@@ -509,11 +538,17 @@ export function ModelList({ disabled = false, className, onChanged }: ModelListP
                 <ScrollArea className="min-h-0 flex-1 rounded-md border">
                   <div className="sticky top-0 z-10 flex items-center justify-between border-b bg-background/95 px-2.5 py-1.5 text-xs backdrop-blur">
                     <span className="truncate text-muted-foreground">
-                      {isFavoriteSectionSelected ? t("model_list.favorites") : selectedSection?.providerName}
+                      {isFavoriteSectionSelected
+                        ? t("model_list.favorites")
+                        : selectedSection?.providerName}
                     </span>
                     <span
                       className="inline-flex max-w-48 items-center gap-1 truncate rounded-full bg-muted px-2 py-0.5 text-muted-foreground"
-                      title={selectedBalanceState?.status === "error" ? selectedBalanceState.message : undefined}
+                      title={
+                        selectedBalanceState?.status === "error"
+                          ? selectedBalanceState.message
+                          : undefined
+                      }
                     >
                       {selectedBalanceState?.status === "loading" ? (
                         <LoaderCircle className="size-3 animate-spin" />

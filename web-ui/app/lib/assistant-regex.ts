@@ -4,7 +4,11 @@ type AffectScope = "USER" | "ASSISTANT";
 
 function regexScopes(value: unknown): Set<AffectScope> {
   const items = Array.isArray(value) ? value.map(String) : [];
-  return new Set(items.map((item) => item.toUpperCase()).filter((item): item is AffectScope => item === "USER" || item === "ASSISTANT"));
+  return new Set(
+    items
+      .map((item) => item.toUpperCase())
+      .filter((item): item is AffectScope => item === "USER" || item === "ASSISTANT"),
+  );
 }
 
 export function applyAssistantRegexes(
@@ -19,7 +23,11 @@ export function applyAssistantRegexes(
 
   return assistant.regexes.reduce((current, regex) => {
     if (!regex || typeof regex !== "object" || Array.isArray(regex)) return current;
-    if (regex.enabled === false || regex.visualOnly !== visual || !regexScopes(regex.affectingScope).has(scope)) {
+    if (
+      regex.enabled === false ||
+      regex.visualOnly !== visual ||
+      !regexScopes(regex.affectingScope).has(scope)
+    ) {
       return current;
     }
 

@@ -76,7 +76,11 @@ export function stopAudio() {
  * @param objectUrl A blob: URL — will be `URL.revokeObjectURL`'d when playback ends.
  *                  Pass `null` if you don't own the URL lifetime.
  */
-export async function playAudio(key: string, src: string, objectUrl: string | null = null): Promise<void> {
+export async function playAudio(
+  key: string,
+  src: string,
+  objectUrl: string | null = null,
+): Promise<void> {
   stopAudio();
   const audio = new Audio(src);
   const backend: AudioBackend = { kind: "audio", element: audio, objectUrl };

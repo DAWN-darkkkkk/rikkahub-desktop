@@ -200,9 +200,7 @@ export function McpPickerButton({ disabled = false, className }: McpPickerButton
       <PopoverContent align="end" className="w-[min(92vw,22rem)] gap-0 p-0">
         <PopoverHeader className="border-b px-3 py-2.5">
           <PopoverTitle className="text-sm">{t("mcp.title")}</PopoverTitle>
-          <PopoverDescription className="text-[11px]">
-            {t("mcp.description")}
-          </PopoverDescription>
+          <PopoverDescription className="text-[11px]">{t("mcp.description")}</PopoverDescription>
         </PopoverHeader>
 
         <div className="space-y-2 px-2.5 py-2.5">
@@ -241,7 +239,13 @@ export function McpPickerButton({ disabled = false, className }: McpPickerButton
                           className="flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground hover:text-foreground"
                           aria-label={expanded ? "收起" : "展开"}
                           disabled={visibleTools.length === 0}
-                          title={visibleTools.length === 0 ? "暂无可用工具" : (expanded ? "收起工具列表" : "展开工具列表")}
+                          title={
+                            visibleTools.length === 0
+                              ? "暂无可用工具"
+                              : expanded
+                                ? "收起工具列表"
+                                : "展开工具列表"
+                          }
                         >
                           {switching ? (
                             <LoaderCircle className="size-3 animate-spin" />
@@ -285,7 +289,12 @@ export function McpPickerButton({ disabled = false, className }: McpPickerButton
                         // OFF (`!selected`), the per-tool switches stay visible AND show their
                         // last preference, but are read-only & greyed — toggling the server
                         // back on will revive whatever the user had configured.
-                        <div className={cn("border-t bg-muted/30 px-2 py-1.5 space-y-1", !selected && "opacity-60")}>
+                        <div
+                          className={cn(
+                            "border-t bg-muted/30 px-2 py-1.5 space-y-1",
+                            !selected && "opacity-60",
+                          )}
+                        >
                           {visibleTools.map((tool) => {
                             const override = getOverride(server.id, tool.name);
                             const effectiveEnabled = override.enable !== false;
@@ -310,7 +319,9 @@ export function McpPickerButton({ disabled = false, className }: McpPickerButton
                                     {tool.name}
                                   </div>
                                 </div>
-                                {isMutating ? <LoaderCircle className="size-3 animate-spin text-muted-foreground" /> : null}
+                                {isMutating ? (
+                                  <LoaderCircle className="size-3 animate-spin text-muted-foreground" />
+                                ) : null}
                                 <label className="flex items-center gap-1 text-[10px] text-muted-foreground">
                                   <span>需要用户审核</span>
                                   <Switch
@@ -322,7 +333,8 @@ export function McpPickerButton({ disabled = false, className }: McpPickerButton
                                       // If the toggle matches the global default, clear the
                                       // override (send null) to keep state minimal. Otherwise
                                       // store the explicit override.
-                                      const matchesGlobal = nextChecked === (tool.needsApproval === true);
+                                      const matchesGlobal =
+                                        nextChecked === (tool.needsApproval === true);
                                       updateToolOverrideMutation.mutate({
                                         assistantId: currentAssistant.id,
                                         serverId: server.id,

@@ -133,7 +133,9 @@ export function TitleBar({ className }: { className?: string }) {
           data-tauri-drag-region
           className="size-4 rounded-sm opacity-90 pointer-events-none"
         />
-        <span data-tauri-drag-region className="pointer-events-none">Rikkahub</span>
+        <span data-tauri-drag-region className="pointer-events-none">
+          Rikkahub
+        </span>
       </div>
 
       <div className="flex h-full items-stretch">
@@ -186,7 +188,8 @@ function TitleBarButton({
       className={cn(
         "flex h-full w-11 items-center justify-center text-muted-foreground transition-colors",
         variant === "default" && "hover:bg-muted hover:text-foreground active:bg-muted/70",
-        variant === "danger" && "hover:bg-destructive hover:text-destructive-foreground active:bg-destructive/80",
+        variant === "danger" &&
+          "hover:bg-destructive hover:text-destructive-foreground active:bg-destructive/80",
       )}
     >
       {children}

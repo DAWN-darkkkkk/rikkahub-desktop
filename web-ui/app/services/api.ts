@@ -66,7 +66,9 @@ function getValidWebAuthToken(): string | null {
 
 function dispatchWebAuthRequired(detail: WebAuthRequiredEventDetail) {
   if (!isBrowser()) return;
-  window.dispatchEvent(new CustomEvent<WebAuthRequiredEventDetail>(WEB_AUTH_REQUIRED_EVENT, { detail }));
+  window.dispatchEvent(
+    new CustomEvent<WebAuthRequiredEventDetail>(WEB_AUTH_REQUIRED_EVENT, { detail }),
+  );
 }
 
 const kyInstance = ky.create({
@@ -156,7 +158,9 @@ const api = {
   },
   async post<T>(url: string, data?: unknown, options?: Options): Promise<T> {
     try {
-      return await kyInstance.post(url, data === undefined ? options : { ...options, json: data }).json<T>();
+      return await kyInstance
+        .post(url, data === undefined ? options : { ...options, json: data })
+        .json<T>();
     } catch (error) {
       return handleError(error);
     }
@@ -177,14 +181,18 @@ const api = {
   },
   async put<T>(url: string, data?: unknown, options?: Options): Promise<T> {
     try {
-      return await kyInstance.put(url, data === undefined ? options : { ...options, json: data }).json<T>();
+      return await kyInstance
+        .put(url, data === undefined ? options : { ...options, json: data })
+        .json<T>();
     } catch (error) {
       return handleError(error);
     }
   },
   async patch<T>(url: string, data?: unknown, options?: Options): Promise<T> {
     try {
-      return await kyInstance.patch(url, data === undefined ? options : { ...options, json: data }).json<T>();
+      return await kyInstance
+        .patch(url, data === undefined ? options : { ...options, json: data })
+        .json<T>();
     } catch (error) {
       return handleError(error);
     }

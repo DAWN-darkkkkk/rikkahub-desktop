@@ -36,17 +36,19 @@ const GENERIC_FONTS: GenericFontOption[] = [
   {
     id: "tailwind-sans",
     label: "无衬线（系统栈）",
-    family: "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, \"Helvetica Neue\", Arial, \"Noto Sans\", sans-serif",
+    family:
+      'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif',
   },
   {
     id: "tailwind-serif",
     label: "衬线（系统栈）",
-    family: "ui-serif, Georgia, Cambria, \"Times New Roman\", Times, serif",
+    family: 'ui-serif, Georgia, Cambria, "Times New Roman", Times, serif',
   },
   {
     id: "tailwind-mono",
     label: "等宽（系统栈）",
-    family: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace",
+    family:
+      'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
   },
 ];
 
@@ -62,9 +64,16 @@ function mergeCjkIntoFamily(enFamily: string, cjkFamily: string): string {
 }
 
 // 宽松匹配:容忍老版本存下来的 value(可能是 family 名、cssName 或旧 id)。
-function entryMatches(entry: { id: string; label: string; cssName?: string }, value: string): boolean {
+function entryMatches(
+  entry: { id: string; label: string; cssName?: string },
+  value: string,
+): boolean {
   if (!value) return false;
-  return entry.id === value || entry.label === value || (entry.cssName != null && entry.cssName === value);
+  return (
+    entry.id === value ||
+    entry.label === value ||
+    (entry.cssName != null && entry.cssName === value)
+  );
 }
 
 // 由当前选中的 value(可能是 id / cssName / 旧 family 名)解析出实际 CSS family 链。
@@ -77,7 +86,9 @@ function resolveFamilyForValue(
   const generic = GENERIC_FONTS.find((g) => entryMatches(g, value));
   if (generic) return generic.family || fallbackFamily;
   if (catalog) {
-    const entry = [...catalog.builtin, ...catalog.custom, ...catalog.system].find((e) => entryMatches(e, value));
+    const entry = [...catalog.builtin, ...catalog.custom, ...catalog.system].find((e) =>
+      entryMatches(e, value),
+    );
     if (entry) return entry.family;
   }
   return fallbackFamily;
@@ -92,7 +103,13 @@ interface FontPickerProps {
   showPreview?: boolean;
 }
 
-export function FontPicker({ label, value, fallbackFamily, onChange, showPreview = true }: FontPickerProps) {
+export function FontPicker({
+  label,
+  value,
+  fallbackFamily,
+  onChange,
+  showPreview = true,
+}: FontPickerProps) {
   const { data, isLoading } = useFontCatalog();
   const invalidate = useInvalidateFontCatalog();
   const [open, setOpen] = React.useState(false);
@@ -119,7 +136,7 @@ export function FontPicker({ label, value, fallbackFamily, onChange, showPreview
   }, [allEntries, value]);
 
   const selectedLabel = isLoading ? "加载字体…" : (selectedEntry?.label ?? "跟随系统");
-  const previewFamily = selectedEntry ? (selectedEntry.family || fallbackFamily) : fallbackFamily;
+  const previewFamily = selectedEntry ? selectedEntry.family || fallbackFamily : fallbackFamily;
 
   React.useEffect(() => {
     if (!open) setKeyword("");
@@ -160,20 +177,28 @@ export function FontPicker({ label, value, fallbackFamily, onChange, showPreview
     if (!visible) return null;
     return (
       <div className="space-y-0.5">
-        <div className="px-1.5 pb-0.5 pt-2 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">{title}</div>
+        <div className="px-1.5 pb-0.5 pt-2 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
+          {title}
+        </div>
         {children}
       </div>
     );
   };
 
-  const empty = generics.length === 0 && builtin.length === 0 && custom.length === 0 && system.length === 0;
+  const empty =
+    generics.length === 0 && builtin.length === 0 && custom.length === 0 && system.length === 0;
 
   return (
     <div className="block space-y-2">
       <span className="text-sm font-medium">{label}</span>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
-          <Button type="button" variant="outline" className="w-full justify-between font-normal" disabled={isLoading}>
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full justify-between font-normal"
+            disabled={isLoading}
+          >
             <span className="truncate">{selectedLabel}</span>
             <ChevronDown className="size-4 shrink-0 opacity-50" />
           </Button>
@@ -194,18 +219,24 @@ export function FontPicker({ label, value, fallbackFamily, onChange, showPreview
             </div>
             <div className="mt-2 h-[20rem]">
               {empty ? (
-                <div className="rounded-md border border-dashed px-3 py-8 text-center text-sm text-muted-foreground">无匹配字体</div>
+                <div className="rounded-md border border-dashed px-3 py-8 text-center text-sm text-muted-foreground">
+                  无匹配字体
+                </div>
               ) : (
                 <ScrollArea className="h-full">
                   <div className="space-y-0.5 pb-2 pr-2">
                     {renderSection(
                       "通用",
-                      generics.map((g) => renderRow(g.id, g.label, g.family, entryMatches(g, value))),
+                      generics.map((g) =>
+                        renderRow(g.id, g.label, g.family, entryMatches(g, value)),
+                      ),
                       generics.length > 0,
                     )}
                     {renderSection(
                       "应用自带",
-                      builtin.map((e) => renderRow(e.id, e.label, e.family, entryMatches(e, value))),
+                      builtin.map((e) =>
+                        renderRow(e.id, e.label, e.family, entryMatches(e, value)),
+                      ),
                       builtin.length > 0,
                     )}
                     {renderSection(
@@ -252,12 +283,19 @@ export function FontPicker({ label, value, fallbackFamily, onChange, showPreview
       </Popover>
 
       {showPreview && (
-        <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm" style={{ fontFamily: previewFamily }}>
+        <div
+          className="rounded-md border bg-muted/30 px-3 py-2 text-sm"
+          style={{ fontFamily: previewFamily }}
+        >
           RikkaHub 字体预览：你好，Hello 123
         </div>
       )}
 
-      <FontManagerDialog open={managerOpen} onClose={() => setManagerOpen(false)} onChanged={invalidate} />
+      <FontManagerDialog
+        open={managerOpen}
+        onClose={() => setManagerOpen(false)}
+        onChanged={invalidate}
+      />
     </div>
   );
 }
@@ -314,7 +352,8 @@ export function FontManagerDialog({ open, onClose, onChanged }: FontManagerDialo
         <DialogHeader>
           <DialogTitle>管理字体</DialogTitle>
           <DialogDescription>
-            上传自定义字体文件（ttf / otf / woff / woff2），或删除已上传的字体。系统字体与应用自带字体不可在此修改。
+            上传自定义字体文件（ttf / otf / woff /
+            woff2），或删除已上传的字体。系统字体与应用自带字体不可在此修改。
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
@@ -330,21 +369,38 @@ export function FontManagerDialog({ open, onClose, onChanged }: FontManagerDialo
                 if (file) void handleUpload(file);
               }}
             />
-            <Button type="button" variant="outline" size="sm" disabled={uploading} onClick={() => fileInputRef.current?.click()}>
-              {uploading ? <LoaderCircle className="size-4 animate-spin" /> : <Plus className="size-4" />}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={uploading}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              {uploading ? (
+                <LoaderCircle className="size-4 animate-spin" />
+              ) : (
+                <Plus className="size-4" />
+              )}
               上传字体
             </Button>
           </div>
           <div className="space-y-1.5">
             <div className="text-xs font-medium text-muted-foreground">已上传的自定义字体</div>
             {custom.length === 0 ? (
-              <div className="rounded-md border border-dashed px-3 py-6 text-center text-sm text-muted-foreground">还没有自定义字体</div>
+              <div className="rounded-md border border-dashed px-3 py-6 text-center text-sm text-muted-foreground">
+                还没有自定义字体
+              </div>
             ) : (
               <ScrollArea className="max-h-72">
                 <div className="space-y-1 pr-2">
                   {custom.map((entry) => (
-                    <div key={entry.id} className="flex items-center justify-between gap-2 rounded-md border px-2.5 py-1.5">
-                      <span className="truncate text-sm" style={{ fontFamily: entry.family }}>{entry.label}</span>
+                    <div
+                      key={entry.id}
+                      className="flex items-center justify-between gap-2 rounded-md border px-2.5 py-1.5"
+                    >
+                      <span className="truncate text-sm" style={{ fontFamily: entry.family }}>
+                        {entry.label}
+                      </span>
                       <Button
                         type="button"
                         variant="ghost"
@@ -356,7 +412,11 @@ export function FontManagerDialog({ open, onClose, onChanged }: FontManagerDialo
                           if (fn) void handleDelete(fn);
                         }}
                       >
-                        {deletingName === entry.weights[0]?.fileName ? <LoaderCircle className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}
+                        {deletingName === entry.weights[0]?.fileName ? (
+                          <LoaderCircle className="size-3.5 animate-spin" />
+                        ) : (
+                          <Trash2 className="size-3.5" />
+                        )}
                       </Button>
                     </div>
                   ))}
@@ -381,7 +441,14 @@ interface FontPickerPairProps {
   onChangeCjk: (value: string, family: string) => void;
 }
 
-export function FontPickerPair({ label, enValue, cjkValue, fallbackFamily, onChangeEn, onChangeCjk }: FontPickerPairProps) {
+export function FontPickerPair({
+  label,
+  enValue,
+  cjkValue,
+  fallbackFamily,
+  onChangeEn,
+  onChangeCjk,
+}: FontPickerPairProps) {
   const { data } = useFontCatalog();
   const enFamily = resolveFamilyForValue(enValue, data, fallbackFamily);
   const cjkFamily = resolveFamilyForValue(cjkValue, data, "");
@@ -398,14 +465,28 @@ export function FontPickerPair({ label, enValue, cjkValue, fallbackFamily, onCha
     <div className="block space-y-2">
       <span className="text-sm font-medium">{label}</span>
       <div className="grid gap-2 sm:grid-cols-2">
-        <FontPicker label="英文" value={enValue} fallbackFamily={fallbackFamily} onChange={onChangeEn} showPreview={false} />
-        <FontPicker label="中文" value={cjkValue} fallbackFamily="" onChange={onChangeCjk} showPreview={false} />
+        <FontPicker
+          label="英文"
+          value={enValue}
+          fallbackFamily={fallbackFamily}
+          onChange={onChangeEn}
+          showPreview={false}
+        />
+        <FontPicker
+          label="中文"
+          value={cjkValue}
+          fallbackFamily=""
+          onChange={onChangeCjk}
+          showPreview={false}
+        />
       </div>
       <div className="space-y-1 rounded-md border bg-muted/30 px-3 py-2">
         {previewRows.map((row) => (
           <div key={row.tag} className="flex items-baseline gap-2 text-sm">
             <span className="w-8 shrink-0 text-[11px] text-muted-foreground">{row.tag}</span>
-            <span style={{ fontFamily: row.family }} className="min-w-0 truncate">{row.text}</span>
+            <span style={{ fontFamily: row.family }} className="min-w-0 truncate">
+              {row.text}
+            </span>
           </div>
         ))}
       </div>

@@ -35,13 +35,19 @@ const assistant = {
 
 describe("assistant visual regex transforms", () => {
   test("visual regex applies only to matching visual display scope", () => {
-    expect(applyAssistantRegexes("visible-secret", assistant, "ASSISTANT", true)).toBe("visible-redacted");
+    expect(applyAssistantRegexes("visible-secret", assistant, "ASSISTANT", true)).toBe(
+      "visible-redacted",
+    );
     expect(applyAssistantRegexes("visible-secret", assistant, "USER", true)).toBe("visible-secret");
   });
 
   test("non-visual regex is kept out of visual-only render pass", () => {
-    expect(applyAssistantRegexes("stored-secret", assistant, "ASSISTANT", true)).toBe("stored-secret");
-    expect(applyAssistantRegexes("stored-secret", assistant, "ASSISTANT", false)).toBe("stored-redacted");
+    expect(applyAssistantRegexes("stored-secret", assistant, "ASSISTANT", true)).toBe(
+      "stored-secret",
+    );
+    expect(applyAssistantRegexes("stored-secret", assistant, "ASSISTANT", false)).toBe(
+      "stored-redacted",
+    );
   });
 
   test("user and assistant scopes stay isolated", () => {

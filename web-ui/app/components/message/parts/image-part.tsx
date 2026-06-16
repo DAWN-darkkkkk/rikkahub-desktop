@@ -3,11 +3,7 @@ import { CheckCircle2, Download, ImageOff, LoaderCircle, TriangleAlert, X } from
 import { toast } from "sonner";
 
 import { Button } from "~/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-} from "~/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "~/components/ui/dialog";
 import { resolveFileUrl } from "~/lib/files";
 import { fileExtensionFromMime } from "~/lib/image-download";
 
@@ -87,7 +83,11 @@ export function ImagePart({ url, metadata }: ImagePartProps) {
         )}
         <button
           type="button"
-          className={loaded ? "block cursor-zoom-in rounded-md text-left transition hover:brightness-95" : "hidden"}
+          className={
+            loaded
+              ? "block cursor-zoom-in rounded-md text-left transition hover:brightness-95"
+              : "hidden"
+          }
           onClick={() => setPreviewOpen(true)}
           aria-label="预览图片"
         >
@@ -123,18 +123,31 @@ export function ImagePart({ url, metadata }: ImagePartProps) {
               title="下载图片"
               onClick={() => {
                 void downloadImage(imageUrl).catch((downloadError) => {
-                  toast.error(downloadError instanceof Error ? downloadError.message : "下载图片失败");
+                  toast.error(
+                    downloadError instanceof Error ? downloadError.message : "下载图片失败",
+                  );
                 });
               }}
             >
               <Download className="size-4" />
             </Button>
-            <Button type="button" variant="ghost" size="icon-sm" aria-label="关闭预览" title="关闭预览" onClick={() => setPreviewOpen(false)}>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label="关闭预览"
+              title="关闭预览"
+              onClick={() => setPreviewOpen(false)}
+            >
               <X className="size-4" />
             </Button>
           </div>
           <div className="flex max-h-[calc(92vh-48px)] items-center justify-center overflow-auto bg-muted/20 p-3">
-            <img src={imageUrl} alt="Message attachment preview" className="max-h-[calc(92vh-72px)] max-w-full object-contain" />
+            <img
+              src={imageUrl}
+              alt="Message attachment preview"
+              className="max-h-[calc(92vh-72px)] max-w-full object-contain"
+            />
           </div>
         </DialogContent>
       </Dialog>

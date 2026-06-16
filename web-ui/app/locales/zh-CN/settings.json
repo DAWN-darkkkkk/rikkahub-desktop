@@ -114,8 +114,14 @@
     "local_tools_desc": "本地工具列表。启用后，仅在当前模型支持工具调用时才会注入给模型。",
     "tools": {
       "time_info": { "title": "时间信息", "desc": "读取 PC 本地时间、时区、星期和时间戳。" },
-      "js_engine": { "title": "JavaScript 引擎", "desc": "用于计算和纯文本数据转换，不提供 DOM/Node API。" },
-      "clipboard": { "title": "剪贴板", "desc": "读写系统剪贴板；除非用户明确要求，否则模型不应写入。" },
+      "js_engine": {
+        "title": "JavaScript 引擎",
+        "desc": "用于计算和纯文本数据转换，不提供 DOM/Node API。"
+      },
+      "clipboard": {
+        "title": "剪贴板",
+        "desc": "读写系统剪贴板；除非用户明确要求，否则模型不应写入。"
+      },
       "tts": { "title": "语音播报", "desc": "调用系统语音朗读文本。" },
       "ask_user": { "title": "询问用户", "desc": "需要澄清时在对话中展示问题，由用户回答后继续。" }
     },
@@ -247,7 +253,10 @@
     },
     "feature": {
       "chat": { "title": "默认聊天模型", "desc": "首页未手动选择模型时使用。" },
-      "optimize": { "title": "提示词优化", "desc": "对话输入框「优化提示词」按钮使用这个模型，把你的草稿改写得更清晰专业。" },
+      "optimize": {
+        "title": "提示词优化",
+        "desc": "对话输入框「优化提示词」按钮使用这个模型，把你的草稿改写得更清晰专业。"
+      },
       "title": { "title": "标题生成", "desc": "对话首次回复后读取最近消息自动生成会话标题。" },
       "translate": { "title": "翻译", "desc": "AI 回复下方翻译按钮使用这个模型和 Prompt。" },
       "suggestion": { "title": "建议回复", "desc": "回复完成后生成 3 到 5 条用户可点选建议。" },

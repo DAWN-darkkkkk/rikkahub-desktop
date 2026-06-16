@@ -88,11 +88,7 @@ function removeBlacklistedCss(value: string): string {
 
 // 把一段用户 CSS 收进 :root[data-theme="<id>"] / :root.dark[data-theme="<id>"] 作用域下,
 // 让它只在对应主题被选中时生效,不污染内置主题或其他用户主题。
-function scopeCssForTheme(
-  value: string,
-  dataThemeId: string,
-  mode: "light" | "dark",
-): string {
+function scopeCssForTheme(value: string, dataThemeId: string, mode: "light" | "dark"): string {
   const trimmed = value.trim();
   if (!trimmed) return "";
   const filtered = removeBlacklistedCss(trimmed);
@@ -290,10 +286,7 @@ export function ThemeProvider({
     return created;
   };
 
-  const updateUserTheme = (
-    id: string,
-    patch: { name?: string; css?: CustomThemeCss },
-  ) => {
+  const updateUserTheme = (id: string, patch: { name?: string; css?: CustomThemeCss }) => {
     setUserThemes((prev) =>
       prev.map((u) =>
         u.id === id

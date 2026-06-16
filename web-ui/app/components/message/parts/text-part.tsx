@@ -7,7 +7,12 @@ interface TextPartProps {
   citationOrdinalMap?: Map<string, number>;
 }
 
-export function TextPart({ text, isAnimating, onClickCitation, citationOrdinalMap }: TextPartProps) {
+export function TextPart({
+  text,
+  isAnimating,
+  onClickCitation,
+  citationOrdinalMap,
+}: TextPartProps) {
   if (!text) return null;
   return (
     <div data-part="text">

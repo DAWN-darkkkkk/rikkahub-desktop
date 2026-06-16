@@ -231,7 +231,15 @@ export interface AsrProviderProfile {
   [key: string]: unknown;
 }
 
-export type TtsProviderType = "system" | "openai" | "gemini" | "minimax" | "qwen" | "groq" | "xai" | "mimo";
+export type TtsProviderType =
+  | "system"
+  | "openai"
+  | "gemini"
+  | "minimax"
+  | "qwen"
+  | "groq"
+  | "xai"
+  | "mimo";
 
 export interface TtsProviderProfile {
   id: string;

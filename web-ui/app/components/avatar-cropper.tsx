@@ -45,25 +45,34 @@ export function AvatarCropper({
     img.src = source;
   }, [source]);
 
-  const draw = React.useCallback((targetSize = 320) => {
-    const canvas = canvasRef.current;
-    if (!canvas || !image) return null;
-    canvas.width = targetSize;
-    canvas.height = targetSize;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return null;
-    ctx.clearRect(0, 0, targetSize, targetSize);
-    ctx.fillStyle = "#f4f4f5";
-    ctx.fillRect(0, 0, targetSize, targetSize);
-    ctx.save();
-    ctx.translate(targetSize / 2 + offset.x, targetSize / 2 + offset.y);
-    ctx.rotate((rotation * Math.PI) / 180);
-    const base = targetSize / Math.min(image.width, image.height);
-    const scale = base * zoom;
-    ctx.drawImage(image, -image.width * scale / 2, -image.height * scale / 2, image.width * scale, image.height * scale);
-    ctx.restore();
-    return canvas;
-  }, [image, offset.x, offset.y, rotation, zoom]);
+  const draw = React.useCallback(
+    (targetSize = 320) => {
+      const canvas = canvasRef.current;
+      if (!canvas || !image) return null;
+      canvas.width = targetSize;
+      canvas.height = targetSize;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return null;
+      ctx.clearRect(0, 0, targetSize, targetSize);
+      ctx.fillStyle = "#f4f4f5";
+      ctx.fillRect(0, 0, targetSize, targetSize);
+      ctx.save();
+      ctx.translate(targetSize / 2 + offset.x, targetSize / 2 + offset.y);
+      ctx.rotate((rotation * Math.PI) / 180);
+      const base = targetSize / Math.min(image.width, image.height);
+      const scale = base * zoom;
+      ctx.drawImage(
+        image,
+        (-image.width * scale) / 2,
+        (-image.height * scale) / 2,
+        image.width * scale,
+        image.height * scale,
+      );
+      ctx.restore();
+      return canvas;
+    },
+    [image, offset.x, offset.y, rotation, zoom],
+  );
 
   React.useEffect(() => {
     draw();
@@ -89,11 +98,16 @@ export function AvatarCropper({
     if (!canvas) return;
     setSaving(true);
     try {
-      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png", 0.95));
+      const blob = await new Promise<Blob | null>((resolve) =>
+        canvas.toBlob(resolve, "image/png", 0.95),
+      );
       if (!blob) throw new Error("头像处理失败");
       const form = new FormData();
       form.append("files", new File([blob], "avatar.png", { type: "image/png" }));
-      const result = await api.postMultipart<{ files: Array<{ url: string }> }>("files/upload", form);
+      const result = await api.postMultipart<{ files: Array<{ url: string }> }>(
+        "files/upload",
+        form,
+      );
       const url = result.files[0]?.url;
       if (!url) throw new Error("头像上传失败");
       await onChange({ type: "url", url });
@@ -131,7 +145,9 @@ export function AvatarCropper({
         <DialogContent className="sm:max-w-xl">
           <DialogHeader>
             <DialogTitle>裁剪头像</DialogTitle>
-            <DialogDescription>拖动图片调整位置，使用缩放和旋转后保存为本地头像。</DialogDescription>
+            <DialogDescription>
+              拖动图片调整位置，使用缩放和旋转后保存为本地头像。
+            </DialogDescription>
           </DialogHeader>
           <div className="grid gap-5 md:grid-cols-[320px_1fr]">
             <div
@@ -139,7 +155,10 @@ export function AvatarCropper({
               onPointerDown={(event) => setDragging({ x: event.clientX, y: event.clientY })}
               onPointerMove={(event) => {
                 if (!dragging) return;
-                setOffset((old) => ({ x: old.x + event.clientX - dragging.x, y: old.y + event.clientY - dragging.y }));
+                setOffset((old) => ({
+                  x: old.x + event.clientX - dragging.x,
+                  y: old.y + event.clientY - dragging.y,
+                }));
                 setDragging({ x: event.clientX, y: event.clientY });
               }}
               onPointerUp={() => setDragging(null)}
@@ -150,15 +169,33 @@ export function AvatarCropper({
             <div className="space-y-5">
               <label className="block space-y-2">
                 <span className="text-sm font-medium">缩放</span>
-                <Slider min={0.6} max={3} step={0.05} value={[zoom]} onValueChange={([value]) => setZoom(value ?? 1)} />
+                <Slider
+                  min={0.6}
+                  max={3}
+                  step={0.05}
+                  value={[zoom]}
+                  onValueChange={([value]) => setZoom(value ?? 1)}
+                />
               </label>
               <label className="block space-y-2">
                 <span className="text-sm font-medium">水平移动</span>
-                <Slider min={-160} max={160} step={1} value={[offset.x]} onValueChange={([value]) => setOffset((old) => ({ ...old, x: value ?? 0 }))} />
+                <Slider
+                  min={-160}
+                  max={160}
+                  step={1}
+                  value={[offset.x]}
+                  onValueChange={([value]) => setOffset((old) => ({ ...old, x: value ?? 0 }))}
+                />
               </label>
               <label className="block space-y-2">
                 <span className="text-sm font-medium">垂直移动</span>
-                <Slider min={-160} max={160} step={1} value={[offset.y]} onValueChange={([value]) => setOffset((old) => ({ ...old, y: value ?? 0 }))} />
+                <Slider
+                  min={-160}
+                  max={160}
+                  step={1}
+                  value={[offset.y]}
+                  onValueChange={([value]) => setOffset((old) => ({ ...old, y: value ?? 0 }))}
+                />
               </label>
               <div className="flex gap-2">
                 <Button variant="outline" onClick={() => setRotation((old) => old - 90)}>
@@ -173,7 +210,9 @@ export function AvatarCropper({
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>取消</Button>
+            <Button variant="outline" onClick={() => setOpen(false)}>
+              取消
+            </Button>
             <Button onClick={confirm} disabled={saving || !image}>
               {saving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
               保存头像
