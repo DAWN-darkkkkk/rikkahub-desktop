@@ -1,7 +1,6 @@
 import * as React from "react";
 
 import { useNavigate, useParams } from "react-router";
-import { motion } from "motion/react";
 
 import {
   ConversationQuickJump,
@@ -568,6 +567,9 @@ function useConversationDetail(activeId: string | null, updateSummary: Conversat
 
   React.useEffect(() => {
     if (!activeId || !detail?.isGenerating) return;
+    // SSE 是主路径,这个轮询只是"丢帧兜底"。原 2s 全量快照拉取会与 SSE 增量打架
+    // (旧快照可能覆盖新帧),且每轮反序列化整个对话在长会话上开销显著。降到 10s,
+    // 既保留兜底,又把开销压到原来的 1/5。
     const timer = window.setInterval(() => {
       void api
         .get<ConversationDto>(`conversations/${activeId}`)
@@ -578,7 +580,7 @@ function useConversationDetail(activeId: string | null, updateSummary: Conversat
         .catch(() => {
           // SSE remains the primary path; polling is only a recovery path for missed stream frames.
         });
-    }, 2000);
+    }, 10000);
     return () => window.clearInterval(timer);
   }, [activeId, detail?.isGenerating, updateSummary]);
 
@@ -858,6 +860,23 @@ const ConversationTimeline = React.memo(
     }, [assistant?.chatModelId, modelById, settings]);
     const lastMessageId = selectedNodeMessages.at(-1)?.message.id ?? null;
 
+    // 仅对"进入会话(或切换会话)之后才新出现的消息"播放入场动画。首次加载的历史
+    // 消息一律不动画——避免长会话进入时 N 条消息并发播 4 属性动画拖垮首屏 mount。
+    // activeId 变化(切换会话)→ 重新锁定当前消息集为新会话的"历史";detail 延迟
+    // 加载(锁定时为空、随后才有消息)的场景,在消息首次出现时补锁定一次。
+    const knownIdsRef = React.useRef<{ activeId: string | null; ids: Set<string> } | null>(null);
+    if (
+      knownIdsRef.current === null ||
+      knownIdsRef.current.activeId !== activeId ||
+      (knownIdsRef.current.ids.size === 0 && selectedNodeMessages.length > 0)
+    ) {
+      knownIdsRef.current = {
+        activeId,
+        ids: new Set(selectedNodeMessages.map((item) => item.message.id)),
+      };
+    }
+    const knownMessageIds = knownIdsRef.current.ids;
+
     React.useEffect(() => {
       if (!activeId || detailLoading || detailError || !lastMessageId) return;
       const frame = window.requestAnimationFrame(() => {
@@ -912,18 +931,13 @@ const ConversationTimeline = React.memo(
                 : fallbackModel;
 
               return (
-                <motion.div
+                <div
                   key={message.id}
                   id={getConversationMessageAnchorId(message.id)}
-                  className="scroll-mt-24"
-                  initial={{
-                    opacity: 0,
-                    y: message.role === "USER" ? 12 : 8,
-                    x: message.role === "USER" ? 16 : -8,
-                    scale: 0.98,
-                  }}
-                  animate={{ opacity: 1, y: 0, x: 0, scale: 1 }}
-                  transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+                  className={cn(
+                    "scroll-mt-24",
+                    !knownMessageIds.has(message.id) && "rikkahub-animate-fade-in-up",
+                  )}
                 >
                   <ChatMessage
                     node={node}
@@ -940,7 +954,7 @@ const ConversationTimeline = React.memo(
                     onTranslate={onTranslate}
                     onToolApproval={onToolApproval}
                   />
-                </motion.div>
+                </div>
               );
             })}
           {!detailLoading &&
