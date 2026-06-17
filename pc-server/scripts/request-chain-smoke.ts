@@ -1556,7 +1556,16 @@ async function runRegenerateSmoke() {
     (item) => !item.isGenerating && assistantMessages(item).some((msg: AnyRecord) => textFromParts(msg.parts ?? []).includes("继续回复")),
     "regenerated answer",
   );
-  assert(assistantMessages(regenerated).length === firstAssistantCount, "regenerate should replace the assistant answer instead of appending another assistant node");
+  // 对齐安卓 regenerateAtMessage:重新生成 ASSISTANT 在原 node 追加新分支,旧回复保留。
+  // assistantMessages 按 node 取 selectIndex,故"当前选中链"长度不变(没有产生额外 node);
+  // 但 assistant node 自身的 messages 应有 2 条候选,selectIndex 指向新分支。
+  assert(assistantMessages(regenerated).length === firstAssistantCount, "regenerate should not append an extra assistant node");
+  const branchedNode = (regenerated.messages ?? []).find(
+    (node: AnyRecord) => Array.isArray(node.messages) && node.messages.length > 1,
+  );
+  assert(branchedNode, "regenerate should keep the old reply as a branch (node.messages.length > 1)");
+  assert(branchedNode.selectIndex === branchedNode.messages.length - 1, "regenerate should select the newly created branch");
+  assert(branchedNode.messages[0].id !== branchedNode.messages[1].id, "new branch must be a distinct message");
   return regenerated;
 }
 

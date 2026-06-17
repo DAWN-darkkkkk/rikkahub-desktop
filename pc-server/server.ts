@@ -12845,12 +12845,21 @@ async function runPostGenerationTasks(conversationId: string, snapshot: Conversa
   }
 }
 
-async function generateAnswer(conversation: Conversation) {
+async function generateAnswer(conversation: Conversation, regenerateAtNodeId?: string) {
   const controller = new AbortController();
   generating.set(conversation.id, controller);
   const assistant = findAssistant(conversation.assistantId);
   const picked = findModel(assistant.chatModelId ?? state.settings.chatModelId);
-  const assistantNode = ensureAssistantGenerationNode(conversation, picked.model.id);
+  // 重新生成 ASSISTANT:调用方已在该 node 追加空占位 message 并把 selectIndex 指向它,
+  // 直接复用,绕开 ensureAssistantGenerationNode(它会复用末尾 assistant 或新建 node,
+  // 都不是"在指定 node 上新增分支")。find 不到时安全回退到默认逻辑。
+  let assistantNode: MessageNode;
+  if (regenerateAtNodeId) {
+    const found = conversation.messages.find((n) => n.id === regenerateAtNodeId);
+    assistantNode = found ?? ensureAssistantGenerationNode(conversation, picked.model.id);
+  } else {
+    assistantNode = ensureAssistantGenerationNode(conversation, picked.model.id);
+  }
   const currentMessage = assistantNode.messages[assistantNode.selectIndex];
   const resumingApprovedTools = hasResumableToolParts(currentMessage);
   currentMessage.finishedAt = null;
@@ -14084,11 +14093,41 @@ async function routeApi(request: Request, url: URL) {
     }
     if (sub === "regenerate" && request.method === "POST") {
       const body = await readJson<{ messageId?: string }>(request);
-      truncateConversationForRegenerate(conversation, body.messageId);
+      let regenerateAtNodeId: string | undefined;
+      if (body.messageId) {
+        const nodeIndex = conversation.messages.findIndex((n) =>
+          n.messages.some((m) => m.id === body.messageId),
+        );
+        if (nodeIndex >= 0) {
+          const targetNode = conversation.messages[nodeIndex];
+          const targetMsg = targetNode.messages.find((m) => m.id === body.messageId);
+          if (targetMsg?.role === "ASSISTANT") {
+            // 对齐安卓 regenerateAtMessage:重新生成 ASSISTANT = 在原 node 追加新分支,
+            // 旧回复保留(前端 < 2 / 2 > 切换器生效)。截断到该 node(含)丢弃其后所有 node,
+            // 保证组装 API 历史时上下文 = [0..nodeIndex-1]——新空分支会被
+            // appendAssistantApiMessages.flushAssistant 跳过,旧分支不在 selectIndex 不被取到,
+            // 等价于安卓的 messageRange = 0..<nodeIndex;同时避免"新回复 + 旧后续脱节"。
+            conversation.messages = conversation.messages.slice(0, nodeIndex + 1);
+            const assistant = findAssistant(conversation.assistantId);
+            const picked = findModel(assistant.chatModelId ?? state.settings.chatModelId);
+            const newMsg = message("ASSISTANT", [], picked.model.id);
+            targetNode.messages.push(newMsg);
+            targetNode.selectIndex = targetNode.messages.length - 1;
+            regenerateAtNodeId = targetNode.id;
+          } else {
+            // USER 重新生成:截断到该 USER node(含),丢弃后续 assistant(行为不变)。
+            truncateConversationForRegenerate(conversation, body.messageId);
+          }
+        } else {
+          truncateConversationForRegenerate(conversation, body.messageId);
+        }
+      } else {
+        truncateConversationForRegenerate(conversation, body.messageId);
+      }
       conversation.updateAt = Date.now();
       saveState();
       broadcastConversation(conversation);
-      void generateAnswer(conversation);
+      void generateAnswer(conversation, regenerateAtNodeId);
       return json({ status: "accepted" }, { status: 202 });
     }
     const nodeSelect = sub.match(/^nodes\/([^/]+)\/select$/);
