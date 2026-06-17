@@ -3,6 +3,7 @@
   <h1>Rikkahub</h1>
 
   正在申请认证爱发电，认证结束后会改回
+  
   A native Windows desktop LLM chat client that supports switching between different
   providers for conversations 🤖💬
   
