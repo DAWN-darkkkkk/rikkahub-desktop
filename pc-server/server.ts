@@ -15063,6 +15063,17 @@ async function routeApi(request: Request, url: URL) {
       }
 
       // ── 2. 备份 + 原子替换二进制 ───────────────────────────────────────
+      // 必须同时绕开两个 Linux 约束:
+      //   (a) currentExe 正在运行:Linux 禁止 write/open 它(ETXTBSY),但同文件系统内的
+      //       rename(2) 可以覆盖它——rename 只改目录项,旧 inode 留给运行中的进程直到退出,
+      //       下次启动即用新版本。这是 Linux 自更新二进制的标准机制。
+      //   (b) 下载的新二进制在 /tmp,常与安装目录(/home/...)不在同一文件系统,跨设备
+      //       rename 直接 EXDEV。
+      // 旧逻辑"rename(源→目标),失败 fallback copy"两头堵死:跨设备 rename→EXDEV,
+      // fallback 直接 copy 目标→ETXTBSY(运行中)。正解:先 copy 到安装目录下的临时文件
+      // (跨设备 copy 合法,目标是新文件不触发 ETXTBSY),再在同文件系统内 rename 覆盖当前
+      // 二进制(同设备不 EXDEV,且能覆盖运行中的二进制)。与上面 web-ui 的 staging+rename
+      // 同构。
       const backupPath = `${currentExe}.bak`;
       try {
         if (existsSync(backupPath)) unlinkSync(backupPath);
@@ -15070,13 +15081,15 @@ async function routeApi(request: Request, url: URL) {
       } catch (backupErr) {
         console.warn("[update/apply] binary backup skipped:", backupErr);
       }
-      try { chmodSync(resolvedSrcExe, 0o755); } catch { /* */ }
+      const stagingExe = `${currentExe}.new`;
       try {
-        renameSync(resolvedSrcExe, currentExe);
-      } catch (renameErr) {
-        console.warn("[update/apply] rename failed, falling back to copy:", renameErr);
-        copyFileSync(resolvedSrcExe, currentExe);
-        try { chmodSync(currentExe, 0o755); } catch { /* */ }
+        copyFileSync(resolvedSrcExe, stagingExe);
+        try { chmodSync(stagingExe, 0o755); } catch { /* */ }
+        renameSync(stagingExe, currentExe);
+      } catch (swapErr) {
+        try { if (existsSync(stagingExe)) unlinkSync(stagingExe); } catch { /* */ }
+        console.warn("[update/apply] binary swap failed:", swapErr);
+        return error(`替换二进制失败：${swapErr instanceof Error ? swapErr.message : String(swapErr)}`, 500);
       }
 
       return json({ status: "ok", exePath: currentExe, backupPath: existsSync(backupPath) ? backupPath : null, needRestart: true });
