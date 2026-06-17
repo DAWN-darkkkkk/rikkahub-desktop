@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
 export type ThemeMode = "dark" | "light" | "system";
 export type Theme = ThemeMode;
@@ -196,18 +196,6 @@ export function ThemeProvider({
   const [colorTheme, setColorThemeState] = useState<ColorTheme>(() =>
     resolveInitialColorTheme(storageKey, userThemes),
   );
-  const [modeTransitioning, setModeTransitioning] = useState(false);
-  const [colorTransitioning, setColorTransitioning] = useState(false);
-
-  const scheduleModeTransition = useCallback(() => {
-    setModeTransitioning(true);
-    window.setTimeout(() => setModeTransitioning(false), 350);
-  }, []);
-
-  const scheduleColorTransition = useCallback(() => {
-    setColorTransitioning(true);
-    window.setTimeout(() => setColorTransitioning(false), 350);
-  }, []);
 
   useEffect(() => {
     const root = window.document.documentElement;
@@ -225,7 +213,6 @@ export function ThemeProvider({
     };
 
     applyMode(theme);
-    scheduleModeTransition();
 
     if (theme !== "system") {
       return;
@@ -233,7 +220,6 @@ export function ThemeProvider({
 
     const onSystemThemeChange = () => {
       applyMode("system");
-      scheduleModeTransition();
     };
 
     mediaQuery.addEventListener("change", onSystemThemeChange);
@@ -241,22 +227,12 @@ export function ThemeProvider({
     return () => {
       mediaQuery.removeEventListener("change", onSystemThemeChange);
     };
-  }, [theme, scheduleModeTransition]);
+  }, [theme]);
 
   useEffect(() => {
     const root = window.document.documentElement;
     root.dataset.theme = colorTheme;
-    scheduleColorTransition();
-  }, [colorTheme, scheduleColorTransition]);
-
-  useEffect(() => {
-    const root = window.document.documentElement;
-    if (modeTransitioning || colorTransitioning) {
-      root.classList.add("theme-transition");
-    } else {
-      root.classList.remove("theme-transition");
-    }
-  }, [modeTransitioning, colorTransitioning]);
+  }, [colorTheme]);
 
   // 把所有用户主题的 CSS 同时注入到同一个 <style>:每条按自己的 data-theme 作用域隔离,
   // 只有当前 colorTheme 匹配的那条才真正生效,切换主题零延迟、无需重新注入。
@@ -290,58 +266,87 @@ export function ThemeProvider({
     localStorage.setItem(userThemesStorageKey, JSON.stringify(userThemes));
   }, [userThemes, userThemesStorageKey]);
 
-  const setTheme = (next: ThemeMode) => {
-    localStorage.setItem(storageKey, next);
-    setThemeState(next);
-  };
+  const setTheme = useCallback(
+    (next: ThemeMode) => {
+      localStorage.setItem(storageKey, next);
+      setThemeState(next);
+    },
+    [storageKey],
+  );
 
-  const setColorTheme = (next: ColorTheme) => {
-    localStorage.setItem(colorThemeStorageKey, next);
-    setColorThemeState(next);
-  };
+  const setColorTheme = useCallback(
+    (next: ColorTheme) => {
+      localStorage.setItem(colorThemeStorageKey, next);
+      setColorThemeState(next);
+    },
+    [colorThemeStorageKey],
+  );
 
-  const addUserTheme = ({ name, css }: { name: string; css: CustomThemeCss }): UserTheme => {
-    const created: UserTheme = {
-      id: generateUserThemeId(),
-      name: name.trim() || "未命名主题",
-      css,
-    };
-    setUserThemes((prev) => [...prev, created]);
-    return created;
-  };
+  const addUserTheme = useCallback(
+    ({ name, css }: { name: string; css: CustomThemeCss }): UserTheme => {
+      const created: UserTheme = {
+        id: generateUserThemeId(),
+        name: name.trim() || "未命名主题",
+        css,
+      };
+      setUserThemes((prev) => [...prev, created]);
+      return created;
+    },
+    [],
+  );
 
-  const updateUserTheme = (id: string, patch: { name?: string; css?: CustomThemeCss }) => {
-    setUserThemes((prev) =>
-      prev.map((u) =>
-        u.id === id
-          ? {
-              ...u,
-              ...patch,
-              name: patch.name !== undefined ? patch.name.trim() || u.name : u.name,
-            }
-          : u,
-      ),
-    );
-  };
+  const updateUserTheme = useCallback(
+    (id: string, patch: { name?: string; css?: CustomThemeCss }) => {
+      setUserThemes((prev) =>
+        prev.map((u) =>
+          u.id === id
+            ? {
+                ...u,
+                ...patch,
+                name: patch.name !== undefined ? patch.name.trim() || u.name : u.name,
+              }
+            : u,
+        ),
+      );
+    },
+    [],
+  );
 
-  const deleteUserTheme = (id: string) => {
-    setUserThemes((prev) => prev.filter((u) => u.id !== id));
-    // 删的恰好是当前主题 → 回退到默认,避免界面卡在一个已无 CSS 的作用域上
-    if (colorTheme === id) {
-      setColorTheme("default");
-    }
-  };
+  const deleteUserTheme = useCallback(
+    (id: string) => {
+      setUserThemes((prev) => prev.filter((u) => u.id !== id));
+      // 删的恰好是当前主题 → 回退到默认,避免界面卡在一个已无 CSS 的作用域上
+      if (colorTheme === id) {
+        setColorTheme("default");
+      }
+    },
+    [colorTheme, setColorTheme],
+  );
 
-  const value: ThemeProviderState = {
-    theme,
-    setTheme,
-    colorTheme,
-    setColorTheme,
-    userThemes,
-    addUserTheme,
-    updateUserTheme,
-    deleteUserTheme,
-  };
+  // value 用 useMemo 聚合稳定的 handler,避免 ThemeProvider 内部 state 变化时
+  // 重建 value 对象、导致所有 useTheme() 消费者无差别重渲染。
+  const value = useMemo<ThemeProviderState>(
+    () => ({
+      theme,
+      setTheme,
+      colorTheme,
+      setColorTheme,
+      userThemes,
+      addUserTheme,
+      updateUserTheme,
+      deleteUserTheme,
+    }),
+    [
+      theme,
+      setTheme,
+      colorTheme,
+      setColorTheme,
+      userThemes,
+      addUserTheme,
+      updateUserTheme,
+      deleteUserTheme,
+    ],
+  );
 
   return (
     <ThemeProviderContext.Provider {...props} value={value}>
