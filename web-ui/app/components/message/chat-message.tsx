@@ -691,7 +691,8 @@ const ChatMessageActionsRow = React.memo(
       (message.role === "USER" || message.role === "ASSISTANT") &&
       hasEditableContent(message.parts);
     const actionDisabled = loading || switchingBranch || regenerating || deleting || forking;
-    const actionButtonClass = "transition-all hover:shadow-sm active:shadow-inner";
+    const actionButtonClass =
+      "transition-[color,background-color,border-color,box-shadow,transform] hover:shadow-sm active:shadow-inner";
 
     return (
       <div
@@ -1020,7 +1021,7 @@ export const ChatMessage = React.memo(
             <div
               data-message-bubble
               className={cn(
-                "flex flex-col gap-2 text-sm leading-6 transition-all duration-200",
+                "flex flex-col gap-2 text-sm leading-6 transition-[background-color,box-shadow,transform] duration-200",
                 isUser
                   ? "max-w-[85%] rounded-2xl rounded-tr-md border border-border/30 bg-muted px-4 py-3 text-foreground shadow-card hover:-translate-x-0.5 hover:shadow-elevated"
                   : showAssistantBubble
