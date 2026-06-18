@@ -63,6 +63,22 @@ export function ConversationQuickJump({ items, activeIndex, onItemClick }: Conve
   const { t } = useTranslation();
   const canQuickJump = items.length > 1;
   const safeActiveIndex = Math.max(0, Math.min(activeIndex, items.length - 1));
+  const listRef = React.useRef<HTMLDivElement>(null);
+
+  // 条目区是一个独立可滚动列表(鼠标滚轮在其上自由浏览任意轮次)。active 变化时自动滚到
+  // active 并居中,保证当前轮次高亮始终可见(顶/底边缘时贴边)。用户自由浏览与 active
+  // 跟随两不误——滚动会话时条目跟到 active,单独滚条目时只是临时浏览,点击即跳转。
+  React.useEffect(() => {
+    const list = listRef.current;
+    if (!list) return;
+    const activeEl = list.querySelector<HTMLElement>(`[data-jump-index="${safeActiveIndex}"]`);
+    if (!activeEl) return;
+    const listRect = list.getBoundingClientRect();
+    const activeRect = activeEl.getBoundingClientRect();
+    const target =
+      activeRect.top - listRect.top + list.scrollTop - list.clientHeight / 2 + activeRect.height / 2;
+    list.scrollTop = Math.max(0, target);
+  }, [safeActiveIndex]);
 
   if (!canQuickJump) {
     return null;
@@ -71,7 +87,10 @@ export function ConversationQuickJump({ items, activeIndex, onItemClick }: Conve
   return (
     <div className="pointer-events-none absolute inset-y-0 left-1/2 z-20 hidden w-full max-w-3xl -translate-x-1/2 lg:block">
       <div className="pointer-events-auto absolute top-1/2 -right-5 -translate-y-1/2">
-        <div className="flex max-h-[80vh] flex-col items-start gap-1 overflow-y-auto">
+        <div
+          ref={listRef}
+          className="flex max-h-[80vh] flex-col items-start gap-1 overflow-y-auto"
+        >
           {items.map((item, index) => {
             const isActive = index === safeActiveIndex;
             const roleLabel = getRoleLabel(item.role, t);
@@ -81,6 +100,7 @@ export function ConversationQuickJump({ items, activeIndex, onItemClick }: Conve
                 <TooltipTrigger asChild>
                   <button
                     type="button"
+                    data-jump-index={index}
                     className="flex w-8 items-center justify-start gap-1 transition-colors"
                     aria-label={t("quick_jump.jump_to_message", {
                       index: index + 1,
