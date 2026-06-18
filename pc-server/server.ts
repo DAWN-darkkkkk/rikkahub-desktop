@@ -3491,9 +3491,21 @@ function createSettingsBackupZip(): Buffer {
       const uploadStage = join(stageDir, "upload");
       mkdirSync(uploadStage, { recursive: true });
       const usedNames = new Set<string>();
+      let skippedFiles = 0;
       for (const file of state.files) {
-        if (!file.path || !existsSync(file.path)) continue;
-        let name = file.fileName || `${file.id}${extname(file.path) || ""}`;
+        // path 可能因跨机器/跨平台迁移 state.json、或 dataDir 漂移而失效(指向不存在的文件)。
+        // PC 文件命名固定为 <id>.<ext>,path 找不到时回退到 filesDir 下按 id 重找,尽量不丢附件。
+        let srcPath = file.path;
+        if (!srcPath || !existsSync(srcPath)) {
+          const ext = extname(file.fileName || "") || extname(file.path || "") || "";
+          const fallback = join(filesDir, `${file.id}${ext}`);
+          srcPath = existsSync(fallback) ? fallback : "";
+        }
+        if (!srcPath) {
+          skippedFiles++;
+          continue;
+        }
+        let name = file.fileName || `${file.id}${extname(srcPath) || ""}`;
         // Two separately-uploaded files can legitimately share a display name. Disambiguate by
         // suffixing the PC numeric id so neither gets overwritten in the zip.
         if (usedNames.has(name)) {
@@ -3505,16 +3517,19 @@ function createSettingsBackupZip(): Buffer {
         try {
           // Bun.file().readableStream().pipe-style copy would be ideal but Bun.write supports
           // a File source which streams under the hood. Use that for OOM safety on huge files.
-          const srcFile = Bun.file(file.path);
+          const srcFile = Bun.file(srcPath);
           // Synchronous variant — keeps the existing single-threaded compile flow. For >2GB
           // single files this could still spike, but those are rare in the wild and the JS
           // engine can stream a single file fine; the real OOM risk was the *aggregate*
           // base64-inlining path, which is now gone.
-          writeFileSync(join(uploadStage, name), readFileSync(file.path));
+          writeFileSync(join(uploadStage, name), readFileSync(srcPath));
           void srcFile;
         } catch (copyErr) {
-          console.warn("[backup] failed to stage upload file", file.path, copyErr);
+          console.warn("[backup] failed to stage upload file", srcPath, copyErr);
         }
+      }
+      if (skippedFiles > 0) {
+        console.warn(`[backup] ⚠️ ${skippedFiles}/${state.files.length} attachment(s) skipped — source file missing (path invalid or file deleted). They will NOT be in the backup.`);
       }
     }
 
@@ -3591,9 +3606,21 @@ function createSettingsBackupZipToPath(targetZipPath: string, onProgress?: (mess
       const usedNames = new Set<string>();
       const totalFiles = state.files.length;
       let stagedFiles = 0;
+      let skippedFiles = 0;
       for (const file of state.files) {
-        if (!file.path || !existsSync(file.path)) continue;
-        let name = file.fileName || `${file.id}${extname(file.path) || ""}`;
+        // path 可能因跨机器/跨平台迁移 state.json、或 dataDir 漂移而失效(指向不存在的文件)。
+        // PC 文件命名固定为 <id>.<ext>,path 找不到时回退到 filesDir 下按 id 重找,尽量不丢附件。
+        let srcPath = file.path;
+        if (!srcPath || !existsSync(srcPath)) {
+          const ext = extname(file.fileName || "") || extname(file.path || "") || "";
+          const fallback = join(filesDir, `${file.id}${ext}`);
+          srcPath = existsSync(fallback) ? fallback : "";
+        }
+        if (!srcPath) {
+          skippedFiles++;
+          continue;
+        }
+        let name = file.fileName || `${file.id}${extname(srcPath) || ""}`;
         if (usedNames.has(name)) {
           const ext = extname(name);
           const stem = name.slice(0, name.length - ext.length);
@@ -3603,10 +3630,13 @@ function createSettingsBackupZipToPath(targetZipPath: string, onProgress?: (mess
         stagedFiles++;
         onProgress?.(`正在打包附件 (${stagedFiles}/${totalFiles})...`);
         try {
-          writeFileSync(join(uploadStage, name), readFileSync(file.path));
+          writeFileSync(join(uploadStage, name), readFileSync(srcPath));
         } catch (copyErr) {
-          console.warn("[backup] failed to stage upload file", file.path, copyErr);
+          console.warn("[backup] failed to stage upload file", srcPath, copyErr);
         }
+      }
+      if (skippedFiles > 0) {
+        console.warn(`[backup] ⚠️ ${skippedFiles}/${totalFiles} attachment(s) skipped — source file missing (path invalid or file deleted). They will NOT be in the backup.`);
       }
     }
     if (existsSync(skillsDir)) {
