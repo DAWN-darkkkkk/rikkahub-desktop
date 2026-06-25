@@ -47,12 +47,19 @@ const TYPE_OPTIONS: { value: ModelType; label: string; hint?: string }[] = [
 // (Gemini, GPT-4o) advertise audio/video/document inputs. Server-side, only
 // outputModalities="IMAGE" is acted on for OpenRouter; the rest is metadata-only —
 // kept for forward-compat. See server.ts:5050.
-const MODALITY_OPTIONS: { value: ModelModality; label: string }[] = [
+//
+// Issue #11: 移动端 Modality 枚举只有 TEXT/IMAGE,PC 导出含 AUDIO/VIDEO/DOCUMENT 的备份
+// 会让移动端反序列化崩溃。因此:
+// - DOCUMENT 永久移除(LLM 体系不存在"文档"模态);
+// - AUDIO/VIDEO 保留为灰显占位——保持 UI 一致性 + 为未来音视频对话能力留接口,当前不可勾选;
+// - 导出时由后端 sanitizeModelModalitiesForExport 统一剥离这三个值,老数据里的脏值也不会
+//   写进备份文件。
+const MODALITY_OPTIONS: { value: ModelModality; label: string; disabled?: boolean }[] = [
   { value: "TEXT", label: "文本" },
   { value: "IMAGE", label: "图像" },
-  { value: "AUDIO", label: "音频" },
-  { value: "VIDEO", label: "视频" },
-  { value: "DOCUMENT", label: "文档" },
+  { value: "AUDIO", label: "音频", disabled: true },
+  { value: "VIDEO", label: "视频", disabled: true },
+  // { value: "DOCUMENT", label: "文档" },  // 永久移除:LLM 无"文档"模态
 ];
 
 const ABILITY_OPTIONS: { value: ModelAbility; label: string; hint: string }[] = [
@@ -859,7 +866,7 @@ function Field({
 }
 
 interface SegmentedRowProps<T extends string> {
-  options: { value: T; label: string }[];
+  options: { value: T; label: string; disabled?: boolean }[];
   value: T[];
   onToggle: (value: T, enabled: boolean) => void;
   singleSelect?: boolean;
@@ -875,19 +882,24 @@ function SegmentedRow<T extends string>({
     <div className="inline-flex flex-wrap gap-1 rounded-md border p-0.5">
       {options.map((option) => {
         const active = value.includes(option.value);
+        const disabled = option.disabled === true;
         return (
           <button
             key={option.value}
             type="button"
+            disabled={disabled}
             onClick={() => {
+              if (disabled) return;
               if (singleSelect) onToggle(option.value, true);
               else onToggle(option.value, !active);
             }}
             className={cn(
               "rounded px-3 py-1 text-xs transition",
-              active
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:bg-muted",
+              disabled
+                ? "cursor-not-allowed text-muted-foreground/40"
+                : active
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-muted",
             )}
           >
             {option.label}

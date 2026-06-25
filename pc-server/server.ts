@@ -2725,6 +2725,35 @@ function defaultSkillContent(name = "new-skill") {
   return `---\nname: ${name}\ndescription: Describe when this skill should be used\n---\n\nWrite the skill instructions here.\n`;
 }
 
+// 导出备份时剥离移动端无法识别的模型模态(AUDIO/VIDEO/DOCUMENT)。
+// 移动端 Modality 枚举只有 TEXT/IMAGE,kotlinx.serialization 反序列化 List<Modality>
+// 遇到这三个值会抛 SerializationException,导致整个 settings 恢复失败(Issue #11)。
+// 另:LLM 体系里不存在"文档"模态,且 PC/移动端当前都没有音视频对话能力,这些配置对
+// 用户只是无效元数据。
+// 纯函数:深拷贝,绝不改动内存中的运行时 state.settings,只清洗"写入备份文件"的内容。
+const BACKUP_INCOMPATIBLE_MODALITIES = new Set(["AUDIO", "VIDEO", "DOCUMENT"]);
+function sanitizeModelModalitiesForExport(settings: Settings): Settings {
+  return {
+    ...settings,
+    providers: (settings.providers ?? []).map((provider) => ({
+      ...provider,
+      models: (provider.models ?? []).map((modelItem) => {
+        const filterMods = (mods: string[] | undefined): string[] => {
+          const cleaned = (mods ?? []).filter(
+            (m) => !BACKUP_INCOMPATIBLE_MODALITIES.has(String(m).toUpperCase()),
+          );
+          return cleaned.length ? cleaned : ["TEXT"];
+        };
+        return {
+          ...modelItem,
+          inputModalities: filterMods(modelItem.inputModalities),
+          outputModalities: filterMods(modelItem.outputModalities),
+        };
+      }),
+    })),
+  };
+}
+
 function backupPayload() {
   return {
     version: 1,
@@ -2745,7 +2774,8 @@ function backupPayload() {
 // `pc-backup.json` of a zip backup, and is the only OOM-safe path for users with multi-GB
 // of attachments (the inline-base64 variant above can easily push a couple GB of files into
 // a JS string, blowing the V8 heap limit).
-function backupPayloadMetadataOnly() {
+function backupPayloadMetadataOnly(settingsOverride?: Settings) {
+  const settings = settingsOverride ?? state.settings;
   return {
     version: 2,
     app: "RikkaHub PC",
@@ -2753,7 +2783,7 @@ function backupPayloadMetadataOnly() {
     // Exclude conversations from pc-backup.json — they're exported as rikka_hub.db now.
     // Including them here caused OOM crashes for users with large imported Android histories.
     state: {
-      settings: state.settings,
+      settings,
       generatedImages: state.generatedImages,
       logs: state.logs.slice(-200),
       files: state.files,
@@ -3582,12 +3612,18 @@ function createSettingsBackupZipToPath(targetZipPath: string, onProgress?: (mess
   try {
     onProgress?.("正在准备配置文件...");
     console.log(`[backup] staging settings.json...`);
+    // 导出时剥离移动端不兼容的模型模态(AUDIO/VIDEO/DOCUMENT),避免移动端导入崩溃
+    // (Issue #11)。仅作用于备份文件内容,不改内存中的运行时 state.settings。
+    const sanitizedSettings = sanitizeModelModalitiesForExport(state.settings);
     writeFileSync(
       join(stageDir, "settings.json"),
-      safeJsonStringify(rewriteAvatarsInSettings(state.settings, PC_AVATAR_TYPE_TO_ANDROID)),
+      safeJsonStringify(rewriteAvatarsInSettings(sanitizedSettings, PC_AVATAR_TYPE_TO_ANDROID)),
     );
     console.log(`[backup] staging pc-backup.json...`);
-    writeFileSync(join(stageDir, "pc-backup.json"), safeJsonStringify(backupPayloadMetadataOnly()));
+    writeFileSync(
+      join(stageDir, "pc-backup.json"),
+      safeJsonStringify(backupPayloadMetadataOnly(sanitizedSettings)),
+    );
     if (state.conversations.length > 0) {
       onProgress?.("正在生成对话数据库...");
       const dbPath = join(stageDir, "rikka_hub.db");
