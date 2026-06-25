@@ -27,8 +27,21 @@
 
 不想用安裝包？每個版本同時提供**便攜版 .zip**——解壓即用，無需安裝。
 
-> **使用 Linux？** 目前還沒有預先編譯的下載包——可以從原始碼建置原生二進位檔，或直接執行 Docker
-> 映像。詳見下方 [Linux 二進位檔](#-linux-二進位檔) 與 [Docker](#docker) 兩節。
+> **使用 Linux？** 每個版本都提供便攜版 `.tar.gz`（二進位檔 + 前端，解壓即用）。想用發行版原生套件，
+> 或從原始碼建置 / 執行 Docker？詳見下方 [社群打包](#-社群打包)、[Linux 二進位檔](#-linux-二進位檔) 與 [Docker](#docker)。
+
+## 📦 社群打包
+
+除了官方的 `tar.gz`，社群還為幾個 Linux 發行版維護了原生套件。**這些套件由各自的作者維護，並非本專案官方維護**，
+可能滯後於最新版本——打包相關問題請向上游維護者回報。
+
+| 發行版 | 安裝方式 | 維護者 |
+|---|---|---|
+| Debian / Ubuntu / Mint | 從 [Releases](https://github.com/yuh-G/rikkahub-desktop/releases) 頁或[網盤](https://1842911757.share.123865.com/123pan/oW0UTd-Ielxh)下載 `.deb` → `sudo apt install ./rikkahub-pc_*_amd64.deb` | [@Noah0932](https://github.com/Noah0932) |
+| Arch / Manjaro | 從 [Releases](https://github.com/yuh-G/rikkahub-desktop/releases) 頁[網盤](https://1842911757.share.123865.com/123pan/oW0UTd-Ielxh)下載 `.pkg.tar.zst` → `sudo pacman -U rikkahub-pc-*-x86_64.pkg.tar.zst` | [@Noah0932](https://github.com/Noah0932) |
+| NixOS / Nix | `nur.repos.af-nur.rikkahub-desktop-bin`(透過維護者的 NUR 倉庫) | [@AstralFlare-owo](https://github.com/AstralFlare-owo) |
+
+感謝兩位補上了這些發行版的空缺。
 
 ## ✨ 功能特色
 

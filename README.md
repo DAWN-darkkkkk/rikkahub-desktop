@@ -2,10 +2,9 @@
   <img src="docs/icon.png" alt="App Icon" width="100" />
   <h1>Rikkahub</h1>
 
-  🚀 **正在申请认证爱发电，认证结束后会改回** 🚀
+
   
-  A native Windows desktop LLM chat client that supports switching between different
-  providers for conversations 🤖💬
+   **Rikkahub is a native Windows LLM client with multi-provider switching for conversations** 🤖💬
   
   — also runs on Linux (native binary or Docker).
 
@@ -34,8 +33,23 @@ No telemetry, no admin, no cloud account required. Everything is local.
 Prefer no installer? Each release also ships a portable **.zip** — unzip and run, nothing
 else needed.
 
-> **On Linux?** There's no prebuilt download yet — build a native binary from source or run
-> the Docker image. See [Linux binary](#linux-binary) and [Docker](#docker) below.
+> **On Linux?** Each release ships a portable `.tar.gz` (binary + frontend, unzip and run).
+> Prefer a native distro package, or building from source / running Docker? See
+> [Community packages](#-community-packages), [Linux binary](#linux-binary) and [Docker](#docker) below.
+
+## 📦 Community packages
+
+Beyond the official `tar.gz`, the community maintains native packages for several Linux
+distributions. **These are maintained by their respective authors, not this project**, and may
+lag behind the latest release — for packaging issues please report upstream to the maintainer.
+
+| Distribution | How to install | Maintainer |
+|---|---|---|
+| Debian / Ubuntu / Mint | `.deb` from the [Releases](https://github.com/yuh-G/rikkahub-desktop/releases) page or [Cloud drive](https://1842911757.share.123865.com/123pan/oW0UTd-Ielxh) → `sudo apt install ./rikkahub-pc_*_amd64.deb` | [@Noah0932](https://github.com/Noah0932) |
+| Arch / Manjaro | `.pkg.tar.zst` from the [Releases](https://github.com/yuh-G/rikkahub-desktop/releases) page or [Cloud drive](https://1842911757.share.123865.com/123pan/oW0UTd-Ielxh) → `sudo pacman -U rikkahub-pc-*-x86_64.pkg.tar.zst` | [@Noah0932](https://github.com/Noah0932) |
+| NixOS / Nix | `nur.repos.af-nur.rikkahub-desktop-bin` (via the maintainer's NUR) | [@AstralFlare-owo](https://github.com/AstralFlare-owo) |
+
+Many thanks to both for covering these distributions.
 
 ## ✨ Features
 
