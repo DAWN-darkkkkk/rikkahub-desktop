@@ -35,6 +35,7 @@ import {
   Square,
   Sparkles,
   WandSparkles,
+  X,
 } from "lucide-react";
 import { Link } from "react-router";
 import { toast } from "sonner";
@@ -1021,6 +1022,8 @@ function ProvidersSection({
   const [checkingBalance, setCheckingBalance] = React.useState(false);
   const [balanceResult, setBalanceResult] = React.useState("");
   const [fetchedModels, setFetchedModels] = React.useState<ProviderModel[]>([]);
+  // Free-text filter for the model list. Cleared whenever the user switches provider.
+  const [modelFilter, setModelFilter] = React.useState("");
   const [testModelId, setTestModelId] = React.useState("");
   const [imageTestResult, setImageTestResult] = React.useState<{
     url: string;
@@ -1050,6 +1053,7 @@ function ProvidersSection({
     dirtyRef.current = false;
     if (selectedChanged) {
       setFetchedModels([]);
+      setModelFilter("");
       setTestResult("");
       setTestChecks([]);
       setTestInfo(null);
@@ -1063,6 +1067,32 @@ function ProvidersSection({
   const balanceOption = balanceOptionOf(draft);
   const kind = providerKind(draft) as ProviderKind;
   const selectedModelIds = new Set((draft.models ?? []).map((model) => model.modelId));
+  // Display source: merge fetchedModels with draft.models, deduping by modelId. Fetched
+  // entries win on overlap (canonical upstream view); manually-added extras are appended.
+  // Persisted per-row customizations are still applied downstream via the `persisted` lookup.
+  const displayModels: ProviderModel[] = (() => {
+    const fetched = fetchedModels;
+    const drafts = draft.models ?? [];
+    if (fetched.length === 0) return drafts;
+    const fetchedIds = new Set(fetched.map((m) => m.modelId));
+    const extras = drafts.filter((m) => !fetchedIds.has(m.modelId));
+    return [...fetched, ...extras];
+  })();
+  // Free-text filter (name or id). Applied on top of displayModels for the list view.
+  const visibleModels = (() => {
+    const query = modelFilter.trim().toLowerCase();
+    if (!query) return displayModels;
+    return displayModels.filter(
+      (model) =>
+        (model.displayName ?? "").toLowerCase().includes(query) ||
+        (model.modelId ?? "").toLowerCase().includes(query),
+    );
+  })();
+  // Whether every currently-visible (filtered) model is already enabled — drives the
+  // select-all toggle label + click behavior. Acts on visibleModels, not the full set,
+  // so "select filtered" works intuitively when searching.
+  const allFilteredEnabled =
+    visibleModels.length > 0 && visibleModels.every((model) => selectedModelIds.has(model.modelId));
   const fetchedModelIds = new Set(fetchedModels.map((model) => model.modelId));
   const mergedTestModels = [
     ...fetchedModels,
@@ -1385,6 +1415,24 @@ function ProvidersSection({
       return { ...item, abilities: next };
     });
     patchDraft({ models });
+  };
+  // Batch enable/disable for the "select all" toolbar. Acts on a given set of models
+  // (the currently-visible filtered set): enable adds any missing ones (auto-typed),
+  // disable removes them. Mirrors toggleModel's dedupe + applyAutoModelType semantics.
+  const setModelsEnabled = (modelsToToggle: ProviderModel[], enabled: boolean) => {
+    const ids = new Set(modelsToToggle.map((model) => model.modelId));
+    if (enabled) {
+      const existingIds = new Set((draft.models ?? []).map((model) => model.modelId));
+      const additions = modelsToToggle
+        .filter((model) => !existingIds.has(model.modelId))
+        .map(applyAutoModelType);
+      if (additions.length === 0) return;
+      patchDraft({ models: [...(draft.models ?? []), ...additions] });
+    } else {
+      const remaining = (draft.models ?? []).filter((model) => !ids.has(model.modelId));
+      if (remaining.length === (draft.models ?? []).length) return;
+      patchDraft({ models: remaining });
+    }
   };
   // -------- Model add/edit dialog state ----------------------------------------------------
   // Single dialog instance reused for both add (+ button) and edit (row click). The mode +
@@ -1719,21 +1767,62 @@ function ProvidersSection({
                 </Button>
               </div>
             </div>
+            {/* Search + select-all toolbar. Only relevant when there's something to show;
+                hidden while the list is empty (no fetch yet, no manual models). */}
+            {(fetchedModels.length > 0 || (draft.models ?? []).length > 0) && (
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={modelFilter}
+                    onChange={(event) => setModelFilter(event.target.value)}
+                    placeholder={t("settings:providers.models_search_placeholder")}
+                    className="h-8 pl-9 pr-8"
+                  />
+                  {modelFilter ? (
+                    <button
+                      type="button"
+                      onClick={() => setModelFilter("")}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      <X className="size-4" />
+                    </button>
+                  ) : null}
+                </div>
+                {/* Visible/total counts — surfaces how many survive the current filter. */}
+                <span className="shrink-0 text-xs text-muted-foreground">
+                  {t("settings:providers.models_selection_count", {
+                    enabled: draft.models?.length ?? 0,
+                    total: displayModels.length,
+                  })}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setModelsEnabled(visibleModels, !allFilteredEnabled)}
+                  disabled={visibleModels.length === 0}
+                  title={
+                    allFilteredEnabled
+                      ? modelFilter
+                        ? t("settings:providers.models_deselect_all_filtered")
+                        : t("settings:providers.models_deselect_all")
+                      : modelFilter
+                        ? t("settings:providers.models_select_all_filtered")
+                        : t("settings:providers.models_select_all")
+                  }
+                >
+                  {allFilteredEnabled
+                    ? modelFilter
+                      ? t("settings:providers.models_deselect_all_filtered")
+                      : t("settings:providers.models_deselect_all")
+                    : modelFilter
+                      ? t("settings:providers.models_select_all_filtered")
+                      : t("settings:providers.models_select_all")}
+                </Button>
+              </div>
+            )}
             <div className="max-h-72 space-y-2 overflow-auto">
-              {(() => {
-                // Display source: merge fetchedModels with draft.models, deduping by modelId.
-                // Without the merge, manually-added models would be invisible right after the
-                // user fetched the upstream list (because fetched.length > 0 made the old code
-                // skip draft entries). Fetched entries win on overlap because they're the
-                // canonical upstream-facing view; persisted customizations are still applied
-                // per-row via the `persisted` lookup below.
-                const fetched = fetchedModels;
-                const drafts = draft.models ?? [];
-                if (fetched.length === 0) return drafts;
-                const fetchedIds = new Set(fetched.map((m) => m.modelId));
-                const extras = drafts.filter((m) => !fetchedIds.has(m.modelId));
-                return [...fetched, ...extras];
-              })().map((model) => {
+              {visibleModels.map((model) => {
                 const focused =
                   focusedModelId &&
                   (model.modelId === focusedModelId || model.id === focusedModelId);
@@ -1823,9 +1912,13 @@ function ProvidersSection({
                   </div>
                 );
               })}
-              {!fetchedModels.length && !(draft.models ?? []).length ? (
+              {displayModels.length === 0 ? (
                 <div className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
                   {t("settings:providers.no_models")}
+                </div>
+              ) : visibleModels.length === 0 ? (
+                <div className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
+                  {t("settings:providers.models_no_match")}
                 </div>
               ) : null}
             </div>
@@ -2648,6 +2741,56 @@ function AssistantsSection({
               </div>
             </label>
           </div>
+          <label className="space-y-2">
+            <span className="text-sm font-medium">
+              {t("settings:assistants.context_message_size")}
+            </span>
+            <div className="flex items-center gap-3">
+              <Slider
+                min={0}
+                max={512}
+                step={1}
+                value={[
+                  typeof draft.contextMessageSize === "number"
+                    ? draft.contextMessageSize
+                    : 0,
+                ]}
+                onValueChange={([next]) =>
+                  patchDraft({ contextMessageSize: next ?? 0 })
+                }
+              />
+              <Input
+                className="w-24"
+                inputMode="numeric"
+                value={
+                  typeof draft.contextMessageSize === "number" &&
+                  draft.contextMessageSize > 0
+                    ? String(draft.contextMessageSize)
+                    : ""
+                }
+                placeholder={t(
+                  "settings:assistants.context_message_unlimited",
+                )}
+                onChange={(event) => {
+                  const raw = event.target.value.trim();
+                  if (raw === "") {
+                    patchDraft({ contextMessageSize: 0 });
+                    return;
+                  }
+                  const parsed = Math.floor(Number(raw));
+                  patchDraft({
+                    contextMessageSize:
+                      Number.isFinite(parsed) && parsed > 0
+                        ? Math.min(512, parsed)
+                        : 0,
+                  });
+                }}
+              />
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {t("settings:assistants.context_message_desc")}
+            </div>
+          </label>
           <div className="grid gap-3 md:grid-cols-2">
             {[
               ["enableMemory", t("settings:assistants.opt.enable_memory")],
